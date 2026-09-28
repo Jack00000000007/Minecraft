@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Blockwelt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Nunito:wght@400;600;700&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --panel: rgba(12, 20, 28, 0.84);
+    --panel-line: rgba(242, 236, 220, 0.14);
+    --ink: #f2ecdc;
+    --ink-dim: #b9b3a3;
+    --sun: #f0b541;
+    --grass: #7cc14a;
+    --ground: #0d1a26;
+  }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: var(--ground); color: var(--ink);
+    font-family: "Nunito", system-ui, sans-serif; -webkit-user-select: none; user-select: none; touch-action: none; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  [hidden] { display: none !important; }
+  .pix { font-family: "Pixelify Sans", "Courier New", monospace; }
+
+  #info { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 16px; display: flex; gap: 10px; align-items: center;
+    background: var(--panel); border: 1px solid var(--panel-line); padding: 6px 10px; border-radius: 6px; font-size: 13px;
+    font-variant-numeric: tabular-nums; }
+  #info b { font-family: "Pixelify Sans", monospace; color: var(--sun); font-size: 15px; letter-spacing: .04em; }
+  #flyTag { color: var(--grass); font-weight: 700; }
+  #pauseBtn { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 16px; width: 40px; height: 40px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--panel-line); border-radius: 6px; font: 700 16px "Pixelify Sans", monospace; }
+
+  #cross { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); pointer-events: none; }
+  #cross::before, #cross::after { content: ""; position: absolute; background: rgba(255,255,255,.9); mix-blend-mode: difference; }
+  #cross::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #cross::after { top: 10px; left: 0; height: 2px; width: 22px; }
+
+  #bar { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    display: flex; gap: 4px; padding: 5px; background: var(--panel); border: 1px solid var(--panel-line); border-radius: 8px; max-width: calc(100% - 32px); }
+  .slot { position: relative; width: 44px; height: 44px; border: 2px solid transparent; border-radius: 5px; padding: 4px; box-sizing: border-box;
+    background: rgba(255,255,255,.05); cursor: pointer; flex: 0 1 44px; min-width: 30px; }
+  .slot canvas { width: 100%; height: 100%; image-rendering: pixelated; display: block; border-radius: 2px; }
+  .slot.sel { border-color: var(--sun); background: rgba(240,181,65,.18); }
+  .slot span { position: absolute; top: 1px; left: 4px; font: 500 10px "Pixelify Sans", monospace; color: var(--ink-dim); text-shadow: 0 1px 0 #000; }
+  #blockName { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    font: 500 15px "Pixelify Sans", monospace; text-shadow: 0 2px 0 rgba(0,0,0,.6); transition: opacity .4s; pointer-events: none; }
+
+  #hint { position: fixed; left: 50%; top: calc(50% + 28px); transform: translateX(-50%); padding: 6px 12px; border-radius: 6px; max-width: calc(100% - 32px);
+    background: var(--panel); border: 1px solid var(--panel-line); font: 500 14px "Pixelify Sans", monospace; color: var(--sun); text-align: center; pointer-events: none; }
+  #waterTint { position: fixed; inset: 0; background: rgba(20, 70, 150, .35); pointer-events: none; }
+
+  #menu { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(8, 14, 20, .45); overflow-y: auto; }
+  .card { width: min(460px, 100%); background: var(--panel); border: 1px solid var(--panel-line); border-radius: 10px; padding: 26px 24px; box-sizing: border-box;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45); display: grid; gap: 16px; }
+  .card h1 { margin: 0; font: 700 44px/1 "Pixelify Sans", monospace; color: var(--sun); letter-spacing: .02em; text-shadow: 0 4px 0 rgba(0,0,0,.35); }
+  .card p { margin: 0; color: var(--ink-dim); line-height: 1.5; }
+  #play { font: 700 20px "Pixelify Sans", monospace; padding: 12px; border-radius: 6px; border: 0; cursor: pointer;
+    background: var(--grass); color: #10200a; box-shadow: inset 0 -4px 0 rgba(0,0,0,.25); }
+  #play:hover { filter: brightness(1.08); }
+  #play:focus-visible, .slot:focus-visible, #pauseBtn:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+  #play:disabled { opacity: .6; cursor: wait; }
+  #quality { font: 500 15px "Pixelify Sans", monospace; padding: 9px; border-radius: 6px; cursor: pointer; background: transparent; color: var(--ink);
+    border: 1px solid var(--panel-line); }
+  #quality:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; }
+  .keys kbd { font: 500 12px "Pixelify Sans", monospace; background: rgba(255,255,255,.08); border: 1px solid var(--panel-line);
+    border-bottom-width: 3px; border-radius: 4px; padding: 1px 7px; color: var(--ink); white-space: nowrap; justify-self: start; }
+  .keys div:nth-child(even) { color: var(--ink-dim); }
+
+  #touch { position: fixed; inset: 0; pointer-events: none; }
+  #joy { position: fixed; left: 24px; bottom: calc(90px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%;
+    background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.2); pointer-events: auto; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255,255,255,.3); }
+  .tbtns { position: fixed; right: 20px; bottom: calc(90px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(2, 64px); gap: 10px; pointer-events: auto; }
+  .tbtns button { height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); background: rgba(12,20,28,.55); color: var(--ink);
+    font: 500 12px "Pixelify Sans", monospace; }
+  .tbtns button:active { background: rgba(240,181,65,.4); }
+  @media (max-width: 480px) { .card h1 { font-size: 36px; } .slot { width: 36px; height: 36px; padding: 3px; } }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="waterTint" hidden></div>
+<div id="info"><b>Blockwelt</b><span id="pos">–</span><span id="flyTag" hidden>Fliegen</span></div>
+<button id="pauseBtn" hidden aria-label="Pause">II</button>
+<div id="cross"></div>
+<div id="blockName"></div>
+<div id="hint" hidden></div>
+<div id="bar"></div>
+<div id="touch" hidden>
+  <div id="joy"><div id="knob"></div></div>
+  <div class="tbtns">
+    <button id="tGate">Tor</button>
+    <button id="tFly">Fliegen</button>
+    <button id="tJump">Springen</button>
+    <button id="tBreak">Abbauen</button>
+    <button id="tPlace">Bauen</button>
+  </div>
+</div>
+<div id="menu">
+  <div class="card">
+    <h1>Blockwelt</h1>
+    <p id="menuText">Vor dir steht ein riesiges Schloss. Drinnen warten ein Thronsaal, eine Bibliothek, ein Speisesaal, Schlafzimmer und eine Galerie voller Gemälde. Die Treppen führen über vier Etagen bis aufs Dach. Du stehst vor dem Burggraben. Zieh den Hebel oder drück Strg + G, dann senkt sich die Zugbrücke. Hinter dir liegt ein Dorf, und eine große Mauer umschließt die ganze Welt.</p>
+    <button id="play" disabled>Welt wird erzeugt …</button>
+    <button id="quality">Grafik: Auto</button>
+    <div class="keys" id="keyList">
+      <kbd>W A S D</kbd><div>Laufen</div>
+      <kbd>Maus</kbd><div>Umsehen</div>
+      <kbd>Leertaste</kbd><div>Springen, Schwimmen, im Flug steigen</div>
+      <kbd>Shift</kbd><div>Sprinten, im Flug sinken</div>
+      <kbd>Linksklick</kbd><div>Block abbauen</div>
+      <kbd>Rechtsklick</kbd><div>Block setzen</div>
+      <kbd>1–9 / Mausrad</kbd><div>Block auswählen</div>
+      <kbd>F</kbd><div>Fliegen an / aus</div>
+      <kbd>Strg + G</kbd><div>Zugbrücke und Tor von überall öffnen oder schließen</div>
+      <kbd>E / Rechtsklick</kbd><div>Hebel umlegen</div>
+      <kbd>T</kbd><div>Zurück vor das Schlosstor</div>
+      <kbd>Esc</kbd><div>Pause</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  // ---------- Welt-Parameter ----------
+  const W = 192, D = 256, H = 128, CS = 16, SEA = 22;
+  const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, SAND = 4, LOG = 5, LEAVES = 6, WATER = 7, PLANKS = 8, COBBLE = 9, SNOW = 10, BRICK = 11,
+    SBRICK = 12, DPLANK = 13, RWOOL = 14, GOLD = 15, GLASS = 16, SHELF = 17, QUARTZ = 18, LAMP = 19, WWOOL = 20, BWOOL = 21, SLATE = 22, LEVER = 23, LEVER_ON = 24, BARS = 25, WHEAT = 26;
+  const NAMES = { 1: "Gras", 2: "Erde", 3: "Stein", 4: "Sand", 5: "Holzstamm", 6: "Laub", 8: "Bretter", 9: "Bruchstein", 10: "Schnee", 11: "Ziegel",
+    12: "Steinziegel", 13: "Dunkles Holz", 14: "Roter Teppich", 15: "Goldblock", 16: "Glas", 17: "Bücherregal", 18: "Quarz", 19: "Leuchtstein",
+    20: "Weiße Wolle", 21: "Blaue Wolle", 22: "Schiefer", 23: "Hebel", 24: "Hebel", 25: "Fallgitter", 26: "Weizen" };
+  // [oben, unten, seite] -> Atlas-Kachel
+  const TEX = { 1: [0, 2, 1], 2: [2, 2, 2], 3: [3, 3, 3], 4: [4, 4, 4], 5: [6, 6, 5], 6: [7, 7, 7], 7: [8, 8, 8], 8: [9, 9, 9], 9: [10, 10, 10], 10: [11, 2, 13], 11: [12, 12, 12],
+    12: [14, 14, 14], 13: [15, 15, 15], 14: [16, 16, 16], 15: [17, 17, 17], 16: [18, 18, 18], 17: [15, 15, 19], 18: [20, 20, 20], 19: [21, 21, 21], 20: [22, 22, 22], 21: [23, 23, 23], 22: [24, 24, 24], 23: [25, 20, 25], 24: [26, 20, 26], 25: [27, 27, 27], 26: [28, 28, 28] };
+  // Gemälde: Block-ID = Atlas-Kachel 32..63
+  const PAINT = { land: { base: 32, w: 4, h: 3 }, sunset: { base: 44, w: 3, h: 2 }, portrait: { base: 50, w: 2, h: 3 }, abstract: { base: 56, w: 2, h: 2 },
+    flower: { base: 60, w: 1, h: 1 }, moon: { base: 61, w: 1, h: 1 }, ship: { base: 62, w: 1, h: 1 }, castle: { base: 63, w: 1, h: 1 } };
+  for (let t = 32; t < 64; t++) { TEX[t] = [15, 15, t]; NAMES[t] = "Gemälde"; }
+  const HOTBAR = [GRASS, SBRICK, QUARTZ, DPLANK, GLASS, GOLD, RWOOL, LAMP, SHELF];
+
+  const world = new Uint8Array(W * H * D);
+  const topY = new Int16Array(W * D);
+  const idx = (x, y, z) => x + z * W + y * W * D;
+  const get = (x, y, z) => (x < 0 || z < 0 || x >= W || z >= D || y < 0 || y >= H) ? AIR : world[idx(x, y, z)];
+  const opaque = b => b !== AIR && b !== WATER && b !== GLASS && b !== BARS && b !== WHEAT;
+  const solid = b => b !== AIR && b !== WATER && b !== WHEAT;
+
+  function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function hash(x, z, s) { let h = (Math.imul(x, 374761393) + Math.imul(z, 668265263) + Math.imul(s, 982451653)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+  function noise(x, z, s) {
+    const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
+    const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
+    const a = hash(xi, zi, s), b = hash(xi + 1, zi, s), c = hash(xi, zi + 1, s), d = hash(xi + 1, zi + 1, s);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  function fbm(x, z, s) { let sum = 0, amp = 1, f = 1, norm = 0; for (let o = 0; o < 5; o++) { sum += noise(x * f, z * f, s + o) * amp; norm += amp; amp *= 0.5; f *= 2; } return sum / norm; }
+
+  // ---------- Terrain ----------
+  const C = 96, G0 = 26; // Schlossmitte und Bodenhöhe des Schlosses
+  const heights = new Int16Array(W * D);
+  const setB = (x, y, z, b) => { if (x >= 0 && z >= 0 && x < W && z < D && y >= 0 && y < H) world[idx(x, y, z)] = b; };
+  function fill(x0, y0, z0, x1, y1, z1, b) {
+    for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++)
+      for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) setB(x, y, z, b);
+  }
+  function plantTree(x, h, z, rnd) {
+    const th = 4 + Math.floor(rnd() * 2);
+    for (let y = 1; y <= th; y++) setB(x, h + y, z, LOG);
+    for (let dy = th - 2; dy <= th + 1; dy++) {
+      const r = dy >= th ? 1 : 2;
+      for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.abs(dx) === r && Math.abs(dz) === r && (r === 2 ? rnd() < 0.6 : dy === th + 1)) continue;
+        if (get(x + dx, h + dy, z + dz) === AIR) setB(x + dx, h + dy, z + dz, LEAVES);
+      }
+    }
+  }
+  function generate() {
+    const rnd = mulberry32(20260928);
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+      const n = fbm(x / 64, z / 64, 11), m = fbm(x / 140, z / 140, 71);
+      let h = 12 + n * 24 + Math.pow(Math.max(0, m - 0.45), 1.4) * 80;
+      const d = Math.max(Math.abs(x - C), Math.abs(z - C));
+      const dv = Math.max(VIL.x0 - x, x - VIL.x1, VIL.z0 - z, z - VIL.z1, 0);
+      const t = Math.min(Math.max(0, Math.min(1, (d - 64) / 22)), Math.min(1, dv / 18));
+      h = G0 + (h - G0) * t;
+      h = Math.min(H - 60, Math.floor(h));
+      heights[x + z * W] = h;
+      for (let y = 0; y <= h; y++) {
+        let b = STONE;
+        if (y === h) b = h <= SEA + 1 ? SAND : (h > 40 ? SNOW : GRASS);
+        else if (y > h - 4) b = h <= SEA + 1 ? SAND : (h > 43 ? STONE : DIRT);
+        world[idx(x, y, z)] = b;
+      }
+      for (let y = h + 1; y <= SEA; y++) world[idx(x, y, z)] = WATER;
+    }
+    for (let z = 3; z < D - 3; z++) for (let x = 3; x < W - 3; x++) {
+      const h = heights[x + z * W];
+      if (Math.max(Math.abs(x - C), Math.abs(z - C)) < 66) continue;
+      if (Math.abs(x - C) < 10 && z > C) continue; // freie Sicht vom Weg aufs Tor
+      if (x >= VIL.x0 - 4 && x <= VIL.x1 + 4 && z >= VIL.z0 - 4 && z <= VIL.z1 + 4) continue;
+      if (world[idx(x, h, z)] !== GRASS || h > 38 || rnd() > 0.016) continue;
+      plantTree(x, h, z, rnd);
+    }
+    buildCastle(rnd);
+    buildVillage(rnd);
+    buildGreatWall();
+  }
+
+  // ---------- Das Schloss ----------
+  // Gemälde in eine Wand setzen. facing = Richtung, in die das Bild schaut; (x,y,z) = Ecke unten links aus Sicht des Betrachters.
+  function painting(p, facing, x, y, z) {
+    const R = { "+z": [1, 0], "-z": [-1, 0], "+x": [0, -1], "-x": [0, 1] }[facing];
+    for (let r = 0; r < p.h; r++) for (let c = 0; c < p.w; c++) setB(x + R[0] * c, y + (p.h - 1 - r), z + R[1] * c, p.base + r * p.w + c);
+  }
+  function chandelier(x, y, z) {
+    setB(x, y, z, GOLD); setB(x, y - 1, z, GOLD);
+    for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) setB(x + dx, y - 2, z + dz, LAMP);
+    for (const [dx, dz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) setB(x + dx, y - 2, z + dz, GOLD);
+  }
+  function tower(cx, cz, r, y0, y1, roofH) {
+    for (let dz = -r - 2; dz <= r + 2; dz++) for (let dx = -r - 2; dx <= r + 2; dx++) {
+      const d = Math.hypot(dx, dz);
+      if (d <= r + 0.5) {
+        const wall = d > r - 1.6;
+        for (let y = y0; y <= y1; y++) if (wall) setB(cx + dx, y, cz + dz, SBRICK);
+        if (!wall) setB(cx + dx, y0, cz + dz, DPLANK);
+        if (!roofH && wall && d > r - 0.6 && ((dx + dz) & 1) === 0) setB(cx + dx, y1 + 1, cz + dz, SBRICK);
+      }
+    }
+    for (let y = y0 + 8; y < y1 - 3; y += 10) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+      for (let k = r - 1; k <= r; k++) { setB(cx + dx * k, y, cz + dz * k, GLASS); setB(cx + dx * k, y + 1, cz + dz * k, GLASS); }
+    if (roofH) {
+      for (let i = 0; i < roofH; i++) {
+        const rr = (r + 1.5) * (1 - i / roofH);
+        for (let dz = -r - 2; dz <= r + 2; dz++) for (let dx = -r - 2; dx <= r + 2; dx++) if (Math.hypot(dx, dz) <= rr) setB(cx + dx, y1 + 1 + i, cz + dz, SLATE);
+      }
+      fill(cx, y1 + roofH, cz, cx, y1 + roofH + 3, cz, GOLD);
+    }
+  }
+  const gate = { x0: C - 3, x1: C + 3, z: C + 51, yTop: G0 + 12, closed: 12, open: false, t: 0 };
+  const levers = [];
+  const VIL = { x0: 36, x1: 156, z0: 158, z1: 242 };
+  const bridge = { ang: 90, saved: new Map(), cur: [] };
+  // Blöcke der Zugbrücke bei einem Winkel (90 = hochgeklappt, 0 = über dem Graben)
+  function bridgeCells(ang) {
+    const a = ang * Math.PI / 180, out = [], seen = new Set();
+    for (let i = 0; i <= 8; i++) {
+      const z = gate.z + 2 + Math.round(i * Math.cos(a)), y = G0 + Math.round(i * Math.sin(a));
+      for (let x = C - 4; x <= C + 4; x++) { const k = x + "," + y + "," + z; if (!seen.has(k)) { seen.add(k); out.push([x, y, z]); } }
+    }
+    return out;
+  }
+  function buildCastle(rnd) {
+    // Burggraben mit Zugbrücke
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+      const d = Math.max(Math.abs(x - C), Math.abs(z - C));
+      if (d >= 56 && d <= 60) { fill(x, G0 - 3, z, x, G0, z, AIR); fill(x, G0 - 3, z, x, G0 - 1, z, WATER); }
+    }
+    fill(C - 3, G0, C + 58, C + 3, G0, VIL.z1, COBBLE);
+
+    // Ringmauer mit Zinnen
+    const R0 = C - 52, R1 = C + 52, WT = G0 + 22;
+    for (let z = R0; z <= R1; z++) for (let x = R0; x <= R1; x++) {
+      const e = Math.min(x - R0, R1 - x, z - R0, R1 - z);
+      if (e < 3) { fill(x, G0, z, x, WT, z, SBRICK); if (e === 0 && ((x + z) & 1) === 0) setB(x, WT + 1, z, SBRICK); }
+    }
+    // Tor
+    fill(C - 4, G0 + 1, R1 - 2, C + 4, G0 + 12, R1, AIR);
+    fill(C - 4, G0 + 11, R1 - 2, C - 4, G0 + 12, R1, SBRICK); fill(C + 4, G0 + 11, R1 - 2, C + 4, G0 + 12, R1, SBRICK);
+    fill(C - 4, G0, R1 - 2, C + 4, G0, R1, COBBLE);
+    // Fallgitter (geschlossen) und Hebel: vor der Brücke, im Innenhof und neben dem Thron
+    fill(gate.x0, G0 + 1, gate.z, gate.x1, gate.yTop, gate.z, BARS);
+    for (const [x, z] of [[C + 4, C + 62], [C + 3, R1 - 5]]) { setB(x, G0 + 1, z, QUARTZ); setB(x, G0 + 2, z, LEVER); levers.push([x, G0 + 2, z]); }
+    fill(C - 5, G0 + 13, R1 + 1, C + 5, G0 + 20, R1 + 1, SBRICK);
+    fill(C - 1, G0 + 14, R1 + 1, C + 1, G0 + 19, R1 + 1, RWOOL); setB(C, G0 + 16, R1 + 1, GOLD);
+    tower(C - 10, R1 + 1, 5, G0, G0 + 30, 10); tower(C + 10, R1 + 1, 5, G0, G0 + 30, 10);
+    // Ecktürme der Ringmauer
+    for (const [x, z] of [[R0, R0], [R1, R0], [R0, R1], [R1, R1]]) tower(x, z, 8, G0, G0 + 40, 15);
+    for (const [x, z] of [[C, R0], [R0, C], [R1, C]]) tower(x, z, 6, G0, G0 + 30, 0);
+
+    // Innenhof: Weg, Laternen, Brunnen, Bäume
+    fill(C - 3, G0, 117, C + 3, G0, R1 - 3, COBBLE);
+    for (let z = 122; z <= 142; z += 8) for (const x of [C - 5, C + 5]) { fill(x, G0 + 1, z, x, G0 + 2, z, DPLANK); setB(x, G0 + 3, z, LAMP); }
+    for (const fx of [76, 116]) {
+      const fz = 131;
+      for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) {
+        const d = Math.hypot(dx, dz);
+        if (d <= 3.6) setB(fx + dx, G0, fz + dz, QUARTZ);
+        if (d > 2.6 && d <= 3.6) setB(fx + dx, G0 + 1, fz + dz, QUARTZ);
+        else if (d <= 2.6) setB(fx + dx, G0 + 1, fz + dz, WATER);
+      }
+      fill(fx, G0 + 1, fz, fx, G0 + 3, fz, QUARTZ); setB(fx, G0 + 4, fz, WATER); setB(fx, G0 + 5, fz, GOLD);
+    }
+    for (const [x, z] of [[54, 76], [54, 96], [54, 116], [138, 76], [138, 96], [138, 116], [74, 55], [96, 55], [118, 55], [56, 140], [136, 140]]) plantTree(x, G0, z, rnd);
+    for (let z = 76; z <= 116; z++) for (const x of [60, 132]) if (z % 12 !== 0) setB(x, G0 + 1, z, LEAVES);
+
+    // Bergfried: 4 Etagen à 12 Blöcke, Wände 2 dick
+    const x0 = 68, x1 = 124, z0 = 72, z1 = 116, FH = 12, KT = G0 + FH * 4;
+    for (const [x, z] of [[x0 - 3, z0 - 3], [x1 + 3, z0 - 3], [x0 - 3, z1 + 3], [x1 + 3, z1 + 3]]) tower(x, z, 5, G0, KT + 12, 12);
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const e = Math.min(x - x0, x1 - x, z - z0, z1 - z);
+      if (e < 2) { fill(x, G0, z, x, KT, z, SBRICK); if (e === 0 && ((x + z) & 1) === 0) setB(x, KT + 1, z, SBRICK); }
+      else {
+        fill(x, G0 + 1, z, x, KT - 1, z, AIR);
+        setB(x, G0, z, ((x >> 1) + (z >> 1)) & 1 ? QUARTZ : DPLANK);
+        setB(x, G0 + FH, z, DPLANK); setB(x, G0 + 2 * FH, z, DPLANK); setB(x, G0 + 3 * FH, z, QUARTZ); setB(x, KT, z, SBRICK);
+      }
+    }
+    // Fenster auf allen Etagen
+    for (let k = 0; k < 4; k++) {
+      const yb = G0 + FH * k + 3, yt = yb + (k === 0 ? 5 : 3);
+      for (const z of [78, 94, 110]) { fill(x0, yb, z, x0 + 1, yt, z + 1, GLASS); fill(x1 - 1, yb, z, x1, yt, z + 1, GLASS); }
+      for (const x of [74, 84, 108, 118]) { fill(x, yb, z0, x + 1, yt, z0 + 1, GLASS); fill(x, yb, z1 - 1, x + 1, yt, z1, GLASS); }
+    }
+    // Banner an der Fassade und Eingangstor
+    for (const x of [79, 88, 104, 113]) { fill(x, G0 + 14, z1 + 1, x + 1, G0 + 21, z1 + 1, RWOOL); fill(x, G0 + 22, z1 + 1, x + 1, G0 + 22, z1 + 1, GOLD); }
+    fill(C - 3, G0 + 1, z1 - 1, C + 3, G0 + 8, z1, AIR);
+    fill(C - 4, G0 + 9, z1 + 1, C + 4, G0 + 9, z1 + 1, GOLD);
+
+    // --- Etage 0: Thronsaal ---
+    let F = G0;
+    fill(C - 2, F, 80, C + 2, F, z1 - 2, RWOOL); fill(C - 3, F, 80, C - 3, F, z1 - 2, GOLD); fill(C + 3, F, 80, C + 3, F, z1 - 2, GOLD);
+    for (const px of [82, 109]) for (const z of [82, 90, 98, 106]) fill(px, F + 1, z, px + 1, F + 11, z + 1, QUARTZ);
+    fill(C - 6, F + 1, 74, C + 6, F + 1, 80, QUARTZ); fill(C - 4, F + 2, 74, C + 4, F + 2, 78, QUARTZ);
+    fill(C - 1, F + 1, 79, C + 1, F + 1, 80, RWOOL); fill(C - 1, F + 2, 77, C + 1, F + 2, 78, RWOOL);
+    fill(C - 1, F + 3, 74, C + 1, F + 3, 75, GOLD); fill(C - 1, F + 4, 74, C + 1, F + 7, 74, GOLD); setB(C, F + 8, 74, GOLD);
+    setB(C - 1, F + 4, 75, GOLD); setB(C + 1, F + 4, 75, GOLD); setB(C, F + 3, 75, RWOOL);
+    setB(C + 3, F + 3, 76, LEVER); levers.push([C + 3, F + 3, 76]);
+    painting(PAINT.portrait, "+z", C - 1, F + 9, z0 + 1);
+    painting(PAINT.land, "-x", x1 - 1, F + 4, 84); painting(PAINT.sunset, "-x", x1 - 1, F + 4, 99);
+    painting(PAINT.land, "+x", x0 + 1, F + 4, 87); painting(PAINT.sunset, "+x", x0 + 1, F + 4, 101);
+    for (const z of [82, 91, 97, 105]) { setB(x0 + 1, F + 7, z, LAMP); setB(x1 - 1, F + 7, z, LAMP); }
+    for (const x of [C - 6, C + 6]) { fill(x, F + 3, z1 - 1, x, F + 9, z1 - 1, RWOOL); setB(x, F + 10, z1 - 1, GOLD); }
+    for (const z of [86, 98, 108]) chandelier(C, F + 11, z);
+    chandelier(88, F + 11, 94); chandelier(104, F + 11, 94);
+
+    // --- Etage 1: Bibliothek und Speisesaal ---
+    F = G0 + FH;
+    for (let x = 70; x <= 122; x++) if (![74, 75, 84, 85, 108, 109, 118, 119].includes(x)) fill(x, F + 1, 74, x, F + 5, 74, SHELF);
+    for (const z of [80, 86, 92, 98]) { fill(72, F + 1, z, 79, F + 4, z, SHELF); fill(82, F + 1, z, 90, F + 4, z, SHELF); }
+    fill(72, F, 102, 90, F, 110, BWOOL); fill(72, F, 102, 90, F, 102, GOLD); fill(72, F, 110, 90, F, 110, GOLD);
+    fill(78, F + 1, 105, 84, F + 1, 106, DPLANK); setB(79, F + 2, 105, LAMP); setB(83, F + 2, 106, LAMP);
+    fill(100, F + 1, 92, 118, F + 1, 94, WWOOL);
+    for (let x = 100; x <= 118; x += 2) { setB(x, F + 1, 90, DPLANK); setB(x, F + 2, 89, DPLANK); setB(x, F + 1, 96, DPLANK); setB(x, F + 2, 97, DPLANK); }
+    setB(103, F + 2, 93, LAMP); setB(109, F + 2, 93, GOLD); setB(115, F + 2, 93, LAMP);
+    fill(120, F + 1, 96, 122, F + 6, 100, BRICK); fill(120, F + 1, 97, 121, F + 3, 99, AIR); fill(122, F + 1, 97, 122, F + 2, 99, LAMP);
+    painting(PAINT.abstract, "-x", x1 - 1, F + 4, 84); painting(PAINT.ship, "-x", x1 - 1, F + 5, 104);
+    painting(PAINT.moon, "+x", x0 + 1, F + 5, 100); painting(PAINT.castle, "+x", x0 + 1, F + 5, 90);
+    for (const [x, z] of [[104, 93], [114, 93], [81, 89], [81, 104]]) chandelier(x, F + 11, z);
+
+    // --- Etage 2: Schlafzimmer und Salon ---
+    F = G0 + 2 * FH;
+    fill(70, F, 92, 122, F, 94, RWOOL);
+    fill(70, F + 1, 90, 122, F + 11, 90, QUARTZ);
+    for (const x of [83, 96, 109]) fill(x, F + 1, 74, x, F + 11, 89, QUARTZ);
+    const smalls = [PAINT.flower, PAINT.moon, PAINT.ship, PAINT.castle];
+    [76, 89, 102, 115].forEach((c, i) => {
+      fill(c, F + 1, 90, c + 1, F + 3, 90, AIR);
+      fill(c, F + 1, 74, c + 1, F + 1, 74, WWOOL); fill(c, F + 1, 75, c + 1, F + 1, 77, i % 2 ? BWOOL : RWOOL);
+      fill(c, F + 2, 74, c + 1, F + 2, 74, DPLANK);
+      setB(c - 2, F + 1, 74, DPLANK); setB(c - 2, F + 2, 74, LAMP); fill(c + 3, F + 1, 74, c + 3, F + 2, 74, SHELF);
+      painting(smalls[i], "+z", c, F + 5, z0 + 1); painting(smalls[(i + 1) % 4], "+z", c + 1, F + 5, z0 + 1);
+      setB(c, F + 11, 82, GOLD); setB(c, F + 10, 82, LAMP);
+    });
+    painting(PAINT.land, "-z", 104, F + 4, z1 - 1); painting(PAINT.portrait, "-z", 90, F + 3, z1 - 1);
+    fill(84, F + 1, 106, 92, F + 1, 106, RWOOL); fill(84, F + 1, 107, 92, F + 2, 107, RWOOL);
+    fill(86, F + 1, 102, 90, F + 1, 103, DPLANK); setB(88, F + 2, 102, LAMP);
+    for (const [x, z] of [[88, 100], [104, 100]]) chandelier(x, F + 11, z);
+
+    // --- Etage 3: Gemäldegalerie ---
+    F = G0 + 3 * FH;
+    fill(C - 2, F, z0 + 2, C + 2, F, z1 - 2, RWOOL); fill(C - 3, F, z0 + 2, C - 3, F, z1 - 2, GOLD); fill(C + 3, F, z0 + 2, C + 3, F, z1 - 2, GOLD);
+    painting(PAINT.land, "-x", x1 - 1, F + 4, 83); painting(PAINT.sunset, "-x", x1 - 1, F + 4, 98); painting(PAINT.abstract, "-x", x1 - 1, F + 4, 103);
+    painting(PAINT.flower, "-x", x1 - 1, F + 5, 89); painting(PAINT.moon, "-x", x1 - 1, F + 5, 91);
+    painting(PAINT.land, "+x", x0 + 1, F + 4, 106); painting(PAINT.portrait, "+x", x0 + 1, F + 3, 100); painting(PAINT.sunset, "+x", x0 + 1, F + 4, 91);
+    painting(PAINT.ship, "+x", x0 + 1, F + 5, 86); painting(PAINT.castle, "+x", x0 + 1, F + 5, 83);
+    painting(PAINT.land, "+z", 88, F + 4, z0 + 1); painting(PAINT.sunset, "+z", 93, F + 4, z0 + 1); painting(PAINT.portrait, "+z", 98, F + 3, z0 + 1);
+    painting(PAINT.abstract, "+z", 102, F + 4, z0 + 1); painting(PAINT.flower, "+z", 78, F + 5, z0 + 1); painting(PAINT.castle, "+z", 112, F + 5, z0 + 1);
+    painting(PAINT.land, "-z", 90, F + 4, z1 - 1); painting(PAINT.abstract, "-z", 82, F + 4, z1 - 1); painting(PAINT.sunset, "-z", 104, F + 4, z1 - 1);
+    fill(78, F + 1, 94, 88, F + 8, 95, SBRICK); fill(104, F + 1, 94, 114, F + 8, 95, SBRICK);
+    painting(PAINT.land, "-z", 87, F + 3, 94); painting(PAINT.sunset, "+z", 81, F + 3, 95);
+    painting(PAINT.portrait, "-z", 108, F + 2, 94); painting(PAINT.abstract, "-z", 113, F + 3, 94); painting(PAINT.land, "+z", 105, F + 3, 95);
+    for (const x of [80, 96, 112]) for (const z of [82, 100]) chandelier(x, F + 11, z);
+    for (const z of [80, 104]) { fill(C, F + 1, z, C, F + 2, z, QUARTZ); setB(C, F + 3, z, GOLD); }
+
+    // Treppen durch alle Etagen bis aufs Dach (Spuren abwechselnd, damit sie sich nicht blockieren)
+    for (let k = 0; k < 4; k++) {
+      const Fk = G0 + FH * k, lz = k % 2 === 0 ? 112 : 108;
+      fill(110, Fk + 1, lz, 121, Fk + 11, lz + 2, AIR);
+      for (let i = 0; i < 12; i++) fill(121 - i, Fk + 1, lz, 121 - i, Fk + 1 + i, lz + 2, DPLANK);
+      fill(111, Fk + 12, lz, 121, Fk + 12, lz + 2, AIR);
+    }
+
+    // Großer Turm auf dem Dach
+    const tx0 = 88, tx1 = 103, tz0 = 76, tz1 = 91, TT = KT + 24;
+    fill(tx0, KT + 1, tz0, tx1, TT, tz1, SBRICK); fill(tx0 + 1, KT + 1, tz0 + 1, tx1 - 1, TT - 1, tz1 - 1, AIR);
+    fill(94, KT + 1, tz1, 97, KT + 5, tz1, AIR);
+    for (let y = KT + 8; y < TT - 2; y += 6) for (const t of [91, 95]) {
+      fill(t, y, tz0, t + 1, y + 2, tz0, GLASS); fill(t, y, tz1, t + 1, y + 2, tz1, GLASS);
+      fill(tx0, y, t - 12 + 3, tx0, y + 2, t - 12 + 4, GLASS); fill(tx1, y, t - 12 + 3, tx1, y + 2, t - 12 + 4, GLASS);
+    }
+    for (let i = 0; i < 9; i++) fill(tx0 - 1 + i, TT + 1 + i, tz0 - 1 + i, tx1 + 1 - i, TT + 1 + i, tz1 + 1 - i, SLATE);
+    fill(95, TT + 10, 83, 96, TT + 14, 84, GOLD);
+    chandelier(95, TT - 1, 83); painting(PAINT.land, "+z", 94, KT + 6, tz0);
+    // Zugbrücke: hochgeklappt vor dem Tor
+    for (const [x, y, z] of bridgeCells(90)) { bridge.saved.set(x + "," + y + "," + z, get(x, y, z)); setB(x, y, z, DPLANK); }
+    bridge.cur = bridgeCells(90);
+  }
+
+  // ---------- Das Dorf vor dem Schloss ----------
+  function house(x0, z0, w, d, door, rnd) {
+    const y = G0;
+    fill(x0, y, z0, x0 + w - 1, y, z0 + d - 1, COBBLE);
+    fill(x0, y + 1, z0, x0 + w - 1, y + 4, z0 + d - 1, PLANKS);
+    fill(x0 + 1, y + 1, z0 + 1, x0 + w - 2, y + 4, z0 + d - 2, AIR);
+    fill(x0 + 1, y, z0 + 1, x0 + w - 2, y, z0 + d - 2, DPLANK);
+    for (const [cx, cz] of [[x0, z0], [x0 + w - 1, z0], [x0, z0 + d - 1], [x0 + w - 1, z0 + d - 1]]) fill(cx, y + 1, cz, cx, y + 4, cz, LOG);
+    const mx = x0 + (w >> 1), mz = z0 + (d >> 1);
+    fill(mx, y + 2, z0, mx, y + 3, z0, GLASS); fill(mx, y + 2, z0 + d - 1, mx, y + 3, z0 + d - 1, GLASS);
+    fill(x0, y + 2, mz, x0, y + 3, mz, GLASS); fill(x0 + w - 1, y + 2, mz, x0 + w - 1, y + 3, mz, GLASS);
+    let dx, dz, ox = 0, oz = 0;
+    if (door === "s") { dx = mx - 1; dz = z0 + d - 1; oz = 1; } else if (door === "n") { dx = mx - 1; dz = z0; oz = -1; }
+    else if (door === "e") { dx = x0 + w - 1; dz = mz - 1; ox = 1; } else { dx = x0; dz = mz - 1; ox = -1; }
+    fill(dx, y + 1, dz, dx, y + 2, dz, AIR);
+    setB(dx + ox + (oz ? 1 : 0), y + 1, dz + oz + (ox ? 1 : 0), DPLANK); setB(dx + ox + (oz ? 1 : 0), y + 2, dz + oz + (ox ? 1 : 0), LAMP);
+    const roof = [BRICK, SLATE, DPLANK][Math.floor(rnd() * 3)];
+    for (let i = 0; ; i++) {
+      const a = x0 - 1 + i, b = x0 + w - i, c = z0 - 1 + i, e = z0 + d - i;
+      if (a > b || c > e) break;
+      fill(a, y + 5 + i, c, b, y + 5 + i, e, roof);
+    }
+    setB(x0 + 1, y + 1, z0 + 1, WWOOL); setB(x0 + 1, y + 1, z0 + 2, rnd() < 0.5 ? RWOOL : BWOOL);
+    setB(x0 + w - 2, y + 1, z0 + 1, DPLANK); setB(x0 + w - 2, y + 2, z0 + 1, LAMP);
+    fill(x0 + 1, y + 1, z0 + d - 2, x0 + 1, y + 2, z0 + d - 2, SHELF);
+  }
+  function stall(x, z, c) {
+    for (const [dx, dz] of [[0, 0], [4, 0], [0, 3], [4, 3]]) fill(x + dx, G0 + 1, z + dz, x + dx, G0 + 3, z + dz, DPLANK);
+    for (let i = 0; i <= 4; i++) fill(x + i, G0 + 4, z, x + i, G0 + 4, z + 3, i % 2 ? WWOOL : c);
+    fill(x + 1, G0 + 1, z + 3, x + 3, G0 + 1, z + 3, DPLANK);
+  }
+  function buildVillage(rnd) {
+    const { x0, x1, z0, z1 } = VIL;
+    // Straßen und Marktplatz
+    fill(C - 3, G0, z0, C + 3, G0, z1, COBBLE);
+    fill(x0 + 4, G0, 195, x1 - 4, G0, 198, COBBLE);
+    fill(86, G0, 190, 106, G0, 204, COBBLE);
+    // Brunnen
+    fill(C - 2, G0 - 3, 195, C + 2, G0, 199, COBBLE); fill(C - 1, G0 - 3, 196, C + 1, G0, 198, WATER);
+    fill(C - 2, G0 + 1, 195, C + 2, G0 + 1, 199, COBBLE); fill(C - 1, G0 + 1, 196, C + 1, G0 + 1, 198, WATER);
+    for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) fill(C + dx, G0 + 2, 197 + dz, C + dx, G0 + 3, 197 + dz, DPLANK);
+    fill(C - 3, G0 + 4, 194, C + 3, G0 + 4, 200, SLATE); fill(C - 1, G0 + 5, 196, C + 1, G0 + 5, 198, SLATE);
+    // Marktstände
+    stall(87, 191, RWOOL); stall(101, 191, BWOOL); stall(87, 200, BWOOL); stall(101, 200, RWOOL);
+    // Häuser entlang der Hauptstraße und der Querstraße
+    for (let z = 164; z <= 228; z += 12) {
+      if (z >= 184 && z <= 204) continue;
+      const w1 = 7 + Math.floor(rnd() * 3), d1 = 6 + Math.floor(rnd() * 3), w2 = 7 + Math.floor(rnd() * 3), d2 = 6 + Math.floor(rnd() * 3);
+      house(C - 7 - w1, z, w1, d1, "e", rnd); house(C + 8, z, w2, d2, "w", rnd);
+    }
+    for (const x of [44, 56, 68, 116, 128, 140]) {
+      const w1 = 7 + Math.floor(rnd() * 3), d1 = 6 + Math.floor(rnd() * 3), w2 = 7 + Math.floor(rnd() * 3), d2 = 6 + Math.floor(rnd() * 3);
+      house(x, 193 - d1, Math.min(w1, 9), d1, "s", rnd); house(x, 200, Math.min(w2, 9), d2, "n", rnd);
+    }
+    // Laternen
+    for (let z = 162; z <= z1 - 2; z += 10) for (const x of [C - 5, C + 5]) if (z < 188 || z > 206) { fill(x, G0 + 1, z, x, G0 + 2, z, DPLANK); setB(x, G0 + 3, z, LAMP); }
+    // Felder mit Weizen und Bewässerung
+    for (const fx of [44, 118]) {
+      for (let z = 212; z <= 236; z++) for (let x = fx; x <= fx + 28; x++) {
+        if (x === fx || x === fx + 28 || z === 212 || z === 236) { setB(x, G0 + 1, z, LEAVES); continue; }
+        if ((z - 212) % 5 === 0) setB(x, G0, z, WATER);
+        else { setB(x, G0, z, DIRT); setB(x, G0 + 1, z, WHEAT); }
+      }
+      fill(fx + 14, G0 + 1, 212, fx + 14, G0 + 1, 212, AIR);
+    }
+    for (const [x, z] of [[40, 170], [150, 170], [76, 240], [116, 240], [150, 206], [40, 206]]) plantTree(x, G0, z, rnd);
+  }
+
+  // ---------- Große Mauer rund um die Welt ----------
+  function buildGreatWall() {
+    const WI = 8, WW = 5, E = [W - 1 - WI, D - 1 - WI];
+    const hAt = (x, z) => heights[Math.max(0, Math.min(W - 1, x)) + Math.max(0, Math.min(D - 1, z)) * W];
+    // geglättete Höhe entlang der Mittellinie
+    const lineTop = (cx, cz, alongX) => { let s = 0; for (let k = -5; k <= 5; k++) s += alongX ? hAt(cx + k, cz) : hAt(cx, cz + k); return Math.max(Math.round(s / 11) + 8, SEA + 6); };
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+      const dl = x - WI, dr = E[0] - x, dt = z - WI, db = E[1] - z, e = Math.min(dl, dr, dt, db);
+      if (e < 0 || e >= WW) continue;
+      let top;
+      if (e === dt) top = lineTop(x, WI + 2, true); else if (e === db) top = lineTop(x, E[1] - 2, true);
+      else if (e === dl) top = lineTop(WI + 2, z, false); else top = lineTop(E[0] - 2, z, false);
+      fill(x, Math.max(1, Math.min(hAt(x, z), top) - 3), z, x, top, z, SBRICK);
+      fill(x, top + 1, z, x, top + 5, z, AIR);
+      if ((e === 0 || e === WW - 1) && ((x + z) & 1) === 0) setB(x, top + 1, z, SBRICK);
+    }
+    // Wachtürme mit roten Pagodendächern
+    const towers = [];
+    for (let x = WI + 2; x <= E[0] - 2; x += 36) towers.push([x, WI + 2, true], [x, E[1] - 2, true]);
+    for (let z = WI + 2 + 36; z <= E[1] - 2 - 20; z += 36) towers.push([WI + 2, z, false], [E[0] - 2, z, false]);
+    towers.push([E[0] - 2, WI + 2, true], [E[0] - 2, E[1] - 2, true]);
+    for (const [tx, tz, ax] of towers) {
+      const top = lineTop(tx, tz, ax) + 7;
+      for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) {
+        const x = tx + dx, z = tz + dz;
+        fill(x, Math.max(1, hAt(x, z) - 3), z, x, top, z, SBRICK);
+        if ((Math.abs(dx) === 4 || Math.abs(dz) === 4) && ((dx + dz) & 1) === 0) setB(x, top + 1, z, SBRICK);
+      }
+      fill(tx - 1, top - 6, tz - 4, tx + 1, top - 4, tz + 4, AIR); fill(tx - 4, top - 6, tz - 1, tx + 4, top - 4, tz + 1, AIR);
+      for (const [dx, dz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) fill(tx + dx, top + 1, tz + dz, tx + dx, top + 3, tz + dz, RWOOL);
+      fill(tx - 5, top + 4, tz - 5, tx + 5, top + 4, tz + 5, BRICK); fill(tx - 3, top + 5, tz - 3, tx + 3, top + 5, tz + 3, BRICK);
+      fill(tx - 1, top + 6, tz - 1, tx + 1, top + 6, tz + 1, BRICK); setB(tx, top + 7, tz, GOLD); setB(tx, top + 3, tz, LAMP);
+    }
+  }
+
+  // ---------- Textur-Atlas (prozedural, 16x16 Pixel pro Kachel, 8x8 Kacheln) ----------
+  const T = 16, N = 8;
+  const atlasCanvas = document.createElement("canvas");
+  function makeAtlas() {
+    atlasCanvas.width = atlasCanvas.height = T * N;
+    const g = atlasCanvas.getContext("2d");
+    const rnd = mulberry32(1337);
+    const cl = v => Math.max(0, Math.min(255, v | 0));
+    const vary = (c, a) => { const v = (rnd() - 0.5) * a; return [cl(c[0] + v), cl(c[1] + v), cl(c[2] + v)]; };
+    function tile(i, fn) {
+      const img = g.createImageData(T, T);
+      for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+        const c = fn(x, y), k = (y * T + x) * 4;
+        img.data[k] = c[0]; img.data[k + 1] = c[1]; img.data[k + 2] = c[2]; img.data[k + 3] = c.length > 3 ? c[3] : 255;
+      }
+      g.putImageData(img, (i % N) * T, Math.floor(i / N) * T);
+    }
+    const dirt = () => rnd() < 0.08 ? vary([98, 68, 46], 16) : vary([134, 96, 67], 34);
+    const grassC = () => rnd() < 0.1 ? vary([126, 190, 72], 20) : vary([91, 155, 52], 36);
+    const fringe = Array.from({ length: T }, () => 2 + Math.floor(rnd() * 3));
+    const snowFringe = Array.from({ length: T }, () => 2 + Math.floor(rnd() * 3));
+    tile(0, grassC);
+    tile(1, (x, y) => y < fringe[x] ? grassC() : (y === fringe[x] && rnd() < 0.5 ? vary([80, 130, 45], 20) : dirt()));
+    tile(2, dirt);
+    tile(3, () => rnd() < 0.1 ? vary([96, 96, 100], 14) : vary([128, 128, 132], 28));
+    tile(4, () => vary([222, 208, 162], 22));
+    tile(5, (x) => vary(x % 4 === 0 ? [78, 60, 38] : [108, 84, 52], 18));
+    tile(6, (x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); if (d > 6.8) return vary([96, 74, 45], 14); return vary(Math.floor(d) % 2 ? [184, 148, 94] : [160, 126, 78], 12); });
+    tile(7, () => rnd() < 0.2 ? vary([30, 72, 24], 14) : vary([60, 124, 42], 38));
+    tile(8, (x, y) => vary((x + y * 2) % 7 === 0 ? [80, 138, 226] : [46, 96, 198], 16));
+    tile(9, (x, y) => { const row = Math.floor(y / 4); if (y % 4 === 3 || x === (row * 5 + 3) % 16) return vary([118, 88, 52], 10); return vary([178, 140, 86], 18); });
+    const pts = Array.from({ length: 7 }, () => [rnd() * 16, rnd() * 16, (rnd() - 0.5) * 30]);
+    tile(10, (x, y) => {
+      let d1 = 1e9, d2 = 1e9, best = 0;
+      for (let i = 0; i < pts.length; i++) for (let ox = -16; ox <= 16; ox += 16) for (let oy = -16; oy <= 16; oy += 16) {
+        const d = Math.hypot(x + .5 - pts[i][0] - ox, y + .5 - pts[i][1] - oy);
+        if (d < d1) { d2 = d1; d1 = d; best = i; } else if (d < d2) d2 = d;
+      }
+      if (d2 - d1 < 1.1) return vary([78, 78, 82], 12);
+      const t = pts[best][2]; return vary([138 + t, 138 + t, 142 + t], 18);
+    });
+    tile(11, () => vary([238, 244, 250], 12));
+    tile(12, (x, y) => { const row = Math.floor(y / 4), off = row % 2 ? 4 : 0; if (y % 4 === 3 || (x + off) % 8 === 7) return vary([196, 190, 178], 10); return vary([162, 70, 52], 24); });
+    tile(13, (x, y) => y < snowFringe[x] ? vary([238, 244, 250], 10) : dirt());
+    // Schloss-Blöcke
+    tile(14, (x, y) => { const off = y >= 8 ? 8 : 0; if (y % 8 === 7 || (x + off) % 16 === 15) return vary([82, 82, 86], 10); return vary(y % 8 === 0 ? [150, 150, 154] : [124, 124, 128], 18); });
+    tile(15, (x, y) => { const row = Math.floor(y / 4); if (y % 4 === 3 || x === (row * 7 + 5) % 16) return vary([46, 30, 18], 8); return vary([84, 57, 34], 14); });
+    tile(16, (x, y) => vary((x + y) % 4 === 0 ? [150, 26, 34] : [178, 34, 42], 14));
+    tile(17, (x, y) => { if (x === 0 || y === 0) return vary([255, 240, 140], 10); if (x === 15 || y === 15) return vary([190, 140, 30], 10); return vary((x * 3 + y) % 9 === 0 ? [255, 236, 130] : [236, 190, 52], 16); });
+    tile(18, (x, y) => { if (x === 0 || y === 0 || x === 15 || y === 15) return [214, 232, 240, 255]; if ((x - y === 3 || x - y === 4) && x > 3 && x < 11) return [240, 250, 255, 200]; return [0, 0, 0, 0]; });
+    const bookC = Array.from({ length: 16 }, () => [[140, 30, 30], [40, 70, 140], [40, 110, 50], [150, 120, 40], [90, 40, 110]][Math.floor(rnd() * 5)]);
+    tile(19, (x, y) => { if (y < 1 || y > 14 || y === 7 || y === 8) return vary([84, 57, 34], 12); if (x % 3 === 2) return [40, 26, 16]; return vary(bookC[(x + (y > 8 ? 5 : 0)) % 16], 16); });
+    tile(20, (x, y) => vary((x === 0 || y === 0) ? [246, 244, 238] : [232, 228, 220], 8));
+    tile(21, (x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); return vary(d < 3 ? [255, 250, 210] : (d < 6 ? [255, 222, 130] : [226, 160, 70]), 14); });
+    tile(22, (x, y) => vary((x + y) % 4 === 0 ? [214, 214, 214] : [236, 236, 236], 10));
+    tile(23, (x, y) => vary((x + y) % 4 === 0 ? [36, 52, 140] : [48, 68, 170], 12));
+    tile(24, (x, y) => { const row = Math.floor(y / 4), off = row % 2 ? 2 : 0; if (y % 4 === 3) return vary([30, 36, 52], 8); if ((x + off) % 4 === 3) return vary([40, 46, 66], 8); return vary([62, 72, 102], 14); });
+    tile(25, (x, y) => { if (y > 11) return vary([200, 196, 188], 10); if (Math.abs(x - (4 + (11 - y) * 0.45)) < 1.2 && y > 2) return vary([110, 76, 40], 10); if (y <= 3 && x >= 7 && x <= 10) return [210, 40, 40]; return vary([72, 72, 78], 10); });
+    tile(26, (x, y) => { if (y > 11) return vary([200, 196, 188], 10); if (Math.abs(x - (11 - (11 - y) * 0.45)) < 1.2 && y > 2) return vary([110, 76, 40], 10); if (y <= 3 && x >= 5 && x <= 8) return [60, 200, 70]; return vary([72, 72, 78], 10); });
+    tile(27, (x, y) => { if (x % 5 < 2 || y % 8 < 2) return (x % 5 === 0 || y % 8 === 0) ? [120, 120, 128, 255] : [58, 58, 64, 255]; if (y % 8 === 7 && x % 5 === 2) return [30, 30, 34, 255]; return [0, 0, 0, 0]; });
+    tile(28, (x, y) => { if (y <= 4 && x % 3 !== 2) return vary([222, 186, 70], 20); if (x % 3 === 1 && y > 4) return vary([150, 170, 60], 20); if (x % 3 === 0 && y > 8 && y % 3 === 0) return vary([120, 160, 50], 16); return [0, 0, 0, 0]; });
+    // Gemälde
+    const shade = (c, v) => [cl(c[0] + v), cl(c[1] + v), cl(c[2] + v)];
+    function paint(p, fn) {
+      const PW = p.w * T, PH = p.h * T, cv = document.createElement("canvas"); cv.width = PW; cv.height = PH;
+      const pg = cv.getContext("2d"), img = pg.createImageData(PW, PH);
+      for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
+        let c;
+        if (x < 1 || y < 1 || x >= PW - 1 || y >= PH - 1) c = (x + y) % 3 ? [214, 170, 60] : [250, 214, 110];
+        else if (x < 2 || y < 2 || x >= PW - 2 || y >= PH - 2) c = [96, 64, 26];
+        else c = fn(x, y);
+        const k = (y * PW + x) * 4; img.data[k] = c[0]; img.data[k + 1] = c[1]; img.data[k + 2] = c[2]; img.data[k + 3] = 255;
+      }
+      pg.putImageData(img, 0, 0);
+      for (let r = 0; r < p.h; r++) for (let c = 0; c < p.w; c++) {
+        const t = p.base + r * p.w + c;
+        g.drawImage(cv, c * T, r * T, T, T, (t % N) * T, Math.floor(t / N) * T, T, T);
+      }
+    }
+    paint(PAINT.land, (x, y) => {
+      const mtn = 20 + 7 * Math.sin(x * 0.13) + 4 * Math.sin(x * 0.31 + 1.3), hill = 33 + 3 * Math.sin(x * 0.09 + 2) + 1.5 * Math.sin(x * 0.4);
+      if (y > 39) return (x * 7 + y * 3) % 11 === 0 ? [170, 205, 240] : [60, 108 + (y - 40) * 3, 185];
+      if (y > hill) return ((x * 13) % 9 === 0 && y < hill + 4) ? [30, 80, 35] : shade([74, 146, 62], hash(x, y, 5) * 20 - 10);
+      if (y > mtn) return (y < mtn + 2.5 && mtn < 19) ? [240, 244, 250] : shade([112, 118, 140], hash(x, y, 6) * 16 - 8);
+      const d = Math.hypot(x - 50, y - 11); if (d < 4.5) return [255, 238, 150]; if (d < 6.5) return [252, 222, 150];
+      if (y >= 6 && y <= 8 && (x + 3) % 22 < 9 && x < 40) return [250, 250, 252];
+      const t = y / 30; return [Math.round(96 + t * 110), Math.round(160 + t * 60), Math.round(226 + t * 14)];
+    });
+    paint(PAINT.sunset, (x, y) => {
+      const hor = 20, d = Math.hypot(x - 24, y - hor);
+      if (y < hor) {
+        if (d < 7) return [255, 214, 90];
+        if (y >= 13 && x >= 9 && x <= 9 + (y - 13) * 0.6) return [242, 232, 214];
+        if (x === 9 && y >= 12) return [60, 36, 24];
+        const t = y / hor; return [Math.round(70 + t * 180), Math.round(40 + t * 100), Math.round(110 - t * 50)];
+      }
+      if (y <= 21 && x >= 6 && x <= 14) return [50, 30, 22];
+      if (Math.abs(x - 24) < 7 - (y - hor) * 0.4 && y % 2 === 0) return [250, 170, 70];
+      return [30 + (y - hor) * 2, 40 + (y - hor) * 2, 90 + (y - hor) * 3];
+    });
+    paint(PAINT.portrait, (x, y) => {
+      const hd = Math.hypot(x - 16, y - 19);
+      if (y === 10 && (x === 13 || x === 19)) return [200, 30, 40];
+      if (y >= 9 && y <= 11 && x >= 10 && x <= 22) return [230, 185, 50];
+      if (y >= 6 && y < 9 && (x === 11 || x === 16 || x === 21)) return [230, 185, 50];
+      if (hd < 7.5) {
+        if (y < 15 || ((x < 11 || x > 21) && y < 22)) return [110, 70, 35];
+        if ((x === 13 || x === 19) && y === 18) return [30, 30, 40];
+        if (y === 23 && x >= 14 && x <= 18) return [170, 80, 70];
+        return [232, 192, 154];
+      }
+      if (y >= 27) {
+        const half = 7 + (y - 27) * 0.5, ax = Math.abs(x - 16);
+        if (ax <= half) { if (y <= 29 && ax <= 6) return [240, 235, 220]; if (ax <= 1) return [230, 185, 50]; return [150, 25, 40]; }
+      }
+      if (y >= 25 && Math.abs(x - 16) <= 2) return [232, 192, 154];
+      return shade([38, 58, 48], hash(x, y, 9) * 10);
+    });
+    paint(PAINT.abstract, (x, y) => {
+      if (x === 11 || x === 12 || y === 13 || y === 14 || (x === 23 && y > 14) || (y === 24 && x < 11)) return [20, 20, 25];
+      if (x < 11 && y < 13) return [200, 40, 40]; if (x > 23 && y > 14) return [30, 60, 160];
+      if (x > 12 && y < 13 && x < 20) return [240, 200, 40]; if (x < 11 && y > 24) return [240, 200, 40];
+      return [240, 236, 225];
+    });
+    paint(PAINT.flower, (x, y) => {
+      if (Math.hypot(x - 8, y - 5) < 1.2) return [250, 220, 60];
+      if (Math.hypot(x - 8, y - 5) < 2.8) return [210, 40, 60];
+      if (x === 8 && y >= 7 && y <= 9) return [50, 130, 50];
+      if (y >= 10 && Math.abs(x - 8) <= (y === 10 ? 2 : 3)) return [60, 90, 180];
+      return [226, 210, 180];
+    });
+    paint(PAINT.moon, (x, y) => {
+      if (Math.hypot(x - 9, y - 6) < 3.5 && Math.hypot(x - 10.5, y - 5) > 2.8) return [245, 240, 200];
+      if (y > 11) return [15, 34, 22];
+      if (hash(x, y, 3) > 0.9) return [255, 255, 240];
+      return [20, 26, 62];
+    });
+    paint(PAINT.ship, (x, y) => {
+      if (x === 7 && y >= 2 && y <= 9) return [90, 55, 30];
+      if (y >= 3 && y <= 8 && x > 7 && x <= 7 + (y - 2) * 0.7) return [245, 240, 230];
+      if (y >= 9 && y <= 10 && x >= 3 + (y - 9) && x <= 12 - (y - 9)) return [110, 60, 30];
+      if (y >= 10) return (x + y) % 5 === 0 ? [90, 150, 210] : [40, 90, 170];
+      return [140, 190, 235];
+    });
+    paint(PAINT.castle, (x, y) => {
+      if (x === 8 && y >= 2 && y <= 4) return [60, 60, 60]; if (y === 2 && x >= 9 && x <= 10) return [210, 40, 40];
+      if (y >= 10 && y <= 12 && x >= 7 && x <= 8) return [50, 40, 36];
+      if ((x >= 3 && x <= 4 || x >= 11 && x <= 12) && y >= 4 && y <= 12) return [150, 150, 158];
+      if (x >= 5 && x <= 10 && y >= 6 && y <= 12) return (y === 6 && x % 2) ? [140, 200, 240] : [130, 130, 138];
+      if (y >= 13) return [80, 150, 60];
+      return [140, 200, 240];
+    });
+  }
+
+  const eps = 0.5 / (T * N);
+  function tileUV(t, u, v) {
+    const col = t % N, row = Math.floor(t / N);
+    const u0 = col / N + eps, u1 = (col + 1) / N - eps, v0 = 1 - (row + 1) / N + eps, v1 = 1 - row / N - eps;
+    return [u0 + (u1 - u0) * u, v0 + (v1 - v0) * v];
+  }
+
+  // ---------- Chunk-Meshes ----------
+  // Ecken: [x, y, z, u, v]; s: 0 oben, 1 unten, 2 Seite
+  const FACES = [
+    { d: [1, 0, 0], s: 2, c: [[1, 1, 1, 0, 1], [1, 0, 1, 0, 0], [1, 1, 0, 1, 1], [1, 0, 0, 1, 0]] },
+    { d: [-1, 0, 0], s: 2, c: [[0, 1, 0, 0, 1], [0, 0, 0, 0, 0], [0, 1, 1, 1, 1], [0, 0, 1, 1, 0]] },
+    { d: [0, 1, 0], s: 0, c: [[0, 1, 1, 1, 1], [1, 1, 1, 0, 1], [0, 1, 0, 1, 0], [1, 1, 0, 0, 0]] },
+    { d: [0, -1, 0], s: 1, c: [[1, 0, 1, 1, 0], [0, 0, 1, 0, 0], [1, 0, 0, 1, 1], [0, 0, 0, 0, 1]] },
+    { d: [0, 0, 1], s: 2, c: [[0, 0, 1, 0, 0], [1, 0, 1, 1, 0], [0, 1, 1, 0, 1], [1, 1, 1, 1, 1]] },
+    { d: [0, 0, -1], s: 2, c: [[1, 0, 0, 0, 0], [0, 0, 0, 1, 0], [1, 1, 0, 0, 1], [0, 1, 0, 1, 1]] },
+  ];
+  FACES.forEach(f => f.ax = [0, 1, 2].filter(k => f.d[k] === 0));
+  const AOV = [0.48, 0.66, 0.83, 1];
+  const sA = [0, 0, 0], sB = [0, 0, 0];
+  function aoAt(x, y, z, f, cr) {
+    const bx = x + f.d[0], by = y + f.d[1], bz = z + f.d[2];
+    sA[0] = sA[1] = sA[2] = 0; sB[0] = sB[1] = sB[2] = 0;
+    sA[f.ax[0]] = cr[f.ax[0]] ? 1 : -1; sB[f.ax[1]] = cr[f.ax[1]] ? 1 : -1;
+    const s1 = opaque(get(bx + sA[0], by + sA[1], bz + sA[2])) ? 1 : 0;
+    const s2 = opaque(get(bx + sB[0], by + sB[1], bz + sB[2])) ? 1 : 0;
+    const c = opaque(get(bx + sA[0] + sB[0], by + sA[1] + sB[1], bz + sA[2] + sB[2])) ? 1 : 0;
+    return (s1 && s2) ? 0 : 3 - (s1 + s2 + c);
+  }
+  // Ebenen: 0 fest, 1 Wasser, 2 Glas, 3 leuchtend
+  const layerOf = b => b === WATER ? 1 : (b === GLASS || b === BARS || b === WHEAT) ? 2 : b === LAMP ? 3 : 0;
+  function buildGeo(cx, cz) {
+    const L = [0, 1, 2, 3].map(() => ({ p: [], n: [], u: [], c: [], i: [] }));
+    const ao = [0, 0, 0, 0];
+    let maxY = 0;
+    for (let z = cz * CS; z < cz * CS + CS; z++) for (let x = cx * CS; x < cx * CS + CS; x++) maxY = Math.max(maxY, topY[x + z * W]);
+    for (let y = 0; y <= Math.min(maxY, H - 1); y++) for (let z = cz * CS; z < cz * CS + CS; z++) for (let x = cx * CS; x < cx * CS + CS; x++) {
+      const b = world[idx(x, y, z)]; if (!b) continue;
+      const ly = layerOf(b);
+      for (const f of FACES) {
+        if (y === 0 && f.d[1] === -1) continue;
+        const nb = get(x + f.d[0], y + f.d[1], z + f.d[2]);
+        if (ly === 1 ? nb !== AIR : ly === 2 ? (nb === b || opaque(nb)) : opaque(nb)) continue;
+        const t = TEX[b][f.s], tg = L[ly], base = tg.p.length / 3;
+        const lowerTop = ly === 1 && get(x, y + 1, z) !== WATER;
+        for (let k = 0; k < 4; k++) {
+          const cr = f.c[k];
+          tg.p.push(x + cr[0], y + cr[1] - (lowerTop && cr[1] === 1 ? 0.12 : 0), z + cr[2]);
+          tg.n.push(f.d[0], f.d[1], f.d[2]);
+          const uv = tileUV(t, cr[3], cr[4]); tg.u.push(uv[0], uv[1]);
+          ao[k] = (ly === 1 || ly === 3) ? 3 : aoAt(x, y, z, f, cr);
+          const s = AOV[ao[k]]; tg.c.push(s, s, s);
+        }
+        if (ao[0] + ao[3] > ao[1] + ao[2]) tg.i.push(base, base + 1, base + 3, base, base + 3, base + 2);
+        else tg.i.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
+      }
+    }
+    return L;
+  }
+  function toMesh(g, mat, castShadow) {
+    if (!g.i.length) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(g.p, 3));
+    geo.setAttribute("normal", new THREE.Float32BufferAttribute(g.n, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(g.u, 2));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(g.c, 3));
+    geo.setIndex(g.i);
+    geo.computeBoundingSphere();
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = castShadow; m.receiveShadow = true;
+    return m;
+  }
+
+  // ---------- Three.js Szene ----------
+  const canvas = document.getElementById("c");
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const scene = new THREE.Scene();
+  const HORIZON = new THREE.Color(0xcfe4ee), UNDERWATER = new THREE.Color(0x1d4f86);
+  scene.fog = new THREE.Fog(HORIZON.clone(), 45, 150);
+  const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 600);
+  camera.rotation.order = "YXZ";
+
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(450, 32, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { top: { value: new THREE.Color(0x2c68c8) }, hor: { value: HORIZON } },
+    vertexShader: "varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: "uniform vec3 top; uniform vec3 hor; varying vec3 vP; void main(){ float h = max(vP.y, 0.0); gl_FragColor = vec4(mix(hor, top, pow(h, 0.55)), 1.0); }",
+  }));
+  sky.renderOrder = -1; sky.frustumCulled = false;
+  scene.add(sky);
+
+  const sunDir = new THREE.Vector3(0.55, 0.75, 0.36).normalize();
+  const sunTex = (() => {
+    const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d");
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, "rgba(255,252,235,1)"); gr.addColorStop(0.22, "rgba(255,244,200,1)"); gr.addColorStop(0.3, "rgba(255,226,150,.5)"); gr.addColorStop(1, "rgba(255,210,120,0)");
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+  })();
+  const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, fog: false, depthWrite: false, transparent: true }));
+  sun.scale.set(110, 110, 1); sun.renderOrder = -1;
+  scene.add(sun);
+
+  const cloudTex = (() => {
+    const S = 96, c = document.createElement("canvas"); c.width = c.height = S; const g = c.getContext("2d");
+    const img = g.createImageData(S, S);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const n = noise(x / 7, y / 7, 501) * 0.65 + noise(x / 3, y / 3, 777) * 0.35;
+      const k = (y * S + x) * 4; img.data[k] = img.data[k + 1] = img.data[k + 2] = 255; img.data[k + 3] = n > 0.6 ? 235 : 0;
+    }
+    g.putImageData(img, 0, 0);
+    const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5, 5); return t;
+  })();
+  const clouds = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshBasicMaterial({ map: cloudTex, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+  clouds.rotation.x = -Math.PI / 2;
+  scene.add(clouds);
+
+  scene.add(new THREE.HemisphereLight(0xd8ecff, 0x6b5a44, 0.55));
+  const sunLight = new THREE.DirectionalLight(0xfff0d4, 0.68);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(2048, 2048);
+  Object.assign(sunLight.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 420 });
+  sunLight.shadow.bias = -0.0006;
+  sunLight.shadow.normalBias = 0.04;
+  scene.add(sunLight, sunLight.target);
+
+  let mats;
+  const chunks = new Map();
+  function rebuildChunk(cx, cz) {
+    if (cx < 0 || cz < 0 || cx >= W / CS || cz >= D / CS) return;
+    const key = cx + "," + cz, old = chunks.get(key);
+    if (old) for (const m of old) if (m) { scene.remove(m); m.geometry.dispose(); }
+    const L = buildGeo(cx, cz);
+    const ms = [toMesh(L[0], mats[0], true), toMesh(L[1], mats[1], false), toMesh(L[2], mats[2], false), toMesh(L[3], mats[3], true)];
+    ms.forEach((m, i) => { if (m) { if (i === 1) m.renderOrder = 1; m.userData.c = [cx * CS + CS / 2, cz * CS + CS / 2]; scene.add(m); } });
+    chunks.set(key, ms);
+  }
+  function setBlock(x, y, z, b) {
+    if (x < 0 || z < 0 || x >= W || z >= D || y < 0 || y >= H) return;
+    world[idx(x, y, z)] = b;
+    if (b && y > topY[x + z * W]) topY[x + z * W] = y;
+    const done = new Set();
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      const cx = Math.floor((x + dx) / CS), cz = Math.floor((z + dz) / CS), k = cx + "," + cz;
+      if (!done.has(k)) { done.add(k); rebuildChunk(cx, cz); }
+    }
+  }
+
+  function setBlocks(list) {
+    const todo = new Set();
+    for (const [x, y, z, b] of list) {
+      world[idx(x, y, z)] = b;
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) todo.add(Math.floor((x + dx) / CS) + "," + Math.floor((z + dz) / CS));
+    }
+    for (const k of todo) { const [cx, cz] = k.split(",").map(Number); rebuildChunk(cx, cz); }
+  }
+  // Geräusche (erst nach einem Klick erlaubt)
+  let actx = null;
+  function beep(f, d, type, vol) {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f; g.gain.setValueAtTime(vol, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + d);
+      o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + d);
+    } catch (e) {}
+  }
+  function toggleGate() {
+    gate.open = !gate.open; gate.t = 0.3;
+    setBlocks(levers.map(([x, y, z]) => [x, y, z, gate.open ? LEVER_ON : LEVER]));
+    beep(520, 0.09, "square", 0.05);
+    nameEl.textContent = gate.open ? "Die Zugbrücke senkt sich …" : "Die Zugbrücke geht hoch …"; nameEl.style.opacity = 1;
+    clearTimeout(nameTimer); nameTimer = setTimeout(() => nameEl.style.opacity = 0, 2200);
+  }
+  function overlapsPlayer(x, y, z) { return x + 1 > P.x - 0.3 && x < P.x + 0.3 && z + 1 > P.z - 0.3 && z < P.z + 0.3 && y + 1 > P.y && y < P.y + 1.8; }
+  function moveBridge(ang) {
+    const next = bridgeCells(ang), nk = new Set(next.map(c => c.join(","))), ok = new Set(bridge.cur.map(c => c.join(",")));
+    if (next.some(([x, y, z]) => !ok.has(x + "," + y + "," + z) && overlapsPlayer(x, y, z))) return false;
+    const list = [];
+    for (const c of bridge.cur) { const k = c.join(","); if (!nk.has(k)) { list.push([...c, bridge.saved.get(k) ?? AIR]); bridge.saved.delete(k); } }
+    for (const c of next) { const k = c.join(","); if (!ok.has(k)) { bridge.saved.set(k, get(...c)); list.push([...c, DPLANK]); } }
+    setBlocks(list); bridge.cur = next; bridge.ang = ang;
+    beep(90 + Math.random() * 30, 0.18, "triangle", 0.05);
+    return true;
+  }
+  function playerIn(y) { return P.x + 0.3 > gate.x0 && P.x - 0.3 < gate.x1 + 1 && P.z + 0.3 > gate.z && P.z - 0.3 < gate.z + 1 && P.y < y + 1 && P.y + 1.8 > y; }
+  function updateGate(dt) {
+    if ((gate.t -= dt) > 0) return;
+    gate.t = 0.12;
+    const row = (y, b) => { const l = []; for (let x = gate.x0; x <= gate.x1; x++) l.push([x, y, gate.z, b]); setBlocks(l); beep(60 + Math.random() * 25, 0.14, "sawtooth", 0.035); };
+    // Öffnen: erst Zugbrücke runter, dann Fallgitter hoch. Schließen: umgekehrt.
+    if (gate.open) {
+      if (bridge.ang > 0) { gate.t = 0.16; moveBridge(bridge.ang - 10); }
+      else if (gate.closed > 0) { row(gate.yTop - gate.closed + 1, AIR); gate.closed--; }
+    } else {
+      if (gate.closed < 12) { const y = gate.yTop - gate.closed; if (!playerIn(y)) { row(y, BARS); gate.closed++; } }
+      else if (bridge.ang < 90) { gate.t = 0.16; moveBridge(bridge.ang + 10); }
+    }
+  }
+
+  // ---------- Spieler ----------
+  const P = { x: C + 0.5, y: 40, z: C + 64.5, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0.12, ground: false, fly: false };
+  const keys = {};
+  const joy = { x: 0, y: 0 };
+  const solidAt = (x, y, z) => (x < 0 || z < 0 || x >= W || z >= D || y < 0) ? true : (y >= H ? false : solid(world[idx(x, y, z)]));
+  function hits(x, y, z) {
+    const r = 0.3;
+    const x0 = Math.floor(x - r), x1 = Math.floor(x + r), y0 = Math.floor(y), y1 = Math.floor(y + 1.75), z0 = Math.floor(z - r), z1 = Math.floor(z + r);
+    for (let by = y0; by <= y1; by++) for (let bz = z0; bz <= z1; bz++) for (let bx = x0; bx <= x1; bx++) if (solidAt(bx, by, bz)) return true;
+    return false;
+  }
+  const blockAtF = (x, y, z) => get(Math.floor(x), Math.floor(y), Math.floor(z));
+  function toGate() {
+    const x = C, z = C + 64;
+    let y = H - 1; while (y > 0 && !solid(get(x, y, z))) y--;
+    P.x = x + 0.5; P.z = z + 0.5; P.y = y + 1; P.vx = P.vy = P.vz = 0; P.yaw = 0; P.pitch = 0.12;
+  }
+
+  function step(dt) {
+    let f = 0, s = 0;
+    if (keys.KeyW || keys.ArrowUp) f += 1; if (keys.KeyS || keys.ArrowDown) f -= 1;
+    if (keys.KeyD || keys.ArrowRight) s += 1; if (keys.KeyA || keys.ArrowLeft) s -= 1;
+    f -= joy.y; s += joy.x;
+    const len = Math.hypot(f, s); if (len > 1) { f /= len; s /= len; }
+    const inWater = blockAtF(P.x, P.y + 0.4, P.z) === WATER;
+    const shift = keys.ShiftLeft || keys.ShiftRight;
+    const sprinting = shift && !P.fly && f > 0;
+    let sp = P.fly ? 12 : (sprinting ? 6.4 : 4.3);
+    if (inWater && !P.fly) sp *= 0.55;
+    const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
+    const tx = (-sy * f + cy * s) * sp, tz = (-cy * f - sy * s) * sp;
+    const k = Math.min(1, dt * (P.ground || P.fly ? 14 : 5));
+    P.vx += (tx - P.vx) * k; P.vz += (tz - P.vz) * k;
+    if (P.fly) {
+      const v = (keys.Space ? 1 : 0) - (shift ? 1 : 0);
+      P.vy += (v * 10 - P.vy) * Math.min(1, dt * 10);
+    } else if (inWater) {
+      P.vy -= 9 * dt; P.vy *= Math.pow(0.25, dt);
+      if (keys.Space) P.vy = Math.min(P.vy + 28 * dt, 4.2);
+      P.vy = Math.max(P.vy, -4);
+    } else {
+      P.vy -= 28 * dt;
+      if (keys.Space && P.ground) P.vy = 8.6;
+      P.vy = Math.max(P.vy, -50);
+    }
+    P.ground = false;
+    const n = Math.max(1, Math.ceil(dt / 0.008)), h = dt / n;
+    for (let i = 0; i < n; i++) {
+      let nx = P.x + P.vx * h; if (!hits(nx, P.y, P.z)) P.x = nx; else P.vx = 0;
+      let nz = P.z + P.vz * h; if (!hits(P.x, P.y, nz)) P.z = nz; else P.vz = 0;
+      let ny = P.y + P.vy * h; if (!hits(P.x, ny, P.z)) P.y = ny; else { if (P.vy < 0) P.ground = true; P.vy = 0; }
+    }
+    const targetFov = sprinting ? 84 : 75;
+    if (Math.abs(camera.fov - targetFov) > 0.05) { camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix(); }
+  }
+
+  // ---------- Zielen & Bauen ----------
+  const lookDir = new THREE.Vector3();
+  function raycast(max) {
+    const ox = camera.position.x, oy = camera.position.y, oz = camera.position.z;
+    camera.getWorldDirection(lookDir);
+    const dx = lookDir.x, dy = lookDir.y, dz = lookDir.z;
+    let x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
+    const stX = Math.sign(dx), stY = Math.sign(dy), stZ = Math.sign(dz);
+    const tdX = Math.abs(1 / dx), tdY = Math.abs(1 / dy), tdZ = Math.abs(1 / dz);
+    let tmX = dx > 0 ? (x + 1 - ox) * tdX : (ox - x) * tdX;
+    let tmY = dy > 0 ? (y + 1 - oy) * tdY : (oy - y) * tdY;
+    let tmZ = dz > 0 ? (z + 1 - oz) * tdZ : (oz - z) * tdZ;
+    let px = x, py = y, pz = z, t = 0;
+    while (t <= max) {
+      if (solid(get(x, y, z))) return { x, y, z, px, py, pz };
+      px = x; py = y; pz = z;
+      if (tmX < tmY && tmX < tmZ) { x += stX; t = tmX; tmX += tdX; }
+      else if (tmY < tmZ) { y += stY; t = tmY; tmY += tdY; }
+      else { z += stZ; t = tmZ; tmZ += tdZ; }
+    }
+    return null;
+  }
+  const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)), new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.55 }));
+  outline.visible = false; scene.add(outline);
+  let target = null;
+  function breakBlock() { if (target) setBlock(target.x, target.y, target.z, AIR); }
+  function placeBlock() {
+    if (!target) return;
+    const tb = get(target.x, target.y, target.z);
+    if (tb === LEVER || tb === LEVER_ON) { toggleGate(); return; }
+    const { px, py, pz } = target;
+    if (px < 0 || pz < 0 || px >= W || pz >= D || py < 0 || py >= H) return;
+    const cur = get(px, py, pz); if (cur !== AIR && cur !== WATER) return;
+    const overlap = px + 1 > P.x - 0.3 && px < P.x + 0.3 && pz + 1 > P.z - 0.3 && pz < P.z + 0.3 && py + 1 > P.y && py < P.y + 1.8;
+    if (overlap) return;
+    setBlock(px, py, pz, HOTBAR[sel]);
+  }
+
+  // ---------- Hotbar ----------
+  let sel = 0;
+  const bar = document.getElementById("bar"), nameEl = document.getElementById("blockName");
+  let nameTimer = 0;
+  function buildBar() {
+    HOTBAR.forEach((b, i) => {
+      const s = document.createElement("div"); s.className = "slot"; s.tabIndex = 0; s.setAttribute("role", "button"); s.setAttribute("aria-label", NAMES[b]);
+      const cv = document.createElement("canvas"); cv.width = cv.height = 16;
+      const g = cv.getContext("2d"); g.imageSmoothingEnabled = false;
+      const t = TEX[b][2]; g.drawImage(atlasCanvas, (t % N) * T, Math.floor(t / N) * T, T, T, 0, 0, 16, 16);
+      const n = document.createElement("span"); n.textContent = i + 1;
+      s.append(cv, n);
+      s.addEventListener("pointerdown", e => { e.stopPropagation(); select(i); });
+      bar.appendChild(s);
+    });
+    select(0);
+  }
+  function select(i) {
+    sel = (i + HOTBAR.length) % HOTBAR.length;
+    [...bar.children].forEach((c, j) => c.classList.toggle("sel", j === sel));
+    nameEl.textContent = NAMES[HOTBAR[sel]]; nameEl.style.opacity = 1;
+    clearTimeout(nameTimer); nameTimer = setTimeout(() => nameEl.style.opacity = 0, 1400);
+  }
+
+  // ---------- Eingabe ----------
+  const menu = document.getElementById("menu"), playBtn = document.getElementById("play"), menuText = document.getElementById("menuText");
+  const touchUI = document.getElementById("touch"), pauseBtn = document.getElementById("pauseBtn"), flyTag = document.getElementById("flyTag");
+  const isTouch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  let playing = false, dragLook = false;
+  if (isTouch) document.getElementById("keyList").hidden = true;
+
+  function toggleFly() { P.fly = !P.fly; P.vy = 0; flyTag.hidden = !P.fly; }
+  function start() {
+    menu.hidden = true; playing = true;
+    if (isTouch) { touchUI.hidden = false; pauseBtn.hidden = false; return; }
+    try {
+      const r = canvas.requestPointerLock && canvas.requestPointerLock();
+      if (r && r.catch) r.catch(() => { dragLook = true; });
+      if (!canvas.requestPointerLock) dragLook = true;
+    } catch (e) { dragLook = true; }
+  }
+  function pause() {
+    playing = false; menu.hidden = false; touchUI.hidden = true;
+    menuText.textContent = "Pausiert. Deine Welt bleibt so, wie du sie gebaut hast, solange dieser Tab offen ist.";
+    playBtn.textContent = "Weiterspielen";
+    for (const k in keys) keys[k] = false;
+  }
+  playBtn.addEventListener("click", start);
+  pauseBtn.addEventListener("click", pause);
+  document.addEventListener("pointerlockerror", () => { dragLook = true; });
+  document.addEventListener("pointerlockchange", () => {
+    if (document.pointerLockElement !== canvas && playing && !dragLook) pause();
+  });
+  document.addEventListener("keydown", e => {
+    if (!playing) { if (e.code === "Enter" && !playBtn.disabled) start(); return; }
+    keys[e.code] = true;
+    if (e.code === "Space" || e.code.startsWith("Arrow")) e.preventDefault();
+    if (e.code.startsWith("Digit")) { const n = +e.code.slice(5); if (n >= 1 && n <= 9) select(n - 1); }
+    if (e.code === "KeyF" && !e.repeat) toggleFly();
+    if (e.code === "KeyT" && !e.repeat) toGate();
+    if (e.code === "KeyG" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (!e.repeat) toggleGate(); return; }
+    if (e.code === "KeyE" && !e.repeat && target) { const tb = get(target.x, target.y, target.z); if (tb === LEVER || tb === LEVER_ON) toggleGate(); }
+    if (e.code === "Escape" && dragLook) pause();
+  });
+  document.addEventListener("keyup", e => { keys[e.code] = false; });
+  window.addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
+  const look = (dx, dy, s) => {
+    P.yaw -= dx * s; P.pitch -= dy * s;
+    P.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, P.pitch));
+  };
+  let down = null;
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
+  canvas.addEventListener("mousedown", e => {
+    if (!playing || isTouch) return;
+    if (document.pointerLockElement === canvas) { if (e.button === 0) breakBlock(); else if (e.button === 2) placeBlock(); }
+    else if (dragLook) down = { x: e.clientX, y: e.clientY, b: e.button, moved: 0 };
+  });
+  window.addEventListener("mouseup", e => {
+    if (down && down.moved < 6) { if (down.b === 0) breakBlock(); else if (down.b === 2) placeBlock(); }
+    down = null;
+  });
+  document.addEventListener("mousemove", e => {
+    if (!playing) return;
+    if (document.pointerLockElement === canvas) look(e.movementX, e.movementY, 0.0022);
+    else if (down) { down.moved += Math.abs(e.movementX) + Math.abs(e.movementY); look(e.movementX, e.movementY, 0.004); }
+  });
+  window.addEventListener("wheel", e => { if (playing) select(sel + (e.deltaY > 0 ? 1 : -1)); }, { passive: true });
+
+  // Touch: Joystick links, Umsehen per Wischen, Knöpfe rechts
+  const joyEl = document.getElementById("joy"), knob = document.getElementById("knob");
+  let joyId = null, joyO = null;
+  joyEl.addEventListener("touchstart", e => { e.preventDefault(); const t = e.changedTouches[0]; joyId = t.identifier; const r = joyEl.getBoundingClientRect(); joyO = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, { passive: false });
+  let lookId = null, lookLast = null;
+  canvas.addEventListener("touchstart", e => { e.preventDefault(); if (lookId === null) { const t = e.changedTouches[0]; lookId = t.identifier; lookLast = { x: t.clientX, y: t.clientY }; } }, { passive: false });
+  window.addEventListener("touchmove", e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyId) {
+        let dx = t.clientX - joyO.x, dy = t.clientY - joyO.y; const l = Math.hypot(dx, dy), m = 50;
+        if (l > m) { dx *= m / l; dy *= m / l; }
+        knob.style.transform = `translate(${dx}px, ${dy}px)`; joy.x = dx / m; joy.y = dy / m;
+      } else if (t.identifier === lookId) {
+        look(t.clientX - lookLast.x, t.clientY - lookLast.y, 0.006); lookLast = { x: t.clientX, y: t.clientY };
+      }
+    }
+  }, { passive: true });
+  const endTouch = e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyId) { joyId = null; joy.x = joy.y = 0; knob.style.transform = ""; }
+      if (t.identifier === lookId) lookId = null;
+    }
+  };
+  window.addEventListener("touchend", endTouch); window.addEventListener("touchcancel", endTouch);
+  const hold = (id, on, off) => { const el = document.getElementById(id); el.addEventListener("touchstart", e => { e.preventDefault(); on(); }, { passive: false }); if (off) el.addEventListener("touchend", off); };
+  hold("tJump", () => keys.Space = true, () => keys.Space = false);
+  hold("tBreak", breakBlock); hold("tPlace", placeBlock); hold("tFly", toggleFly); hold("tGate", toggleGate);
+
+  // ---------- Grafikstufen ----------
+  // "Auto" misst die Bildrate beim Spielen und wählt die schönste Stufe, die noch flüssig läuft.
+  // Texturen und weiche Ecken-Schatten sind in jeder Stufe an, sie kosten fast nichts.
+  const LEVELS = [
+    { name: "Schnell", pr: 0.65, shadow: 0, view: 90 },
+    { name: "Ausgewogen", pr: 0.85, shadow: 1024, view: 115 },
+    { name: "Gut", pr: 1, shadow: 2048, view: 145 },
+    { name: "Ultra", pr: 2, shadow: 2048, view: 190 },
+  ];
+  let level = 1, auto = true, viewDist = 115;
+  const qBtn = document.getElementById("quality");
+  function applyLevel(l) {
+    level = Math.max(0, Math.min(LEVELS.length - 1, l));
+    const L = LEVELS[level], dpr = window.devicePixelRatio || 1;
+    renderer.setPixelRatio(L.pr === 2 ? Math.min(dpr, 2) : Math.min(dpr, 1) * L.pr);
+    const sh = L.shadow > 0;
+    if (sh && sunLight.shadow.mapSize.x !== L.shadow) {
+      sunLight.shadow.mapSize.set(L.shadow, L.shadow);
+      if (sunLight.shadow.map) { sunLight.shadow.map.dispose(); sunLight.shadow.map = null; }
+    }
+    renderer.shadowMap.type = L.shadow >= 2048 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    if (sunLight.castShadow !== sh) { sunLight.castShadow = sh; renderer.shadowMap.enabled = sh; }
+    mats.forEach(m => m.needsUpdate = true);
+    viewDist = L.view;
+    qBtn.textContent = "Grafik: " + (auto ? "Auto (" + L.name + ")" : L.name);
+    resize();
+  }
+  qBtn.addEventListener("click", () => {
+    if (auto) { auto = false; applyLevel(0); }
+    else if (level < LEVELS.length - 1) applyLevel(level + 1);
+    else { auto = true; applyLevel(1); }
+    fpsT = 0; fpsN = 0; upTried = false;
+    try { localStorage.setItem("blockwelt-quality", auto ? "auto" : String(level)); } catch (e) {}
+  });
+  let fpsT = 0, fpsN = 0, upTried = false;
+  function autoTune(dt) {
+    if (!auto || !playing) return;
+    fpsT += dt; fpsN++;
+    if (fpsT < 2.5) return;
+    const fps = fpsN / fpsT; fpsT = 0; fpsN = 0;
+    if (fps < 42 && level > 0) { applyLevel(level - 1); upTried = true; }
+    else if (fps > 57 && level < LEVELS.length - 2 && !upTried) applyLevel(level + 1);
+  }
+  function cullChunks() {
+    for (const ms of chunks.values()) for (const m of ms) if (m) m.visible = Math.hypot(m.userData.c[0] - P.x, m.userData.c[1] - P.z) < viewDist + CS;
+  }
+
+  // ---------- Hauptschleife ----------
+  const hintEl = document.getElementById("hint");
+  const posEl = document.getElementById("pos"), tint = document.getElementById("waterTint");
+  function resize() { const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  window.addEventListener("resize", resize); resize();
+  let last = performance.now(), hudT = 0;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (playing) { step(dt); autoTune(dt); }
+    updateGate(dt);
+    camera.position.set(P.x, P.y + 1.62, P.z);
+    camera.rotation.y = P.yaw; camera.rotation.x = P.pitch;
+    sky.position.copy(camera.position);
+    sun.position.copy(camera.position).addScaledVector(sunDir, 380);
+    clouds.position.set(camera.position.x, 122, camera.position.z);
+    cloudTex.offset.x = (cloudTex.offset.x + dt * 0.0015) % 1;
+    const lx = Math.round(P.x), lz = Math.round(P.z);
+    sunLight.target.position.set(lx, 0, lz);
+    sunLight.position.set(lx + sunDir.x * 220, sunDir.y * 220, lz + sunDir.z * 220);
+    const under = get(Math.floor(P.x), Math.floor(P.y + 1.62), Math.floor(P.z)) === WATER;
+    scene.fog.color.copy(under ? UNDERWATER : HORIZON); scene.fog.near = under ? 1 : viewDist * 0.35; scene.fog.far = under ? 20 : viewDist;
+    tint.hidden = !under;
+    if (playing) {
+      target = raycast(6);
+      outline.visible = !!target;
+      if (target) outline.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5);
+      const tb = target ? get(target.x, target.y, target.z) : AIR;
+      hintEl.hidden = !(tb === LEVER || tb === LEVER_ON);
+      if (!hintEl.hidden) hintEl.textContent = (isTouch ? "Tippe auf „Bauen“, um das Tor zu " : "Rechtsklick oder E, um das Tor zu ") + (gate.open ? "schließen" : "öffnen");
+    } else { outline.visible = false; hintEl.hidden = true; }
+    if ((hudT -= dt) <= 0) { hudT = 0.2; cullChunks(); posEl.textContent = `X ${Math.floor(P.x)}  Y ${Math.floor(P.y)}  Z ${Math.floor(P.z)}`; }
+    renderer.render(scene, camera);
+  }
+
+  // ---------- Start ----------
+  makeAtlas();
+  const atlas = new THREE.CanvasTexture(atlasCanvas);
+  atlas.magFilter = THREE.NearestFilter; atlas.minFilter = THREE.NearestFilter; atlas.generateMipmaps = false;
+  mats = [
+    new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true }),
+    new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true, transparent: true, opacity: 0.74, depthWrite: false }),
+    new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true, alphaTest: 0.5 }),
+    new THREE.MeshBasicMaterial({ map: atlas, vertexColors: true }),
+  ];
+  buildBar();
+  let savedQ = null; try { savedQ = localStorage.getItem("blockwelt-quality"); } catch (e) {}
+  if (savedQ !== null && savedQ !== "auto") { auto = false; applyLevel(+savedQ); }
+  else applyLevel(isTouch || (navigator.hardwareConcurrency || 8) <= 4 ? 0 : 1);
+  requestAnimationFrame(frame);
+  setTimeout(() => {
+    generate();
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) { let y = H - 1; while (y > 0 && world[idx(x, y, z)] === AIR) y--; topY[x + z * W] = y; }
+    for (let cz = 0; cz < D / CS; cz++) for (let cx = 0; cx < W / CS; cx++) rebuildChunk(cx, cz);
+    toGate();
+    playBtn.disabled = false; playBtn.textContent = isTouch ? "Spielen" : "Spielen (Klick)";
+  }, 30);
+})();
+</script>
+</body>
+</html>
