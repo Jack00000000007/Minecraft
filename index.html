@@ -54,12 +54,29 @@
   #sleep { position: fixed; inset: 0; pointer-events: none; background: #05070c; opacity: 0; }
   #clock { color: var(--sun); font-family: "Pixelify Sans", monospace; }
   #clock.night { color: #9fb8ff; }
+  #stopTag { color: var(--ink-dim); }
   #death { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(110, 8, 8, .5); }
   #death h1 { color: #ff7a66; }
   #respawn { font: 700 20px "Pixelify Sans", monospace; padding: 12px; border-radius: 6px; border: 0; cursor: pointer;
     background: var(--grass); color: #10200a; box-shadow: inset 0 -4px 0 rgba(0,0,0,.25); }
   #respawn:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
   .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .timebox { display: grid; gap: 6px; padding: 10px 12px 8px; border: 1px solid var(--panel-line); border-radius: 6px; }
+  .timerow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .timerow label { font: 500 15px "Pixelify Sans", monospace; color: var(--ink); }
+  #timeIn { font: 500 20px "Pixelify Sans", monospace; font-variant-numeric: tabular-nums; padding: 4px 8px; border-radius: 6px; min-width: 0;
+    border: 1px solid var(--panel-line); background: rgba(255,255,255,.06); color: var(--sun); -webkit-user-select: text; user-select: text; }
+  #timeIn:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+  #timeRange { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; margin: 0; background: transparent; cursor: pointer; touch-action: none; }
+  #timeRange::-webkit-slider-runnable-track { height: 8px; border-radius: 4px;
+    background: linear-gradient(90deg, #0b1330 0%, #1d2a58 20%, #e0874a 26%, #86bde9 34%, #a6d6f7 50%, #86bde9 66%, #e0874a 75%, #1d2a58 81%, #0b1330 100%); }
+  #timeRange::-moz-range-track { height: 8px; border-radius: 4px;
+    background: linear-gradient(90deg, #0b1330 0%, #1d2a58 20%, #e0874a 26%, #86bde9 34%, #a6d6f7 50%, #86bde9 66%, #e0874a 75%, #1d2a58 81%, #0b1330 100%); }
+  #timeRange::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; margin-top: -8px; border-radius: 50%;
+    background: var(--sun); border: 3px solid #1b1405; box-sizing: border-box; }
+  #timeRange::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--sun); border: 3px solid #1b1405; box-sizing: border-box; }
+  #timeRange:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+  .ticks { display: flex; justify-content: space-between; font: 500 11px "Pixelify Sans", monospace; color: var(--ink-dim); padding: 0 4px; }
 
   #menu { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(8, 14, 20, .45); overflow-y: auto; }
   .card { width: min(460px, 100%); background: var(--panel); border: 1px solid var(--panel-line); border-radius: 10px; padding: 26px 24px; box-sizing: border-box;
@@ -106,7 +123,7 @@
 <div id="waterTint" hidden></div>
 <div id="hurt"></div>
 <div id="sleep" hidden></div>
-<div id="info"><b>Blockwelt</b><span id="clock">12:00</span><span id="pos">–</span><span id="jamesTag"></span><span id="flyTag" hidden>Fliegen</span></div>
+<div id="info"><b>Blockwelt</b><span id="clock">12:00</span><span id="stopTag" hidden>Uhr steht</span><span id="pos">–</span><span id="jamesTag"></span><span id="flyTag" hidden>Fliegen</span></div>
 <button id="pauseBtn" hidden aria-label="Pause">II</button>
 <div id="cross"></div>
 <div id="blockName"></div>
@@ -147,7 +164,12 @@
     <p id="menuText">Du bist der König dieses Landes, auch wenn du lieber Anzug trägst als Krone. Dein Butler James begleitet dich überallhin. Vor dir steht dein Schloss mit Thronsaal, Bibliothek und Gemäldegalerie, und der Thron gehört dir. Hinter dir liegt das Dorf, auf den Wiesen leben Kühe, Schafe, Schweine und Hühner. Nachts steigen draußen Zombies aus der Erde, im Schloss und im Dorf bist du sicher. Zieh den Hebel oder drück Strg + G, dann senkt sich die Zugbrücke.</p>
     <button id="play" disabled>Welt wird erzeugt …</button>
     <button id="quality">Grafik: Auto</button>
-    <div class="opts"><button id="timeBtn" class="opt">Tageszeit: Morgen</button><button id="monBtn" class="opt">Monster: an</button></div>
+    <div class="timebox">
+      <div class="timerow"><label for="timeIn">Uhrzeit</label><input id="timeIn" type="time" step="60" value="07:00"></div>
+      <input id="timeRange" type="range" min="0" max="1439" step="1" value="420" aria-label="Uhrzeit verschieben">
+      <div class="ticks" aria-hidden="true"><span>0 Uhr</span><span>6</span><span>12</span><span>18</span><span>24</span></div>
+    </div>
+    <div class="opts"><button id="runBtn" class="opt" aria-pressed="false">Uhr: läuft</button><button id="monBtn" class="opt">Monster: an</button></div>
     <div class="keys" id="keyList">
       <kbd>W A S D</kbd><div>Laufen</div>
       <kbd>Maus</kbd><div>Umsehen</div>
@@ -166,7 +188,7 @@
       <kbd>T</kbd><div>Zurück vor das Schlosstor</div>
       <kbd>Esc</kbd><div>Pause</div>
     </div>
-    <p class="tip">Fällst du einen Baum, fällt James die Bäume in der Nähe gleich mit. Greifst du ein Tier oder einen Zombie an, hilft er dir. Ein Tag dauert 20 Minuten, nachts kannst du in den Betten im Schloss schlafen. Alles, was du baust, wird automatisch gespeichert.</p>
+    <p class="tip">Fällst du einen Baum, fällt James die Bäume in der Nähe gleich mit. Greifst du ein Tier oder einen Zombie an, hilft er dir. Ein Tag dauert 20 Minuten. Die Uhrzeit stellst du hier im Menü auf die Minute genau ein, und nachts kannst du in den Betten im Schloss schlafen. Alles, was du baust, wird automatisch gespeichert.</p>
     <button id="reset" class="linkbtn" hidden>Welt zurücksetzen</button>
   </div>
 </div>
@@ -908,7 +930,7 @@
       const e = [];
       for (const [k, b] of edits) e.push(k, b);
       localStorage.setItem(SAVE_KEY, JSON.stringify({
-        v: 1, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false, t: Math.round(dayT * 10000) / 10000,
+        v: 1, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false, t: Math.round(dayT * 1e6) / 1e6, tr: timeRun,
         p: P.dead ? null : (P.seat ? [...standSpot(P.seat), P.yaw, P.pitch] : [P.x, P.y, P.z, P.yaw, P.pitch]).map(n => Math.round(n * 1000) / 1000), fly: P.fly,
         hp: P.dead ? 20 : P.hp, mon: monsters, sp: P.spawn,
       }));
@@ -1284,7 +1306,7 @@
   // ---------- Tag und Nacht ----------
   // dayT: 0 = Mitternacht, 0.25 = Sonnenaufgang, 0.5 = Mittag, 0.75 = Sonnenuntergang. Ein ganzer Tag dauert 20 Minuten.
   const DAY_LEN = 1200;
-  let dayT = 0.3, dayF = 1, nightF = 0;
+  let dayT = 0.3, dayF = 1, nightF = 0, timeRun = true;
   const lightDir = new THREE.Vector3().copy(sunDir);
   const hemi = scene.children.find(o => o.isHemisphereLight);
   const skyTop = sky.material.uniforms.top.value;
@@ -1330,7 +1352,7 @@
   })();
   const _c1 = new THREE.Color(), _c2 = new THREE.Color();
   function updateSky(dt) {
-    dayT = (dayT + dt / DAY_LEN) % 1;
+    if (timeRun) dayT = (dayT + dt / DAY_LEN) % 1;
     const a = (dayT - 0.25) * Math.PI * 2;
     sunDir.set(Math.cos(a), Math.sin(a), 0.32).normalize();
     const e = sunDir.y;
@@ -1367,7 +1389,7 @@
     stars.visible = nightF > 0.01;
     clouds.material.color.setRGB(0.2 + 0.8 * dayF + 0.2 * dusk, 0.22 + 0.78 * dayF + 0.05 * dusk, 0.3 + 0.7 * dayF - 0.05 * dusk);
   }
-  // Tageszeit per Knopf im Menü
+  // Tageszeiten für die Taste N
   const TIMES = [["Morgen", 7 / 24], ["Mittag", 0.5], ["Abend", 0.75], ["Nacht", 22 / 24]];
   const timeName = () => dayT < 0.23 || dayT >= 0.8 ? "Nacht" : dayT < 0.4 ? "Morgen" : dayT < 0.62 ? "Mittag" : "Abend";
 
@@ -2835,17 +2857,40 @@
   }
 
   // ---------- Uhrzeit wie in Minecraft: ein ganzer Tag dauert 20 Minuten ----------
-  const clockEl = document.getElementById("clock"), timeBtn = document.getElementById("timeBtn"), monBtn = document.getElementById("monBtn");
-  const clockText = () => { const m = Math.floor(dayT * 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+  const clockEl = document.getElementById("clock"), monBtn = document.getElementById("monBtn"), runBtn = document.getElementById("runBtn");
+  const timeIn = document.getElementById("timeIn"), timeRange = document.getElementById("timeRange");
+  const dayMin = () => Math.floor(dayT * 1440 + 1e-4) % 1440;
+  const clockText = () => { const m = dayMin(); return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+  const stopTag = document.getElementById("stopTag");
+  function showClock() { clockEl.textContent = clockText(); clockEl.classList.toggle("night", dayF < 0.3); stopTag.hidden = timeRun; }
+  // Menü zeigt die aktuelle Uhrzeit; ein Feld, in das man gerade tippt, bleibt unangetastet
+  function syncTimeUI() {
+    if (document.activeElement !== timeIn) timeIn.value = clockText();
+    timeRange.value = dayMin();
+    runBtn.textContent = timeRun ? "Uhr: läuft" : "Uhr: steht";
+    runBtn.setAttribute("aria-pressed", String(!timeRun));
+  }
+  // Uhrzeit auf die Minute genau einstellen (Minuten seit Mitternacht)
+  function setTime(min) {
+    dayT = (((Math.round(min) % 1440) + 1440) % 1440) / 1440;
+    updateSky(0); showClock(); saveSoon();
+  }
   function skipTime() {
     const i = TIMES.findIndex(([n]) => n === timeName()), [name, t] = TIMES[(i + 1) % TIMES.length];
-    dayT = t; updateSky(0);
+    setTime(t * 1440); syncTimeUI();
     showName(name + ", " + clockText() + " Uhr", 1800);
-    timeBtn.textContent = "Tageszeit: " + name;
-    saveSoon();
   }
+  function readTimeIn() {
+    const m = /^(\d{1,2}):(\d{2})/.exec(timeIn.value);
+    if (!m || +m[1] > 23 || +m[2] > 59) return;
+    setTime(+m[1] * 60 + +m[2]); timeRange.value = dayMin();
+  }
+  timeIn.addEventListener("input", readTimeIn);
+  timeIn.addEventListener("change", readTimeIn);
+  timeIn.addEventListener("blur", syncTimeUI);
+  timeRange.addEventListener("input", () => { setTime(+timeRange.value); timeIn.value = clockText(); });
+  runBtn.addEventListener("click", () => { timeRun = !timeRun; syncTimeUI(); showClock(); saveSoon(); });
   function setMonsters(on) { monsters = on; monBtn.textContent = on ? "Monster: an" : "Monster: aus"; }
-  timeBtn.addEventListener("click", skipTime);
   monBtn.addEventListener("click", () => { setMonsters(!monsters); saveSoon(); });
 
   // ---------- Partikel: Splitter beim Abbauen, Rauchwolken ----------
@@ -3238,7 +3283,7 @@
     playing = false; menu.hidden = false; touchUI.hidden = true;
     closePalette();
     menuText.textContent = "Pausiert. Alles, was du baust, wird automatisch in diesem Browser gespeichert.";
-    timeBtn.textContent = "Tageszeit: " + timeName();
+    syncTimeUI();
     playBtn.textContent = "Weiterspielen";
     for (const k in keys) keys[k] = false;
     saveNow();
@@ -3441,7 +3486,7 @@
     } else hintEl.hidden = true;
     if ((hudT -= dt) <= 0) {
       hudT = 0.2; cullChunks(); posEl.textContent = `X ${Math.floor(P.x)}  Y ${Math.floor(P.y)}  Z ${Math.floor(P.z)}`;
-      clockEl.textContent = clockText(); clockEl.classList.toggle("night", dayF < 0.3);
+      showClock();
     }
     if (worldReady) flushWorld();
     animWater(dt, t);
@@ -3505,7 +3550,8 @@
     if (save && Number.isFinite(save.hp)) P.hp = Math.max(1, Math.min(20, Math.round(save.hp)));
     if (save && Array.isArray(save.sp) && save.sp.length === 3 && save.sp.every(Number.isFinite)) P.spawn = save.sp;
     setMonsters(!(save && save.mon === false));
-    P.fallTop = P.y; updateSky(0); timeBtn.textContent = "Tageszeit: " + timeName(); clockEl.textContent = clockText();
+    timeRun = !(save && save.tr === false);
+    P.fallTop = P.y; updateSky(0); syncTimeUI(); showClock();
     spawnPeople(); spawnAnimals(); spawnButler(save && save.stay); updateJamesTag();
     worldReady = true;
     playBtn.disabled = false; playBtn.textContent = isTouch ? "Spielen" : "Spielen (Klick)";
