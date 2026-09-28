@@ -1,8 +1,3 @@
-<!doctype html>
-<html lang="de">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Blockwelt</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,6 +24,8 @@
     font-variant-numeric: tabular-nums; }
   #info b { font-family: "Pixelify Sans", monospace; color: var(--sun); font-size: 15px; letter-spacing: .04em; }
   #flyTag { color: var(--grass); font-weight: 700; }
+  #jamesTag { color: var(--ink-dim); }
+  #jamesTag:empty { display: none; }
   #pauseBtn { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 16px; width: 40px; height: 40px;
     background: var(--panel); color: var(--ink); border: 1px solid var(--panel-line); border-radius: 6px; font: 700 16px "Pixelify Sans", monospace; }
 
@@ -73,18 +70,28 @@
   #joy { position: fixed; left: 24px; bottom: calc(90px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%;
     background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.2); pointer-events: auto; }
   #knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255,255,255,.3); }
-  .tbtns { position: fixed; right: 20px; bottom: calc(90px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(2, 64px); gap: 10px; pointer-events: auto; }
-  .tbtns button { height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); background: rgba(12,20,28,.55); color: var(--ink);
+  .tbtns { position: fixed; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(3, 56px); gap: 8px; pointer-events: auto; }
+  .tbtns button { height: 56px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); background: rgba(12,20,28,.55); color: var(--ink);
     font: 500 12px "Pixelify Sans", monospace; }
   .tbtns button:active { background: rgba(240,181,65,.4); }
+  .tip { font-size: 13px !important; }
+  .linkbtn { background: none; border: 0; color: var(--ink-dim); font: 600 13px "Nunito", system-ui, sans-serif; text-decoration: underline; cursor: pointer; padding: 4px; justify-self: center; }
+  .linkbtn:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+  #palette { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(8, 14, 20, .5); overflow-y: auto; }
+  .palcard { width: min(640px, 100%); }
+  .palcard h2 { margin: 0; font: 700 26px/1 "Pixelify Sans", monospace; color: var(--sun); }
+  #palGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .pal { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 6px; border: 1px solid var(--panel-line); background: rgba(255,255,255,.05);
+    color: var(--ink); font: 500 12px "Pixelify Sans", monospace; cursor: pointer; }
+  .pal canvas { width: 40px; height: 40px; image-rendering: pixelated; }
+  .pal:hover, .pal:focus-visible { background: rgba(240,181,65,.18); border-color: var(--sun); outline: none; }
+  #palClose { font: 700 16px "Pixelify Sans", monospace; padding: 10px; border-radius: 6px; border: 0; cursor: pointer; background: var(--grass); color: #10200a; }
   @media (max-width: 480px) { .card h1 { font-size: 36px; } .slot { width: 36px; height: 36px; padding: 3px; } }
 </style>
-</head>
-<body>
 
 <canvas id="c"></canvas>
 <div id="waterTint" hidden></div>
-<div id="info"><b>Blockwelt</b><span id="pos">–</span><span id="flyTag" hidden>Fliegen</span></div>
+<div id="info"><b>Blockwelt</b><span id="pos">–</span><span id="jamesTag"></span><span id="flyTag" hidden>Fliegen</span></div>
 <button id="pauseBtn" hidden aria-label="Pause">II</button>
 <div id="cross"></div>
 <div id="blockName"></div>
@@ -95,15 +102,24 @@
   <div class="tbtns">
     <button id="tGate">Tor</button>
     <button id="tFly">Fliegen</button>
+    <button id="tView">Ansicht</button>
+    <button id="tBlocks">Blöcke</button>
     <button id="tJump">Springen</button>
     <button id="tBreak">Abbauen</button>
     <button id="tPlace">Bauen</button>
   </div>
 </div>
+<div id="palette" hidden>
+  <div class="card palcard">
+    <h2>Blöcke</h2>
+    <div id="palGrid"></div>
+    <button id="palClose">Fertig</button>
+  </div>
+</div>
 <div id="menu">
   <div class="card">
     <h1>Blockwelt</h1>
-    <p id="menuText">Vor dir steht ein riesiges Schloss. Drinnen warten ein Thronsaal, eine Bibliothek, ein Speisesaal, Schlafzimmer und eine Galerie voller Gemälde. Die Treppen führen über vier Etagen bis aufs Dach. Du stehst vor dem Burggraben. Zieh den Hebel oder drück Strg + G, dann senkt sich die Zugbrücke. Hinter dir liegt ein Dorf, und eine große Mauer umschließt die ganze Welt.</p>
+    <p id="menuText">Du bist ein Geschäftsmann, und dein Butler James begleitet dich überallhin. Vor dir steht ein riesiges Schloss mit Thronsaal, Bibliothek und Gemäldegalerie, auf dem Thron sitzt der König. Hinter dir liegt ein Dorf, und auf den Wiesen leben Kühe, Schafe, Schweine und Hühner. Zieh den Hebel oder drück Strg + G, dann senkt sich die Zugbrücke.</p>
     <button id="play" disabled>Welt wird erzeugt …</button>
     <button id="quality">Grafik: Auto</button>
     <div class="keys" id="keyList">
@@ -111,15 +127,20 @@
       <kbd>Maus</kbd><div>Umsehen</div>
       <kbd>Leertaste</kbd><div>Springen, Schwimmen, im Flug steigen</div>
       <kbd>Shift</kbd><div>Sprinten, im Flug sinken</div>
-      <kbd>Linksklick</kbd><div>Block abbauen</div>
-      <kbd>Rechtsklick</kbd><div>Block setzen</div>
+      <kbd>Linksklick</kbd><div>Block abbauen, Tiere angreifen</div>
+      <kbd>Rechtsklick</kbd><div>Block setzen, mit Leuten reden</div>
       <kbd>1–9 / Mausrad</kbd><div>Block auswählen</div>
+      <kbd>B</kbd><div>Alle Blöcke zum Bauen</div>
+      <kbd>Mittlere Maustaste</kbd><div>Angeschauten Block in die Hand nehmen</div>
+      <kbd>V</kbd><div>Ansicht wechseln, dich selbst von hinten oder vorne sehen</div>
+      <kbd>E</kbd><div>Hebel umlegen, reden, James warten oder folgen lassen</div>
       <kbd>F</kbd><div>Fliegen an / aus</div>
       <kbd>Strg + G</kbd><div>Zugbrücke und Tor von überall öffnen oder schließen</div>
-      <kbd>E / Rechtsklick</kbd><div>Hebel umlegen</div>
       <kbd>T</kbd><div>Zurück vor das Schlosstor</div>
       <kbd>Esc</kbd><div>Pause</div>
     </div>
+    <p class="tip">Fällst du einen Baum, fällt James die Bäume in der Nähe gleich mit. Greifst du ein Tier an, hilft er dir. Alles, was du baust, wird automatisch gespeichert.</p>
+    <button id="reset" class="linkbtn" hidden>Welt zurücksetzen</button>
   </div>
 </div>
 
@@ -129,13 +150,13 @@
   // ---------- Welt-Parameter ----------
   const W = 192, D = 256, H = 128, CS = 16, SEA = 22;
   const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, SAND = 4, LOG = 5, LEAVES = 6, WATER = 7, PLANKS = 8, COBBLE = 9, SNOW = 10, BRICK = 11,
-    SBRICK = 12, DPLANK = 13, RWOOL = 14, GOLD = 15, GLASS = 16, SHELF = 17, QUARTZ = 18, LAMP = 19, WWOOL = 20, BWOOL = 21, SLATE = 22, LEVER = 23, LEVER_ON = 24, BARS = 25, WHEAT = 26;
+    SBRICK = 12, DPLANK = 13, RWOOL = 14, GOLD = 15, GLASS = 16, SHELF = 17, QUARTZ = 18, LAMP = 19, WWOOL = 20, BWOOL = 21, SLATE = 22, LEVER = 23, LEVER_ON = 24, BARS = 25, WHEAT = 26, HEDGE = 27;
   const NAMES = { 1: "Gras", 2: "Erde", 3: "Stein", 4: "Sand", 5: "Holzstamm", 6: "Laub", 8: "Bretter", 9: "Bruchstein", 10: "Schnee", 11: "Ziegel",
     12: "Steinziegel", 13: "Dunkles Holz", 14: "Roter Teppich", 15: "Goldblock", 16: "Glas", 17: "Bücherregal", 18: "Quarz", 19: "Leuchtstein",
-    20: "Weiße Wolle", 21: "Blaue Wolle", 22: "Schiefer", 23: "Hebel", 24: "Hebel", 25: "Fallgitter", 26: "Weizen" };
+    20: "Weiße Wolle", 21: "Blaue Wolle", 22: "Schiefer", 23: "Hebel", 24: "Hebel", 25: "Fallgitter", 26: "Weizen", 27: "Hecke" };
   // [oben, unten, seite] -> Atlas-Kachel
   const TEX = { 1: [0, 2, 1], 2: [2, 2, 2], 3: [3, 3, 3], 4: [4, 4, 4], 5: [6, 6, 5], 6: [7, 7, 7], 7: [8, 8, 8], 8: [9, 9, 9], 9: [10, 10, 10], 10: [11, 2, 13], 11: [12, 12, 12],
-    12: [14, 14, 14], 13: [15, 15, 15], 14: [16, 16, 16], 15: [17, 17, 17], 16: [18, 18, 18], 17: [15, 15, 19], 18: [20, 20, 20], 19: [21, 21, 21], 20: [22, 22, 22], 21: [23, 23, 23], 22: [24, 24, 24], 23: [25, 20, 25], 24: [26, 20, 26], 25: [27, 27, 27], 26: [28, 28, 28] };
+    12: [14, 14, 14], 13: [15, 15, 15], 14: [16, 16, 16], 15: [17, 17, 17], 16: [18, 18, 18], 17: [15, 15, 19], 18: [20, 20, 20], 19: [21, 21, 21], 20: [22, 22, 22], 21: [23, 23, 23], 22: [24, 24, 24], 23: [25, 20, 25], 24: [26, 20, 26], 25: [27, 27, 27], 26: [28, 28, 28], 27: [7, 7, 7] };
   // Gemälde: Block-ID = Atlas-Kachel 32..63
   const PAINT = { land: { base: 32, w: 4, h: 3 }, sunset: { base: 44, w: 3, h: 2 }, portrait: { base: 50, w: 2, h: 3 }, abstract: { base: 56, w: 2, h: 2 },
     flower: { base: 60, w: 1, h: 1 }, moon: { base: 61, w: 1, h: 1 }, ship: { base: 62, w: 1, h: 1 }, castle: { base: 63, w: 1, h: 1 } };
@@ -244,6 +265,7 @@
   const gate = { x0: C - 3, x1: C + 3, z: C + 51, yTop: G0 + 12, closed: 12, open: false, t: 0 };
   const levers = [];
   const VIL = { x0: 36, x1: 156, z0: 158, z1: 242 };
+  const VIL_POI = []; // Orte, zu denen die Dorfbewohner gehen
   const bridge = { ang: 90, saved: new Map(), cur: [] };
   // Blöcke der Zugbrücke bei einem Winkel (90 = hochgeklappt, 0 = über dem Graben)
   function bridgeCells(ang) {
@@ -296,7 +318,7 @@
       fill(fx, G0 + 1, fz, fx, G0 + 3, fz, QUARTZ); setB(fx, G0 + 4, fz, WATER); setB(fx, G0 + 5, fz, GOLD);
     }
     for (const [x, z] of [[54, 76], [54, 96], [54, 116], [138, 76], [138, 96], [138, 116], [74, 55], [96, 55], [118, 55], [56, 140], [136, 140]]) plantTree(x, G0, z, rnd);
-    for (let z = 76; z <= 116; z++) for (const x of [60, 132]) if (z % 12 !== 0) setB(x, G0 + 1, z, LEAVES);
+    for (let z = 76; z <= 116; z++) for (const x of [60, 132]) if (z % 12 !== 0) setB(x, G0 + 1, z, HEDGE);
 
     // Bergfried: 4 Etagen à 12 Blöcke, Wände 2 dick
     const x0 = 68, x1 = 124, z0 = 72, z1 = 116, FH = 12, KT = G0 + FH * 4;
@@ -426,6 +448,7 @@
     if (door === "s") { dx = mx - 1; dz = z0 + d - 1; oz = 1; } else if (door === "n") { dx = mx - 1; dz = z0; oz = -1; }
     else if (door === "e") { dx = x0 + w - 1; dz = mz - 1; ox = 1; } else { dx = x0; dz = mz - 1; ox = -1; }
     fill(dx, y + 1, dz, dx, y + 2, dz, AIR);
+    VIL_POI.push([dx + ox + 0.5, dz + oz + 0.5], [x0 + (w >> 1) + 0.5, z0 + (d >> 1) + 0.5]);
     setB(dx + ox + (oz ? 1 : 0), y + 1, dz + oz + (ox ? 1 : 0), DPLANK); setB(dx + ox + (oz ? 1 : 0), y + 2, dz + oz + (ox ? 1 : 0), LAMP);
     const roof = [BRICK, SLATE, DPLANK][Math.floor(rnd() * 3)];
     for (let i = 0; ; i++) {
@@ -470,13 +493,15 @@
     // Felder mit Weizen und Bewässerung
     for (const fx of [44, 118]) {
       for (let z = 212; z <= 236; z++) for (let x = fx; x <= fx + 28; x++) {
-        if (x === fx || x === fx + 28 || z === 212 || z === 236) { setB(x, G0 + 1, z, LEAVES); continue; }
+        if (x === fx || x === fx + 28 || z === 212 || z === 236) { setB(x, G0 + 1, z, HEDGE); continue; }
         if ((z - 212) % 5 === 0) setB(x, G0, z, WATER);
         else { setB(x, G0, z, DIRT); setB(x, G0 + 1, z, WHEAT); }
       }
       fill(fx + 14, G0 + 1, 212, fx + 14, G0 + 1, 212, AIR);
     }
     for (const [x, z] of [[40, 170], [150, 170], [76, 240], [116, 240], [150, 206], [40, 206]]) plantTree(x, G0, z, rnd);
+    VIL_POI.push([89.5, 195.5], [103.5, 195.5], [89.5, 204.5], [103.5, 204.5], [C + 0.5, 193.5], [C + 3.5, 201.5], [C - 2.5, 201.5],
+      [C + 0.5, 170.5], [C + 0.5, 180.5], [C + 0.5, 225.5], [50.5, 196.5], [142.5, 196.5], [70.5, 196.5], [122.5, 196.5], [58.5, 210.5], [132.5, 210.5], [C + 0.5, 161.5]);
   }
 
   // ---------- Große Mauer rund um die Welt ----------
@@ -823,19 +848,99 @@
     const todo = new Set();
     for (const [x, y, z, b] of list) {
       world[idx(x, y, z)] = b;
+      if (b && y > topY[x + z * W]) topY[x + z * W] = y;
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) todo.add(Math.floor((x + dx) / CS) + "," + Math.floor((z + dz) / CS));
     }
     for (const k of todo) { const [cx, cz] = k.split(",").map(Number); rebuildChunk(cx, cz); }
   }
-  // Geräusche (erst nach einem Klick erlaubt)
-  let actx = null;
-  function beep(f, d, type, vol) {
+  // Vom Spieler oder von James veränderte Blöcke werden gemerkt und gespeichert
+  function editBlock(x, y, z, b) { setBlock(x, y, z, b); recordEdit(x, y, z, b); }
+
+  // ---------- Speichern (im Browser, pro Gerät) ----------
+  const SAVE_KEY = "blockwelt-save-v1";
+  const edits = new Map();
+  let saveTimer = 0, noSave = false;
+  function recordEdit(x, y, z, b) { edits.set(idx(x, y, z), b); saveSoon(); }
+  function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 1500); }
+  function saveNow() {
+    if (noSave || !worldReady) return;
     try {
-      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-      const o = actx.createOscillator(), g = actx.createGain();
-      o.type = type; o.frequency.value = f; g.gain.setValueAtTime(vol, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + d);
-      o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + d);
+      const e = [];
+      for (const [k, b] of edits) e.push(k, b);
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        v: 1, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false,
+        p: [P.x, P.y, P.z, P.yaw, P.pitch].map(n => Math.round(n * 1000) / 1000), fly: P.fly,
+      }));
+    } catch (err) {}
+  }
+  function loadSave() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      return s && s.v === 1 && Array.isArray(s.e) ? s : null;
+    } catch (err) { return null; }
+  }
+
+  // ---------- Geräusche (erst nach dem ersten Klick erlaubt) ----------
+  let actx = null, noiseBuf = null;
+  function initAudio() {
+    try {
+      if (!actx) {
+        actx = new (window.AudioContext || window.webkitAudioContext)();
+        const n = actx.sampleRate; noiseBuf = actx.createBuffer(1, n, n);
+        const d = noiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (actx.state === "suspended") actx.resume();
     } catch (e) {}
+  }
+  const ac = () => (actx && actx.state === "running") ? actx : null;
+  function beep(f, d, type, vol) {
+    const a = ac(); if (!a) return;
+    try {
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = type; o.frequency.value = f; g.gain.setValueAtTime(vol, a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + d);
+      o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + d);
+    } catch (e) {}
+  }
+  // Rauschen durch einen Filter: Schritte, Abbauen, Setzen
+  function noiseHit(freq, q, dur, vol, delay) {
+    const a = ac(); if (!a || vol < 0.002) return;
+    try {
+      const t0 = a.currentTime + (delay || 0), src = a.createBufferSource();
+      src.buffer = noiseBuf; src.playbackRate.value = 0.8 + Math.random() * 0.4;
+      const f = a.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+      const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      src.connect(f).connect(g).connect(a.destination); src.start(t0, Math.random() * 0.6); src.stop(t0 + dur + 0.02);
+    } catch (e) {}
+  }
+  // Tierstimmen aus Oszillatoren
+  function voice(f0, f1, dur, type, vol, o) {
+    const a = ac(); if (!a || vol < 0.002) return;
+    try {
+      o = o || {};
+      const t0 = a.currentTime + (o.delay || 0), osc = a.createOscillator();
+      osc.type = type; osc.frequency.setValueAtTime(f0, t0); osc.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+      if (o.vib) { const l = a.createOscillator(), lg = a.createGain(); l.frequency.value = o.vib[0]; lg.gain.value = o.vib[1]; l.connect(lg).connect(osc.frequency); l.start(t0); l.stop(t0 + dur); }
+      const f = a.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = o.lp || 2000; f.Q.value = o.q || 1;
+      const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.05, dur * 0.3));
+      g.gain.setValueAtTime(vol, t0 + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      let out = g;
+      if (o.trem) { const tg = a.createGain(), l = a.createOscillator(), lg = a.createGain(); tg.gain.value = 1 - o.trem[1] / 2; l.frequency.value = o.trem[0]; lg.gain.value = o.trem[1] / 2; l.connect(lg).connect(tg.gain); l.start(t0); l.stop(t0 + dur); g.connect(tg); out = tg; }
+      osc.connect(f).connect(g); out.connect(a.destination); osc.start(t0); osc.stop(t0 + dur + 0.05);
+    } catch (e) {}
+  }
+  const SND = {
+    moo: (v, p) => voice(118 * p, 88 * p, 1.1 / p, "sawtooth", 0.1 * v, { lp: 650, vib: [5, 3] }),
+    oink: (v, p) => { voice(250 * p, 160 * p, 0.15, "sawtooth", 0.08 * v, { lp: 1000, q: 3 }); voice(230 * p, 150 * p, 0.13, "sawtooth", 0.07 * v, { lp: 950, q: 3, delay: 0.19 }); },
+    baa: (v, p) => voice(330 * p, 290 * p, 0.65 / p, "square", 0.05 * v, { lp: 1400, trem: [21, 0.8] }),
+    cluck: (v, p) => { for (let i = 0; i < 3; i++) voice(980 * p, 640 * p, 0.06, "triangle", 0.06 * v, { lp: 3200, delay: i * 0.11 + Math.random() * 0.03 }); },
+  };
+  const matOf = b => (b === GRASS || b === LEAVES || b === HEDGE || b === WHEAT) ? "grass" : b === DIRT ? "dirt" : (b === SAND || b === SNOW) ? "sand"
+    : (b === LOG || b === PLANKS || b === DPLANK || b === SHELF || b >= 32) ? "wood" : (b === RWOOL || b === WWOOL || b === BWOOL) ? "wool" : b === GLASS ? "glass" : b === WATER ? "water" : "stone";
+  const MATSND = { grass: [560, 0.8], dirt: [380, 0.9], sand: [2500, 0.6], wood: [640, 3], wool: [300, 0.6], glass: [3000, 3], water: [800, 0.6], stone: [1500, 1.8] };
+  function blockSound(b, kind, vol) {
+    const m = matOf(b), [f, q] = MATSND[m];
+    noiseHit(f * (kind === "place" ? 0.8 : kind === "step" ? 1.05 : 1), q, kind === "step" ? 0.08 : kind === "hit" ? 0.1 : 0.2, vol);
+    if (m === "glass" && kind === "break") beep(1900 + Math.random() * 700, 0.3, "triangle", 0.03);
   }
   function toggleGate() {
     gate.open = !gate.open; gate.t = 0.3;
@@ -845,15 +950,24 @@
     clearTimeout(nameTimer); nameTimer = setTimeout(() => nameEl.style.opacity = 0, 2200);
   }
   function overlapsPlayer(x, y, z) { return x + 1 > P.x - 0.3 && x < P.x + 0.3 && z + 1 > P.z - 0.3 && z < P.z + 0.3 && y + 1 > P.y && y < P.y + 1.8; }
-  function moveBridge(ang) {
+  function moveBridge(ang, direct) {
     const next = bridgeCells(ang), nk = new Set(next.map(c => c.join(","))), ok = new Set(bridge.cur.map(c => c.join(",")));
-    if (next.some(([x, y, z]) => !ok.has(x + "," + y + "," + z) && overlapsPlayer(x, y, z))) return false;
+    if (!direct && next.some(([x, y, z]) => !ok.has(x + "," + y + "," + z) && overlapsPlayer(x, y, z))) return false;
     const list = [];
     for (const c of bridge.cur) { const k = c.join(","); if (!nk.has(k)) { list.push([...c, bridge.saved.get(k) ?? AIR]); bridge.saved.delete(k); } }
     for (const c of next) { const k = c.join(","); if (!ok.has(k)) { bridge.saved.set(k, get(...c)); list.push([...c, DPLANK]); } }
-    setBlocks(list); bridge.cur = next; bridge.ang = ang;
-    beep(90 + Math.random() * 30, 0.18, "triangle", 0.05);
+    if (direct) for (const [x, y, z, b] of list) world[idx(x, y, z)] = b;
+    else { setBlocks(list); beep(90 + Math.random() * 30, 0.18, "triangle", 0.05); }
+    bridge.cur = next; bridge.ang = ang;
     return true;
+  }
+  // Tor sofort offen (beim Laden einer gespeicherten Welt)
+  function gateInstantOpen() {
+    gate.open = true;
+    for (let a = 80; a >= 0; a -= 10) moveBridge(a, true);
+    for (let y = gate.yTop - 11; y <= gate.yTop; y++) for (let x = gate.x0; x <= gate.x1; x++) world[idx(x, y, gate.z)] = AIR;
+    gate.closed = 0;
+    for (const [x, y, z] of levers) world[idx(x, y, z)] = LEVER_ON;
   }
   function playerIn(y) { return P.x + 0.3 > gate.x0 && P.x - 0.3 < gate.x1 + 1 && P.z + 0.3 > gate.z && P.z - 0.3 < gate.z + 1 && P.y < y + 1 && P.y + 1.8 > y; }
   function updateGate(dt) {
@@ -871,7 +985,7 @@
   }
 
   // ---------- Spieler ----------
-  const P = { x: C + 0.5, y: 40, z: C + 64.5, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0.12, ground: false, fly: false };
+  const P = { x: C + 0.5, y: 40, z: C + 64.5, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0.12, ground: false, fly: false, inWater: false, stepD: 0, sprint: false };
   const keys = {};
   const joy = { x: 0, y: 0 };
   const solidAt = (x, y, z) => (x < 0 || z < 0 || x >= W || z >= D || y < 0) ? true : (y >= H ? false : solid(world[idx(x, y, z)]));
@@ -895,8 +1009,11 @@
     f -= joy.y; s += joy.x;
     const len = Math.hypot(f, s); if (len > 1) { f /= len; s /= len; }
     const inWater = blockAtF(P.x, P.y + 0.4, P.z) === WATER;
+    if (inWater && !P.inWater && P.vy < -3) noiseHit(700, 0.5, 0.35, 0.08);
+    P.inWater = inWater;
     const shift = keys.ShiftLeft || keys.ShiftRight;
     const sprinting = shift && !P.fly && f > 0;
+    P.sprint = sprinting;
     let sp = P.fly ? 12 : (sprinting ? 6.4 : 4.3);
     if (inWater && !P.fly) sp *= 0.55;
     const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
@@ -915,6 +1032,7 @@
       if (keys.Space && P.ground) P.vy = 8.6;
       P.vy = Math.max(P.vy, -50);
     }
+    const wasGround = P.ground, fallV = P.vy, ox = P.x, oz = P.z;
     P.ground = false;
     const n = Math.max(1, Math.ceil(dt / 0.008)), h = dt / n;
     for (let i = 0; i < n; i++) {
@@ -922,16 +1040,1349 @@
       let nz = P.z + P.vz * h; if (!hits(P.x, P.y, nz)) P.z = nz; else P.vz = 0;
       let ny = P.y + P.vy * h; if (!hits(P.x, ny, P.z)) P.y = ny; else { if (P.vy < 0) P.ground = true; P.vy = 0; }
     }
+    // Schritte und Landen hörbar machen
+    const under = get(Math.floor(P.x), Math.floor(P.y - 0.2), Math.floor(P.z));
+    if (P.ground && !P.fly) {
+      P.stepD += Math.hypot(P.x - ox, P.z - oz);
+      if (P.stepD > (sprinting ? 2.1 : 1.7)) { P.stepD = 0; blockSound(under, "step", 0.05); }
+      if (!wasGround && fallV < -7) blockSound(under, "step", 0.09);
+    }
     const targetFov = sprinting ? 84 : 75;
     if (Math.abs(camera.fov - targetFov) > 0.05) { camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix(); }
   }
 
-  // ---------- Zielen & Bauen ----------
-  const lookDir = new THREE.Vector3();
-  function raycast(max) {
-    const ox = camera.position.x, oy = camera.position.y, oz = camera.position.z;
-    camera.getWorldDirection(lookDir);
-    const dx = lookDir.x, dy = lookDir.y, dz = lookDir.z;
+  // ---------- Figuren: Modelle mit Gelenken, die Skins werden hier im Code gemalt ----------
+  // Maße in "Figuren-Pixeln" wie bei Minecraft (eine Figur ist 32 Pixel = 1,8 Blöcke groß).
+  // Anders als bei Minecraft haben Arme und Beine Ellbogen und Knie, und die Skins sind doppelt so fein.
+  const PXS = 1.8 / 32, RES = 2;
+  const c255 = v => v < 0 ? 0 : v > 255 ? 255 : v | 0;
+  const shade = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const flat = (c, a) => (f, x, y, w, h, v) => v(f === "ny" ? shade(c, 0.82) : f === "py" ? shade(c, 1.06) : c, a);
+  // Ecken jeder Seite (oben links, oben rechts, unten links, unten rechts) von außen gesehen, dann die Normale
+  const FACE_CORNERS = {
+    pz: [[0, 1, 1], [1, 1, 1], [0, 0, 1], [1, 0, 1], [0, 0, 1]],
+    nz: [[1, 1, 0], [0, 1, 0], [1, 0, 0], [0, 0, 0], [0, 0, -1]],
+    px: [[1, 1, 1], [1, 1, 0], [1, 0, 1], [1, 0, 0], [1, 0, 0]],
+    nx: [[0, 1, 0], [0, 1, 1], [0, 0, 0], [0, 0, 1], [-1, 0, 0]],
+    py: [[0, 1, 0], [1, 1, 0], [0, 1, 1], [1, 1, 1], [0, 1, 0]],
+    ny: [[0, 0, 1], [1, 0, 1], [0, 0, 0], [1, 0, 0], [0, -1, 0]],
+  };
+  // Wie weit vorne liegt ein Texel auf einer Seitenfläche (1 = Gesichtsseite)
+  const front = (f, x, w) => f === "px" ? 1 - (x + 0.5) / w : (x + 0.5) / w;
+
+  function buildModel(def) {
+    const rnd = mulberry32(def.seed || 99);
+    const v = (c, a) => { const d = (rnd() - 0.5) * (a === undefined ? 14 : a); return [c[0] + d, c[1] + d, c[2] + d, c.length > 3 ? c[3] : 255]; };
+    const bi = {}; def.bones.forEach((b, i) => bi[b.n] = i);
+    const abs = [];
+    def.bones.forEach((b, i) => { const p = b.p ? abs[bi[b.p]] : [0, 0, 0]; abs[i] = [p[0] + b.at[0], p[1] + b.at[1], p[2] + b.at[2]]; });
+    const rects = [];
+    for (const bx of def.boxes) {
+      const inf = bx.i || 0, f = [bx.f[0] - inf, bx.f[1] - inf, bx.f[2] - inf], t = [bx.t[0] + inf, bx.t[1] + inf, bx.t[2] + inf];
+      const tw = Math.max(1, Math.round((bx.t[0] - bx.f[0]) * RES)), th = Math.max(1, Math.round((bx.t[1] - bx.f[1]) * RES)), td = Math.max(1, Math.round((bx.t[2] - bx.f[2]) * RES));
+      for (const fn of ["pz", "nz", "px", "nx", "py", "ny"]) {
+        if (bx.skip && bx.skip.includes(fn)) continue;
+        rects.push({ bx, fn, w: fn === "px" || fn === "nx" ? td : tw, h: fn === "py" || fn === "ny" ? td : th, f, t });
+      }
+    }
+    // Alle Flächen in eine Textur packen (Regal-Verfahren)
+    const S = 256; let sx = 0, sy = 0, sh = 0;
+    for (const r of rects.slice().sort((a, b) => b.h - a.h || b.w - a.w)) {
+      if (sx + r.w > S) { sx = 0; sy += sh + 1; sh = 0; }
+      r.x = sx; r.y = sy; sx += r.w + 1; sh = Math.max(sh, r.h);
+    }
+    let SH = 16; while (SH < sy + sh) SH *= 2;
+    const cv = document.createElement("canvas"); cv.width = S; cv.height = SH;
+    const g = cv.getContext("2d"), img = g.createImageData(S, SH);
+    for (const r of rects) for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) {
+      const c = r.bx.p(r.fn, x, y, r.w, r.h, v);
+      if (!c) continue;
+      const k = ((r.y + y) * S + r.x + x) * 4;
+      img.data[k] = c255(c[0]); img.data[k + 1] = c255(c[1]); img.data[k + 2] = c255(c[2]); img.data[k + 3] = c.length > 3 ? c255(c[3]) : 255;
+    }
+    g.putImageData(img, 0, 0);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+    const pos = [], nor = [], uv = [], sk = [], sw = [], ind = [];
+    for (const r of rects) {
+      const b = bi[r.bx.b], o = abs[b], F = FACE_CORNERS[r.fn];
+      const lo = [(o[0] + r.f[0]) * PXS, (o[1] + r.f[1]) * PXS, (o[2] + r.f[2]) * PXS], hi = [(o[0] + r.t[0]) * PXS, (o[1] + r.t[1]) * PXS, (o[2] + r.t[2]) * PXS];
+      const base = pos.length / 3, e = 0.02;
+      const u0 = (r.x + e) / S, u1 = (r.x + r.w - e) / S, vt = 1 - (r.y + e) / SH, vb = 1 - (r.y + r.h - e) / SH;
+      const UV = [[u0, vt], [u1, vt], [u0, vb], [u1, vb]];
+      for (let k = 0; k < 4; k++) {
+        const c = F[k];
+        pos.push(c[0] ? hi[0] : lo[0], c[1] ? hi[1] : lo[1], c[2] ? hi[2] : lo[2]);
+        nor.push(F[4][0], F[4][1], F[4][2]); uv.push(UV[k][0], UV[k][1]); sk.push(b, 0, 0, 0); sw.push(1, 0, 0, 0);
+      }
+      ind.push(base, base + 2, base + 3, base, base + 3, base + 1);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    geo.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(sk, 4));
+    geo.setAttribute("skinWeight", new THREE.Float32BufferAttribute(sw, 4));
+    geo.setIndex(ind);
+    geo.computeBoundingSphere(); geo.boundingSphere.radius *= 1.3;
+    const mat = new THREE.MeshLambertMaterial({ map: tex, skinning: true, alphaTest: 0.5, side: def.double ? THREE.DoubleSide : THREE.FrontSide });
+    return { def, geo, tex, bi, abs, canvas: cv, mat };
+  }
+  // Ein Exemplar mit eigenem Skelett (alle Exemplare teilen Form und Textur)
+  function makeRig(M) {
+    const bones = M.def.bones.map(b => { const o = new THREE.Bone(); o.position.set(b.at[0] * PXS, b.at[1] * PXS, b.at[2] * PXS); if (b.n === "head") o.rotation.order = "YXZ"; return o; });
+    M.def.bones.forEach((b, i) => { if (b.p) bones[M.bi[b.p]].add(bones[i]); });
+    const mesh = new THREE.SkinnedMesh(M.geo, M.mat.clone());
+    mesh.add(bones[0]); mesh.updateMatrixWorld(true);
+    mesh.bind(new THREE.Skeleton(bones), mesh.matrixWorld);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    const B = {};
+    M.def.bones.forEach((b, i) => { B[b.n] = bones[i]; bones[i].userData.p0 = bones[i].position.clone(); });
+    return { mesh, B };
+  }
+
+  // --- Bausteine für Menschen ---
+  const humanBones = extra => [
+    { n: "root", at: [0, 0, 0] },
+    { n: "body", p: "root", at: [0, 12, 0] },
+    { n: "head", p: "body", at: [0, 12, 0] },
+    { n: "armR", p: "body", at: [-6, 10, 0] },
+    { n: "foreR", p: "armR", at: [0, -4, 0] },
+    { n: "armL", p: "body", at: [6, 10, 0] },
+    { n: "foreL", p: "armL", at: [0, -4, 0] },
+    { n: "legR", p: "root", at: [-2, 12, 0] },
+    { n: "shinR", p: "legR", at: [0, -6, 0] },
+    { n: "legL", p: "root", at: [2, 12, 0] },
+    { n: "shinL", p: "legL", at: [0, -6, 0] },
+  ].concat(extra || []);
+  const SKIN = [234, 188, 152], SHIRT = [238, 239, 242], EYE_W = [240, 240, 236];
+  // Kopf mit Gesicht; o: skin, hair, style (short, slick, long, bald), brow, iris, mouth, beard, mustache, cheek, unibrow
+  function humanHead(o) {
+    const S = o.skin;
+    return (f, x, y, w, h, v) => {
+      if (f === "py") return o.style === "bald" ? v(shade(S, 0.97), 8) : v(o.hair, 18);
+      if (f === "ny") return v(shade(S, 0.78), 6);
+      if (f === "nz") {
+        const hr = o.style === "long" ? 16 : o.style === "bald" ? 0 : 12;
+        if (o.style === "bald" && y > 6 && y < 11) return v(o.hair, 12);
+        if (y < hr) return v(o.hair, 18);
+        return v(shade(S, 0.9), 6);
+      }
+      if (f === "px" || f === "nx") {
+        const fr = front(f, x, w);
+        if (o.style === "bald") { if (y > 6 && y < 11 && fr < 0.4) return v(o.hair, 12); }
+        else if (y < 3 || (fr < 0.6 && y < (o.style === "long" ? 16 : 10)) || (o.style === "long" && fr < 0.8 && y < 13)) return v(o.hair, 18);
+        if (o.beard && y >= 9 && fr > 0.45) return v(o.beard, 16);
+        if (fr > 0.36 && fr < 0.56 && y >= 6 && y <= 10) return v(shade(S, y === 6 || y === 10 ? 0.9 : 0.8), 5);
+        return v(shade(S, 0.95), 7);
+      }
+      // Gesicht
+      const hairRows = o.style === "bald" ? 0 : o.style === "slick" ? (x < 2 || x > 13 ? 4 : 2) : o.style === "long" ? (x < 3 || x > 12 ? 7 : 3) : (x < 10 ? 4 : 3);
+      if (y < hairRows) return v(o.hair, 16);
+      if (o.style === "long" && (x < 1 || x > 14)) return v(o.hair, 16);
+      if (y === 5 && (o.unibrow ? (x >= 2 && x <= 13) : ((x >= 2 && x <= 5) || (x >= 10 && x <= 13)))) return v(o.brow, 8);
+      if (y === 6 || y === 7) {
+        const ex = x >= 2 && x <= 5 ? x - 2 : x >= 10 && x <= 13 ? x - 10 : -1;
+        if (ex >= 0) return ex === 1 || ex === 2 ? (y === 6 ? o.iris : shade(o.iris, 0.5)) : EYE_W;
+      }
+      if (o.mustache && y === 10 && x >= 3 && x <= 12) return v(o.mustache, 10);
+      if (o.beard && (y >= 11 || (y >= 8 && (x <= 1 || x >= 14)))) {
+        if (y === 11 && x >= 6 && x <= 9) return o.mouth;
+        return v(o.beard, 16);
+      }
+      if (y === 11 && x >= 5 && x <= 10) return x === 5 || x === 10 ? shade(o.mouth, 0.85) : o.mouth;
+      if (y === 12 && x >= 6 && x <= 9) return mix(o.mouth, S, 0.55);
+      if (y === 9 && (x === 7 || x === 8)) return shade(S, 0.84);
+      if (o.cheek && y === 9 && (x === 3 || x === 12)) return mix(S, [236, 120, 110], 0.35);
+      if (y === 15) return v(shade(S, 0.9), 5);
+      return v(S, 7);
+    };
+  }
+  // Haare als eigene, etwas größere Schicht (wirkt räumlich)
+  const hairCap = (c, style) => (f, x, y, w, h, v) => {
+    if (f === "ny") return null;
+    if (f === "py" || f === "nz") return v(c, 18);
+    if (f === "pz") {
+      if (style === "part") return (y < 2 || (y < 4 && x < 10) || x < 1 || x > 14) ? v(c, 18) : null;
+      if (style === "slick") return (y < 1 || x < 2 || x > 13) ? v(c, 16) : null;
+      return y < 3 ? v(c, 18) : null;
+    }
+    return (front(f, x, w) < 0.66 || y < 3) ? v(c, 18) : null;
+  };
+  // Unterarm: Ärmel, Manschette, Hand
+  const forearm = (sleeve, cuff, hand, cloth) => (f, x, y, w, h, v) => {
+    if (f === "ny") return v(shade(hand, 0.9), 6);
+    if (f === "py") return cloth ? cloth(x, y, v) : v(sleeve, 8);
+    if (y >= 8) return v(y === 11 ? shade(hand, 0.9) : hand, 6);
+    if (y >= 6) return v(cuff, 5);
+    return cloth ? cloth(x, y, v) : v(sleeve, 8);
+  };
+  const upper = (sleeve, cloth) => (f, x, y, w, h, v) => cloth ? cloth(x, y, v) : v(f === "py" ? shade(sleeve, 1.05) : sleeve, 8);
+  // Unterschenkel mit Schuh
+  const shin = (pants, shoe, cloth, shoeRows) => (f, x, y, w, h, v) => {
+    const sr = shoeRows || 4;
+    if (f === "ny") return v(shade(shoe, 0.6), 5);
+    if (f === "py") return v(pants, 6);
+    if (y >= 12 - sr) return v(y === 12 - sr && f === "pz" ? mix(shoe, [255, 255, 255], 0.2) : shoe, 6);
+    return cloth ? cloth(x, y, v) : v(pants, 8);
+  };
+  const thigh = (pants, cloth, stripeFace) => (f, x, y, w, h, v) => {
+    if (stripeFace && f === stripeFace && (x === 3 || x === 4)) return v(mix(pants, [120, 120, 130], 0.35), 4);
+    if (f === "pz" && (x === 3 || x === 4) && !stripeFace) return v(mix(pants, [255, 255, 255], 0.08), 4);
+    return cloth ? cloth(x, y, v) : v(pants, 8);
+  };
+  const shinStripe = (pants, shoe, stripeFace) => (f, x, y, w, h, v) => {
+    if (y < 8 && f === stripeFace && (x === 3 || x === 4)) return v(mix(pants, [120, 120, 130], 0.35), 4);
+    return shin(pants, shoe)(f, x, y, w, h, v);
+  };
+  // Ein Mensch: Kopf, Rumpf, zweiteilige Arme und Beine
+  function human(o) {
+    const B = humanBones(o.bones);
+    const boxes = [
+      { b: "head", f: [-4, 0, -4], t: [4, 8, 4], p: humanHead(o.head) },
+      { b: "body", f: [-4, 0, -2], t: [4, 12, 2], p: o.torso },
+      { b: "armR", f: [-2, -4, -2], t: [2, 2, 2], p: o.arm },
+      { b: "foreR", f: [-2, -6, -2], t: [2, 0, 2], p: o.fore },
+      { b: "armL", f: [-2, -4, -2], t: [2, 2, 2], p: o.arm },
+      { b: "foreL", f: [-2, -6, -2], t: [2, 0, 2], p: o.fore },
+      { b: "legR", f: [-2, -6, -2], t: [2, 0, 2], p: o.thighR || o.thigh },
+      { b: "shinR", f: [-2, -6, -2], t: [2, 0, 2], p: o.shinR || o.shin },
+      { b: "legL", f: [-2, -6, -2], t: [2, 0, 2], p: o.thighL || o.thigh },
+      { b: "shinL", f: [-2, -6, -2], t: [2, 0, 2], p: o.shinL || o.shin },
+    ].concat(o.extra || []);
+    return { seed: o.seed, bones: B, boxes, double: o.double };
+  }
+
+  // --- Geschäftsmann (der Spieler) ---
+  const NAVY = [32, 42, 70], NAVY_D = [21, 28, 48], TIE = [170, 26, 38];
+  const suit = (x, y, v) => v(x % 3 === 0 ? mix(NAVY, [96, 112, 150], 0.22) : NAVY, 7);
+  const suitD = (x, y, v) => v(x % 3 === 0 ? mix(NAVY_D, [80, 96, 130], 0.2) : NAVY_D, 6);
+  function defBusiness() {
+    return human({
+      seed: 11,
+      head: { skin: SKIN, hair: [62, 42, 27], style: "short", brow: [52, 34, 22], iris: [70, 104, 146], mouth: [164, 98, 88] },
+      torso: (f, x, y, w, h, v) => {
+        if (f === "pz") {
+          const vx = Math.abs(x - 7.5), open = (13 - y) * 0.27 + 0.9;
+          if (y <= 1 && x >= 4 && x <= 11) return v(SHIRT, 4);
+          if (y < 13 && vx < open) { if (vx < 1.1) return v(y < 2 ? shade(TIE, 0.85) : TIE, 8); return v(SHIRT, 5); }
+          if (y < 14 && vx < open + 1.3) return v(NAVY_D, 6);
+          if ((x === 7 || x === 8) && (y === 15 || y === 19)) return [16, 18, 28];
+          if (x >= 11 && x <= 13 && (y === 5 || y === 6)) return y === 5 ? [244, 244, 244] : [196, 36, 48];
+          if (y >= 22) return suitD(x, y, v);
+          return suit(x, y, v);
+        }
+        if (f === "nz") return (y > 15 && (x === 7 || x === 8)) ? v(NAVY_D, 5) : suit(x, y, v);
+        if (f === "py") return (y >= 4 && x >= 5 && x <= 10) ? v(SHIRT, 5) : v(NAVY, 6);
+        if (f === "ny") return v(NAVY_D, 6);
+        return suit(x, y, v);
+      },
+      arm: upper(NAVY, suit),
+      fore: forearm(NAVY, SHIRT, SKIN, suit),
+      thigh: thigh(NAVY, suit),
+      shin: shin(NAVY, [26, 22, 22], suit),
+      extra: [
+        { b: "head", f: [-4, 5.5, -4], t: [4, 8, 4], i: 0.35, p: hairCap([62, 42, 27], "part") },
+        { b: "body", f: [-0.9, 4.2, 2], t: [0.9, 10.4, 2.4], p: (f, x, y, w, h, v) => v((x + y) % 4 === 0 ? shade(TIE, 0.7) : TIE, 6) },
+        { b: "body", f: [-1.2, 10.2, 2], t: [1.2, 11.5, 2.55], p: flat(shade(TIE, 0.9), 6) },
+        { b: "foreL", f: [1.9, -3.2, -1.2], t: [2.25, -2.2, 1.2], p: flat([230, 190, 70], 10) }, // Armbanduhr
+      ],
+    });
+  }
+
+  // --- Butler James ---
+  const BLACK = [24, 24, 28], WAIST = [64, 64, 74], GLOVE = [242, 242, 236], GOLDC = [232, 188, 64];
+  function defButler() {
+    const tail = (f, x, y, w, h, v) => (f === "pz" || f === "nz") && (x === 6 || x === 7) && y > 3 ? null : v(y > 14 ? shade(BLACK, 0.8) : BLACK, 5);
+    return human({
+      seed: 21,
+      bones: [{ n: "tails", p: "body", at: [0, 1, -2] }, { n: "umb", p: "foreR", at: [0, -5.5, 0] }, { n: "axe", p: "foreR", at: [0, -5.5, 0] }],
+      head: { skin: [228, 186, 158], hair: [172, 172, 178], style: "slick", brow: [124, 124, 130], iris: [98, 68, 46], mouth: [150, 96, 88], mustache: [166, 166, 172] },
+      torso: (f, x, y, w, h, v) => {
+        if (f === "pz") {
+          const vx = Math.abs(x - 7.5);
+          if (y <= 1 && x >= 5 && x <= 10) return v(SHIRT, 4);
+          if (y < 9 && vx < 1.6) return v(SHIRT, 5);
+          if (y < 18 && vx < 3.6) {
+            if ((x === 7 || x === 8) && (y === 9 || y === 12 || y === 15)) return GOLDC;
+            if (y === 11 && x >= 9 && x <= 11) return v(GOLDC, 10);
+            return v(WAIST, 6);
+          }
+          if (y < 13 && vx < 4.8) return v([44, 44, 52], 5);
+          return v(BLACK, 5);
+        }
+        if (f === "nz") { if (y === 16 && (x === 4 || x === 11)) return [60, 60, 66]; return v(y === 17 ? shade(BLACK, 0.7) : BLACK, 5); }
+        if (f === "py") return (y >= 4 && x >= 5 && x <= 10) ? v(SHIRT, 4) : v(BLACK, 5);
+        return v(BLACK, 5);
+      },
+      arm: upper(BLACK),
+      fore: forearm(BLACK, SHIRT, GLOVE),
+      thighR: thigh(BLACK, null, "nx"), thighL: thigh(BLACK, null, "px"),
+      shinR: shinStripe(BLACK, [16, 16, 18], "nx"), shinL: shinStripe(BLACK, [16, 16, 18], "px"),
+      extra: [
+        { b: "head", f: [-4, 5, -4], t: [4, 8, 4], i: 0.3, p: hairCap([172, 172, 178], "slick") },
+        { b: "body", f: [-1.8, 10.5, 2], t: [1.8, 11.9, 2.5], p: (f, x, y, w, h, v) => v(f === "pz" && (x === 3) ? [60, 60, 66] : [14, 14, 16], 4) }, // Fliege
+        { b: "tails", f: [-3.6, -9, -0.6], t: [3.6, 0, 0], p: tail },
+        // Handtuch über dem linken Unterarm
+        { b: "foreL", f: [-2.4, -5.4, 2], t: [2.5, -1.2, 2.45], p: (f, x, y, w, h, v) => v((x === 2 || x === 3) ? [150, 170, 210] : [246, 246, 242], 5) },
+        { b: "foreL", f: [2.05, -5.4, -5.5], t: [2.5, -1.2, 2.45], p: (f, x, y, w, h, v) => v(y === 12 || y === 13 ? [150, 170, 210] : [246, 246, 242], 5) },
+        { b: "foreL", f: [-2.5, -5.4, -3.5], t: [-2.05, -1.2, 2.45], p: flat([240, 240, 236], 5) },
+        // Regenschirm (als Spazierstock und im Kampf)
+        { b: "umb", f: [-0.5, -0.6, -0.5], t: [0.5, 2.2, 0.5], p: flat([120, 80, 46], 8) },
+        { b: "umb", f: [-0.5, 1.6, 0.5], t: [0.5, 2.6, 2.4], p: flat([120, 80, 46], 8) },
+        { b: "umb", f: [-0.45, -12.5, -0.45], t: [0.45, -0.6, 0.45], p: flat([30, 30, 34], 6) },
+        { b: "umb", f: [-1.3, -10.5, -1.3], t: [1.3, -3, 1.3], p: (f, x, y, w, h, v) => v(y === 6 || y === 7 ? [70, 70, 80] : [30, 30, 36], 6) },
+        { b: "umb", f: [-0.3, -13.2, -0.3], t: [0.3, -12.4, 0.3], p: flat([210, 210, 216], 6) },
+        // Axt zum Holzhacken
+        { b: "axe", f: [-0.45, -0.45, -1.5], t: [0.45, 0.45, 10], p: flat([130, 90, 50], 10) },
+        { b: "axe", f: [-0.55, -3.4, 7], t: [0.55, 1.2, 10], p: (f, x, y, w, h, v) => v((f === "ny" || y >= 7) ? [226, 230, 236] : [150, 154, 162], 8) },
+      ],
+    });
+  }
+
+  // --- König ---
+  const ROYAL = [152, 22, 36];
+  const ermine = (x, y, v) => (x % 4 === 1 && y % 3 === 1) ? [24, 24, 26] : v([246, 244, 238], 6);
+  function defKing() {
+    return human({
+      seed: 31, double: true,
+      bones: [{ n: "cape", p: "body", at: [0, 12, -2] }, { n: "scep", p: "foreR", at: [0, -5.5, 0] }],
+      head: { skin: [232, 186, 154], hair: [238, 238, 234], style: "long", brow: [238, 238, 234], iris: [74, 112, 176], mouth: [176, 92, 92], beard: [240, 240, 236], mustache: [240, 240, 236], cheek: true },
+      torso: (f, x, y, w, h, v) => {
+        if (f === "py") return ermine(x, y, v);
+        if (y < 4) return ermine(x, y, v);
+        if (y === 15 || y === 16) return v(GOLDC, 10);
+        if (f === "pz" && (x === 7 || x === 8)) return (y % 4 === 1) ? [255, 226, 110] : v(GOLDC, 10);
+        return v(x % 4 === 0 ? shade(ROYAL, 0.8) : ROYAL, 8);
+      },
+      arm: (f, x, y, w, h, v) => v(x % 4 === 0 ? shade(ROYAL, 0.8) : ROYAL, 8),
+      fore: (f, x, y, w, h, v) => {
+        if (f === "ny") return v(SKIN, 5);
+        if (y >= 7) return (y === 9 && x === 1 && f === "pz") ? [250, 210, 80] : v(y === 11 ? shade(SKIN, 0.9) : SKIN, 6);
+        if (y >= 4) return ermine(x, y, v);
+        return v(ROYAL, 8);
+      },
+      thigh: flat([88, 34, 92], 8),
+      shin: shin([88, 34, 92], [220, 176, 60]),
+      extra: [
+        { b: "head", f: [-3.6, -2.2, 3.8], t: [3.6, 3.4, 5.4], p: (f, x, y, w, h, v) => v((x + y * 2) % 5 === 0 ? [216, 216, 212] : [244, 244, 240], 6) },
+        { b: "head", f: [-4.5, 7.2, -4.5], t: [4.5, 10.4, 4.5], skip: ["py", "ny"], p: (f, x, y, w, h, v) => {
+          if (y < 3 && !(x % 6 === 2 || x % 6 === 3)) return null;
+          if (y === 4 && x % 6 === 3) return [210, 30, 40];
+          if (y === 4 && x % 6 === 0) return [40, 90, 200];
+          return v(y < 2 ? [255, 222, 110] : GOLDC, 10);
+        } },
+        { b: "cape", f: [-4.6, -21, -0.8], t: [4.6, 0, 0], p: (f, x, y, w, h, v) => y < 4 ? ermine(x, y, v) : y > 38 ? v(GOLDC, 10) : v(x % 5 === 0 ? shade(ROYAL, 0.75) : shade(ROYAL, 0.9), 8) },
+        { b: "scep", f: [-0.35, -0.35, -3], t: [0.35, 0.35, 12], p: flat(GOLDC, 10) },
+        { b: "scep", f: [-1, -1, 12], t: [1, 1, 14], p: flat([210, 30, 44], 10) },
+        { b: "scep", f: [-0.3, -0.3, 14], t: [0.3, 0.3, 16], p: flat([255, 226, 110], 6) },
+      ],
+    });
+  }
+
+  // --- Wache ---
+  const IRON = [166, 170, 178], MAIL = (x, y, v) => v((x + y) % 2 ? [104, 108, 116] : [142, 146, 154], 6), GUARD_RED = [150, 26, 36];
+  function defGuard() {
+    return human({
+      seed: 41,
+      bones: [{ n: "spear", p: "foreR", at: [0, -5.5, 0] }],
+      head: { skin: [224, 178, 142], hair: [58, 38, 22], style: "short", brow: [40, 26, 16], iris: [86, 62, 40], mouth: [146, 88, 78] },
+      torso: (f, x, y, w, h, v) => {
+        if ((f === "pz" || f === "nz") && x >= 3 && x <= 12) {
+          if (y === 15 || y === 16) return (f === "pz" && (x === 7 || x === 8)) ? [220, 190, 80] : v([96, 64, 36], 6);
+          if (f === "pz" && y >= 6 && y <= 11) {
+            const cx = Math.abs(x - 7.5);
+            if ((y === 6 && (x === 5 || x === 7 || x === 8 || x === 10)) || (y >= 7 && y <= 10 && cx < 3) || (y === 11 && cx < 3.5)) return v(GOLDC, 12);
+          }
+          return v(x === 3 || x === 12 ? shade(GUARD_RED, 0.75) : GUARD_RED, 8);
+        }
+        if (f === "py") return (x >= 3 && x <= 12) ? v(GUARD_RED, 8) : MAIL(x, y, v);
+        return MAIL(x, y, v);
+      },
+      arm: (f, x, y, w, h, v) => MAIL(x, y, v),
+      fore: (f, x, y, w, h, v) => (y >= 6 || f === "ny") ? v([112, 74, 42], 8) : MAIL(x, y, v),
+      thigh: flat([72, 74, 84], 8),
+      shin: shin([72, 74, 84], [92, 60, 34], null, 7),
+      extra: [
+        { b: "head", f: [-4, 3.5, -4], t: [4, 8.5, 4], i: 0.5, skip: ["ny"], p: (f, x, y, w, h, v) => {
+          if (f === "pz" && y >= 4 && !((x === 7 || x === 8) && y <= 8)) return null;
+          if (f === "py" && (x === 7 || x === 8)) return v(shade(IRON, 0.8), 6);
+          if (y === 3 && x % 4 === 1) return [220, 222, 228];
+          return v(IRON, 10);
+        } },
+        { b: "head", f: [-0.5, 9, -3], t: [0.5, 11.6, 2.5], p: flat([196, 32, 44], 12) },
+        { b: "spear", f: [-0.4, -0.4, -18], t: [0.4, 0.4, 22], p: flat([124, 86, 50], 10) },
+        { b: "spear", f: [-0.2, -0.9, 22], t: [0.2, 0.9, 26.5], p: flat([214, 218, 226], 8) },
+        { b: "spear", f: [-0.1, 0.4, 15.5], t: [0.1, 3.6, 19.5], p: flat([196, 32, 44], 8) },
+      ],
+    });
+  }
+
+  // --- Dorfbewohner (mit der typischen Minecraft-Nase) ---
+  const NOSE = { b: "head", f: [-1, -0.5, 4], t: [1, 3.5, 6], p: (f, x, y, w, h, v) => v(shade([214, 160, 124], f === "ny" ? 0.8 : 1), 6) };
+  function defVillager(kind) {
+    const V = {
+      farmer: { shirt: [104, 132, 64], pants: [58, 82, 128], shoe: [96, 64, 36], hair: [96, 62, 34], skin: [222, 172, 132] },
+      baker: { shirt: [118, 158, 206], pants: [240, 240, 236], shoe: [30, 26, 26], hair: [226, 186, 94], skin: [238, 194, 160] },
+      smith: { shirt: [70, 70, 78], pants: [72, 52, 36], shoe: [28, 26, 26], hair: [54, 36, 24], skin: [206, 150, 112] },
+      trader: { shirt: [112, 52, 134], pants: [92, 72, 50], shoe: [96, 64, 36], hair: [40, 30, 24], skin: [196, 140, 100] },
+      kid: { shirt: [232, 186, 48], pants: [60, 94, 170], shoe: [180, 50, 40], hair: [150, 96, 50], skin: [240, 198, 164] },
+    }[kind];
+    const S = V.skin;
+    const head = { skin: S, hair: V.hair, style: kind === "smith" ? "bald" : kind === "baker" ? "long" : "short", brow: shade(V.hair, 0.7), iris: [70, 110, 60], mouth: [150, 88, 80], unibrow: kind !== "kid" && kind !== "baker", beard: kind === "smith" ? [54, 36, 24] : null };
+    let torso = flat(V.shirt, 10), extra = [];
+    if (kind !== "kid") extra.push(NOSE);
+    if (kind === "farmer") {
+      torso = (f, x, y, w, h, v) => {
+        if (y >= 12 || ((f === "pz" || f === "nz") && (x === 3 || x === 4 || x === 11 || x === 12))) return v(V.pants, 8);
+        if (f === "pz" && y >= 8 && x >= 5 && x <= 10) return v(V.pants, 8);
+        return v(V.shirt, 10);
+      };
+      extra.push({ b: "head", f: [-6.5, 6.8, -6.5], t: [6.5, 7.6, 6.5], p: (f, x, y, w, h, v) => v((x + y) % 3 ? [226, 196, 112] : [196, 164, 84], 8) });
+      extra.push({ b: "head", f: [-4.4, 7.6, -4.4], t: [4.4, 10, 4.4], p: (f, x, y, w, h, v) => v(f !== "py" && y >= 2 && y <= 3 ? [150, 60, 40] : (x + y) % 3 ? [226, 196, 112] : [196, 164, 84], 8) });
+    } else if (kind === "baker") {
+      torso = (f, x, y, w, h, v) => (f === "pz" && x >= 3 && x <= 12 && y >= 5) ? v([246, 246, 242], 5) : v(V.shirt, 8);
+      extra.push({ b: "body", f: [-4.4, -7.5, -2.6], t: [4.4, 0.5, 2.6], p: (f, x, y, w, h, v) => (f === "pz" && x >= 3 && x <= 14) ? v([246, 246, 242], 5) : v(y > 13 ? shade(V.shirt, 0.8) : V.shirt, 8) });
+      extra.push({ b: "head", f: [-4.3, 7, -4.3], t: [4.3, 12.5, 4.3], p: (f, x, y, w, h, v) => v(y > 8 && f !== "py" ? [210, 210, 214] : [250, 250, 250], 5) });
+    } else if (kind === "smith") {
+      torso = (f, x, y, w, h, v) => (f === "pz" && x >= 2 && x <= 13 && y >= 3) ? v(y === 14 ? [70, 46, 26] : [120, 78, 44], 8) : v(V.shirt, 8);
+      extra.push({ b: "head", f: [-3.6, -2.5, 3.8], t: [3.6, 2.6, 5.3], p: flat([54, 36, 24], 10) });
+    } else if (kind === "trader") {
+      torso = (f, x, y, w, h, v) => (f === "pz" || f === "nz") && Math.abs(x - y * 0.6 - 1) < 1.3 ? v(GOLDC, 10) : v(V.shirt, 8);
+      extra.push({ b: "head", f: [-4.4, 6.5, -4.4], t: [4.4, 9.2, 4.4], p: flat([56, 120, 72], 10) });
+      extra.push({ b: "head", f: [3.2, 7.5, -2.5], t: [3.7, 12.5, 1], p: (f, x, y, w, h, v) => v(y < 3 ? [210, 40, 40] : [246, 246, 242], 5) });
+    } else {
+      torso = (f, x, y, w, h, v) => y >= 20 ? v(V.pants, 8) : v(V.shirt, 8);
+    }
+    return human({
+      seed: 51 + kind.length, head, torso,
+      arm: kind === "kid" ? (f, x, y, w, h, v) => y < 6 ? v(V.shirt, 8) : v(S, 6) : upper(V.shirt),
+      fore: kind === "kid" ? flat(S, 6) : forearm(V.shirt, shade(V.shirt, 0.85), S),
+      thigh: kind === "baker" ? flat([240, 240, 236], 5) : flat(V.pants, 8),
+      shin: kind === "kid" ? shin(S, V.shoe, null, 3) : shin(V.pants, V.shoe),
+      extra: kind === "baker" || kind === "kid" ? extra.concat([{ b: "head", f: [-4, 4.5, -4], t: [4, 8, 4], i: 0.3, p: hairCap(V.hair, kind === "kid" ? "part" : "long") }]) : extra,
+    });
+  }
+
+  // --- Tiere ---
+  const hooves = (c, hoof, rows) => (f, x, y, w, h, v) => (f === "ny" || y >= h - rows) ? v(hoof, 8) : v(c, 10);
+  function quadBones(bodyY, headAt, legs, extra) {
+    return [
+      { n: "root", at: [0, 0, 0] },
+      { n: "body", p: "root", at: [0, bodyY, 0] },
+      { n: "head", p: "body", at: headAt },
+      { n: "legFR", p: "root", at: [-legs[0], bodyY, legs[1]] },
+      { n: "legFL", p: "root", at: [legs[0], bodyY, legs[1]] },
+      { n: "legBR", p: "root", at: [-legs[0], bodyY, -legs[1]] },
+      { n: "legBL", p: "root", at: [legs[0], bodyY, -legs[1]] },
+    ].concat(extra || []);
+  }
+  function defPig() {
+    const PINK = [238, 164, 162];
+    const eyes = (f, x, y, w, h, v) => {
+      if (f === "pz" && (y === 5 || y === 6)) { if (x === 1 || x === 14) return [246, 246, 246]; if (x === 2 || x === 13) return [22, 18, 18]; }
+      return v(f === "ny" ? shade(PINK, 0.85) : PINK, 10);
+    };
+    return {
+      seed: 61,
+      bones: quadBones(6, [0, 5, 7], [3, 5], [{ n: "tail", p: "body", at: [0, 6, -8] }]),
+      boxes: [
+        { b: "body", f: [-5, 0, -8], t: [5, 8, 8], p: (f, x, y, w, h, v) => {
+          if (f === "py" && hash(x, y, 71) > 0.93) return v([150, 104, 84], 12);
+          return v(f === "ny" ? shade(PINK, 0.86) : hash(x, y, 72) > 0.9 ? shade(PINK, 0.93) : PINK, 10);
+        } },
+        { b: "head", f: [-4, -4, 0], t: [4, 4, 7], p: eyes },
+        { b: "head", f: [-2, -3.5, 7], t: [2, 0, 8], p: (f, x, y, w, h, v) => (f === "pz" && y >= 2 && y <= 4 && (x === 1 || x === 2 || x === 5 || x === 6)) ? [120, 60, 62] : v(shade(PINK, 0.9), 6) },
+        { b: "head", f: [-4.4, 2.5, 1], t: [-2.4, 4.5, 3], p: flat(shade(PINK, 0.88), 6) },
+        { b: "head", f: [2.4, 2.5, 1], t: [4.4, 4.5, 3], p: flat(shade(PINK, 0.88), 6) },
+        { b: "legFR", f: [-2, -6, -2], t: [2, 0, 2], p: hooves(PINK, [150, 100, 100], 2) },
+        { b: "legFL", f: [-2, -6, -2], t: [2, 0, 2], p: hooves(PINK, [150, 100, 100], 2) },
+        { b: "legBR", f: [-2, -6, -2], t: [2, 0, 2], p: hooves(PINK, [150, 100, 100], 2) },
+        { b: "legBL", f: [-2, -6, -2], t: [2, 0, 2], p: hooves(PINK, [150, 100, 100], 2) },
+        { b: "tail", f: [-0.5, -1, -0.8], t: [0.5, 1.8, 0], p: (f, x, y, w, h, v) => v(y % 2 ? shade(PINK, 0.8) : PINK, 6) },
+      ],
+    };
+  }
+  function defCow() {
+    const BR = [92, 62, 44], WH = [238, 236, 230];
+    const spots = (f, x, y, s) => noise((x + (f === "px" ? 40 : f === "nx" ? 80 : f === "py" ? 120 : 0)) / 5, y / 5, s) > 0.58;
+    const coat = s => (f, x, y, w, h, v) => v(spots(f, x, y, s) ? WH : (f === "ny" ? shade(BR, 0.85) : BR), 10);
+    const leg = s => (f, x, y, w, h, v) => (f === "ny" || y >= 21) ? v([54, 44, 38], 6) : v(spots(f, x, y + s * 10, 9) ? WH : BR, 10);
+    return {
+      seed: 62,
+      bones: quadBones(12, [0, 6, 9], [4, 6], [{ n: "tail", p: "body", at: [0, 9, -9] }]),
+      boxes: [
+        { b: "body", f: [-6, 0, -9], t: [6, 10, 9], p: coat(5) },
+        { b: "body", f: [-2, -1.5, -6], t: [2, 0, -2], p: (f, x, y, w, h, v) => (f === "ny" && (x === 1 || x === 6) && (y === 2 || y === 5)) ? [200, 120, 130] : v([240, 176, 176], 6) },
+        { b: "head", f: [-4, -4, 0], t: [4, 4, 6], p: (f, x, y, w, h, v) => {
+          if (f === "pz") {
+            if (y >= 10) return (y === 12 && (x === 4 || x === 11)) ? [70, 44, 44] : v([214, 184, 170], 6);
+            if (y === 5 && (x === 1 || x === 14)) return [20, 16, 16];
+            if (y === 5 && (x === 2 || x === 13)) return [236, 236, 236];
+            if (x >= 6 && x <= 9 && y < 9) return v(WH, 6);
+          }
+          return v(f === "ny" ? [214, 184, 170] : BR, 10);
+        } },
+        { b: "head", f: [-5.6, 3, 1], t: [-4, 5.6, 2.6], p: (f, x, y, w, h, v) => v(y < 2 ? [120, 116, 104] : [232, 226, 206], 6) },
+        { b: "head", f: [4, 3, 1], t: [5.6, 5.6, 2.6], p: (f, x, y, w, h, v) => v(y < 2 ? [120, 116, 104] : [232, 226, 206], 6) },
+        { b: "head", f: [-6.2, 1, 2], t: [-4, 2.6, 3.4], p: flat(BR, 8) },
+        { b: "head", f: [4, 1, 2], t: [6.2, 2.6, 3.4], p: flat(BR, 8) },
+        { b: "legFR", f: [-2, -12, -2], t: [2, 0, 2], p: leg(1) }, { b: "legFL", f: [-2, -12, -2], t: [2, 0, 2], p: leg(2) },
+        { b: "legBR", f: [-2, -12, -2], t: [2, 0, 2], p: leg(3) }, { b: "legBL", f: [-2, -12, -2], t: [2, 0, 2], p: leg(4) },
+        { b: "tail", f: [-0.5, -10, -0.6], t: [0.5, 0, 0.4], p: (f, x, y, w, h, v) => v(y >= 16 ? [40, 30, 24] : BR, 8) },
+      ],
+    };
+  }
+  const WOOL = { white: [236, 234, 228], silver: [168, 168, 170], gray: [108, 108, 112], black: [40, 40, 46], brown: [112, 80, 54], pink: [240, 164, 196] };
+  function defSheep(col) {
+    const WC = WOOL[col], FACE = [218, 200, 180];
+    const wool = (f, x, y, w, h, v) => { const n = noise(x / 2.2 + (f.charCodeAt(1) * 7), y / 2.2, 91); return v(n > 0.62 ? mix(WC, [255, 255, 255], 0.12) : n < 0.3 ? shade(WC, 0.86) : WC, 8); };
+    return {
+      seed: 63,
+      bones: quadBones(12, [0, 5, 8], [3, 5]),
+      boxes: [
+        { b: "body", f: [-6, -1.5, -8.5], t: [6, 9, 8.5], p: wool },
+        { b: "head", f: [-3, -3.5, 0], t: [3, 3.5, 7], p: (f, x, y, w, h, v) => {
+          if (f === "pz") {
+            if (y === 4 && (x === 1 || x === 10)) return [236, 236, 236];
+            if (y === 4 && (x === 2 || x === 9)) return [24, 20, 20];
+            if (y >= 10 && y <= 11 && x >= 5 && x <= 6) return [200, 140, 140];
+          }
+          return v(FACE, 8);
+        } },
+        { b: "head", f: [-3.5, 0.6, -0.8], t: [3.5, 4.2, 4.6], p: wool },
+        { b: "head", f: [-4.6, 0.8, 2.5], t: [-3, 1.9, 4.2], p: flat(FACE, 6) },
+        { b: "head", f: [3, 0.8, 2.5], t: [4.6, 1.9, 4.2], p: flat(FACE, 6) },
+        ...["legFR", "legFL", "legBR", "legBL"].map(b => ({ b, f: [-2, -12, -2], t: [2, 0, 2], p: (f, x, y, w, h, v) => y < 9 && f !== "ny" ? wool(f, x, y, w, h, v) : (f === "ny" || y >= 21) ? v([80, 70, 62], 6) : v(FACE, 8) })),
+      ],
+    };
+  }
+  function defChicken() {
+    const WH = [246, 246, 240], OR = [236, 170, 44];
+    const feathers = (f, x, y, w, h, v) => v(hash(x, y, 81 + f.length) > 0.8 ? [226, 226, 218] : WH, 6);
+    return {
+      seed: 64,
+      bones: [
+        { n: "root", at: [0, 0, 0] }, { n: "body", p: "root", at: [0, 5, 0] }, { n: "head", p: "body", at: [0, 4, 3.5] },
+        { n: "legR", p: "root", at: [-1.5, 5, 0.5] }, { n: "legL", p: "root", at: [1.5, 5, 0.5] },
+        { n: "wingR", p: "body", at: [-3, 5, 0] }, { n: "wingL", p: "body", at: [3, 5, 0] },
+      ],
+      boxes: [
+        { b: "body", f: [-3, 0, -4], t: [3, 6, 4], p: feathers },
+        { b: "body", f: [-2, 3, -5.2], t: [2, 7.5, -4], p: feathers },
+        { b: "head", f: [-2, 0, -1.5], t: [2, 6, 1.5], p: (f, x, y, w, h, v) => {
+          if (y === 3 && ((f === "pz" && (x === 0 || x === 7)) || ((f === "px" || f === "nx") && front(f, x, w) > 0.6 && front(f, x, w) < 0.9))) return [20, 20, 20];
+          return v(WH, 5);
+        } },
+        { b: "head", f: [-2, 2, 1.5], t: [2, 4, 3.5], p: (f, x, y, w, h, v) => v(y > 1 ? shade(OR, 0.85) : OR, 6) },
+        { b: "head", f: [-1, 0.3, 1.5], t: [1, 2.3, 2.4], p: flat([214, 32, 32], 8) },
+        { b: "head", f: [-0.5, 6, -1], t: [0.5, 7.6, 1.4], p: flat([214, 32, 32], 8) },
+        { b: "legR", f: [-0.5, -5, -0.5], t: [0.5, 0, 0.5], p: flat(OR, 6) }, { b: "legL", f: [-0.5, -5, -0.5], t: [0.5, 0, 0.5], p: flat(OR, 6) },
+        { b: "legR", f: [-1.4, -5, -1.2], t: [1.4, -4.4, 1.8], p: flat(OR, 6) }, { b: "legL", f: [-1.4, -5, -1.2], t: [1.4, -4.4, 1.8], p: flat(OR, 6) },
+        { b: "wingR", f: [-1, -4.5, -3], t: [0, 0, 3], p: feathers }, { b: "wingL", f: [0, -4.5, -3], t: [1, 0, 3], p: feathers },
+      ],
+    };
+  }
+
+  const MODEL_DEFS = {
+    business: defBusiness, butler: defButler, king: defKing, guard: defGuard,
+    farmer: () => defVillager("farmer"), baker: () => defVillager("baker"), smith: () => defVillager("smith"), trader: () => defVillager("trader"), kid: () => defVillager("kid"),
+    pig: defPig, cow: defCow, chicken: defChicken,
+  };
+  for (const c in WOOL) MODEL_DEFS["sheep_" + c] = () => defSheep(c);
+  const MODELS = {};
+  const model = name => MODELS[name] || (MODELS[name] = buildModel(MODEL_DEFS[name]()));
+
+  // ---------- Lebewesen: Bewegung, Wegsuche und Verhalten ----------
+  const ents = [];
+  let butler = null, pathQuota = 0;
+  const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const inCastle = (x, z) => Math.max(Math.abs(x - C - 0.5), Math.abs(z - C - 0.5)) < 62.5;
+
+  function spawnEnt(kind, mname, x, y, z, o) {
+    const M = model(mname), rig = makeRig(M);
+    const e = Object.assign({
+      kind, m: mname, mesh: rig.mesh, B: rig.B, x, y, z, vx: 0, vy: 0, vz: 0, dvx: 0, dvz: 0, yaw: 0, yawT: 0,
+      headYaw: 0, headPitch: 0, headYawT: 0, headPitchT: 0, ground: false, blocked: false, inWater: false, r: 0.3, h: 1.8, eye: 1.6,
+      walk: 0, phase: 0, phase0: Math.random() * 6, swingT: -1, hurt: 0, dead: -1, state: "idle", timer: Math.random() * 4,
+      path: null, pi: 0, repath: 0, jumpCd: 0, talkT: 0, scale: 1, speed: 1.6, stuckT: 0, lastD: 0, progT: 0, sndT: 4 + Math.random() * 10,
+    }, o || {});
+    e.yawT = e.yaw;
+    e.mesh.scale.setScalar(e.scale);
+    e.mesh.position.set(e.x, e.y, e.z); e.mesh.rotation.y = e.yaw;
+    scene.add(e.mesh);
+    ents.push(e);
+    return e;
+  }
+  function removeEnt(e) {
+    const i = ents.indexOf(e); if (i >= 0) ents.splice(i, 1);
+    scene.remove(e.mesh); e.mesh.material.dispose(); if (e.mesh.skeleton.dispose) e.mesh.skeleton.dispose();
+    for (const o of ents) if (o.target === e) o.target = null;
+  }
+
+  // Kollision einer Figur (Quader mit Radius r und Höhe h) mit den Blöcken
+  function hitsBox(x, y, z, r, h) {
+    const x0 = Math.floor(x - r), x1 = Math.floor(x + r), y0 = Math.floor(y), y1 = Math.floor(y + h - 0.02), z0 = Math.floor(z - r), z1 = Math.floor(z + r);
+    for (let by = y0; by <= y1; by++) for (let bz = z0; bz <= z1; bz++) for (let bx = x0; bx <= x1; bx++) if (solidAt(bx, by, bz)) return true;
+    return false;
+  }
+  function entPhysics(e, dt) {
+    const inWater = blockAtF(e.x, e.y + 0.3, e.z) === WATER;
+    e.inWater = inWater;
+    if (inWater) {
+      e.vy -= 10 * dt; e.vy *= Math.pow(0.3, dt);
+      if (blockAtF(e.x, e.y + e.h * 0.62, e.z) === WATER) e.vy += 24 * dt;
+      e.vy = Math.max(-3, Math.min(e.vy, 3));
+    } else { e.vy -= 28 * dt; e.vy = Math.max(e.vy, e.type === "chicken" ? -3 : -50); }
+    const k = Math.min(1, dt * (e.ground ? 12 : 3));
+    e.vx += (e.dvx - e.vx) * k; e.vz += (e.dvz - e.vz) * k;
+    e.ground = false; e.blocked = false;
+    const n = Math.max(1, Math.ceil(dt / 0.02)), h = dt / n;
+    for (let i = 0; i < n; i++) {
+      const nx = e.x + e.vx * h; if (!hitsBox(nx, e.y, e.z, e.r, e.h)) e.x = nx; else { e.blocked = true; e.vx = 0; }
+      const nz = e.z + e.vz * h; if (!hitsBox(e.x, e.y, nz, e.r, e.h)) e.z = nz; else { e.blocked = true; e.vz = 0; }
+      const ny = e.y + e.vy * h; if (!hitsBox(e.x, ny, e.z, e.r, e.h)) e.y = ny; else { if (e.vy < 0) e.ground = true; e.vy = 0; }
+    }
+    // Über eine Stufe springen, auch aus dem Wasser heraus
+    e.jumpCd -= dt;
+    if (e.blocked && (e.ground || inWater) && e.jumpCd <= 0 && (e.dvx || e.dvz)) { e.vy = inWater ? 7 : 8.4; e.jumpCd = 0.45; }
+    // Eingeklemmt (etwa von der Zugbrücke): nach oben schieben
+    if (hitsBox(e.x, e.y + 0.05, e.z, e.r * 0.7, Math.min(e.h, 1) * 0.9)) { e.y = Math.floor(e.y) + 1; e.vy = 0; }
+    if (e.y < -20) { e.y = topY[Math.floor(e.x) + Math.floor(e.z) * W] + 1; e.vy = 0; }
+  }
+
+  // --- Wegsuche (A*) über begehbare Felder: fester Block drunter, zwei freie darüber ---
+  function standable(x, y, z) {
+    if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1 || y < 1 || y >= H - 2) return false;
+    const b0 = world[idx(x, y, z)], b1 = world[idx(x, y + 1, z)], bb = world[idx(x, y - 1, z)];
+    return !solid(b0) && !solid(b1) && b0 !== WATER && solid(bb) && bb !== BARS;
+  }
+  class Heap {
+    constructor() { this.k = []; this.p = []; }
+    get size() { return this.k.length; }
+    push(k, p) { const a = this.k, b = this.p; let i = a.length; a.push(k); b.push(p); while (i > 0) { const j = (i - 1) >> 1; if (b[j] <= p) break; a[i] = a[j]; b[i] = b[j]; i = j; } a[i] = k; b[i] = p; }
+    pop() {
+      const a = this.k, b = this.p, top = a[0], lk = a.pop(), lp = b.pop(), n = a.length;
+      if (n) { let i = 0; for (;;) { let c = 2 * i + 1; if (c >= n) break; if (c + 1 < n && b[c + 1] < b[c]) c++; if (b[c] >= lp) break; a[i] = a[c]; b[i] = b[c]; i = c; } a[i] = lk; b[i] = lp; }
+      return top;
+    }
+  }
+  const DIRS8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  function findPath(sx, sy, sz, gx, gy, gz, near, budget) {
+    const WD = W * D, hf = (x, y, z) => Math.hypot(x - gx, z - gz) + Math.abs(y - gy) * 0.7;
+    // Startfeld: falls die Figur gerade halb in der Luft ist, darunter suchen
+    for (let d = 0; d < 3 && !standable(sx, sy, sz); d++) sy--;
+    if (!standable(sx, sy, sz)) sy += 3;
+    const sk = sx + sz * W + sy * WD, open = new Heap(), g = new Map(), came = new Map();
+    g.set(sk, 0); open.push(sk, hf(sx, sy, sz));
+    let best = sk, bestH = hf(sx, sy, sz), n = 0, found = false;
+    while (open.size && n++ < budget) {
+      const cur = open.pop(), cx = cur % W, cz = Math.floor(cur / W) % D, cy = Math.floor(cur / WD);
+      const hc = hf(cx, cy, cz);
+      if (hc < bestH) { bestH = hc; best = cur; }
+      if (Math.max(Math.abs(cx - gx), Math.abs(cz - gz)) <= near && Math.abs(cy - gy) <= 1) { best = cur; found = true; break; }
+      const gc = g.get(cur);
+      for (const [dx, dz] of DIRS8) {
+        const nx = cx + dx, nz = cz + dz, diag = dx && dz;
+        if (diag && (solidAt(cx + dx, cy, cz) || solidAt(cx + dx, cy + 1, cz) || solidAt(cx, cy, cz + dz) || solidAt(cx, cy + 1, cz + dz))) continue;
+        let ny = -1;
+        if (standable(nx, cy, nz)) ny = cy;
+        else if (!diag && standable(nx, cy + 1, nz) && !solidAt(cx, cy + 2, cz)) ny = cy + 1;
+        else if (!diag && !solidAt(nx, cy, nz) && !solidAt(nx, cy + 1, nz) && get(nx, cy, nz) !== WATER) {
+          for (let d = 1; d <= 3; d++) { if (standable(nx, cy - d, nz)) { ny = cy - d; break; } if (solidAt(nx, cy - d, nz) || get(nx, cy - d, nz) === WATER) break; }
+        }
+        if (ny < 0) continue;
+        const nk = nx + nz * W + ny * WD, cost = gc + (diag ? 1.414 : 1) + (ny > cy ? 0.6 : ny < cy ? 0.3 : 0);
+        const old = g.get(nk);
+        if (old === undefined || cost < old) { g.set(nk, cost); came.set(nk, cur); open.push(nk, cost + hf(nx, ny, nz) * 1.2); }
+      }
+    }
+    if (best === sk) { if (!found) return null; const p0 = []; p0.found = true; return p0; }
+    const path = [];
+    for (let k = best; k !== sk; k = came.get(k)) path.push([k % W, Math.floor(k / WD), Math.floor(k / W) % D]);
+    path.reverse(); path.found = found;
+    return path;
+  }
+  // Einem Weg folgen; gibt true zurück, wenn das Ende erreicht ist
+  function followPath(e, speed) {
+    while (e.path && e.pi < e.path.length) {
+      const [px, py, pz] = e.path[e.pi], tx = px + 0.5 - e.x, tz = pz + 0.5 - e.z, d = Math.hypot(tx, tz);
+      if (d < 0.32 && Math.abs(e.y - py) < 1.1) { e.pi++; continue; }
+      e.dvx = tx / d * speed; e.dvz = tz / d * speed; e.yawT = Math.atan2(tx, tz);
+      if (py > e.y + 0.4 && (e.ground || e.inWater) && d < 1.4 && e.jumpCd <= 0) { e.vy = 8.4; e.jumpCd = 0.4; }
+      return false;
+    }
+    e.dvx = e.dvz = 0;
+    return true;
+  }
+  function lookAt(e, tx, ty, tz, bodyToo) {
+    const dx = tx - e.x, dz = tz - e.z, a = Math.atan2(dx, dz);
+    if (bodyToo || Math.abs(wrapA(a - e.yawT)) > 1.1) e.yawT = bodyToo ? a : a - Math.sign(wrapA(a - e.yawT)) * 0.8;
+    e.headYawT = Math.max(-1, Math.min(1, wrapA(a - e.yaw)));
+    e.headPitchT = Math.max(-0.7, Math.min(0.8, -Math.atan2(ty - (e.y + e.eye), Math.hypot(dx, dz))));
+  }
+  function lookAhead(e) { e.headYawT = 0; e.headPitchT = 0.05; }
+  function steerTo(e, tx, tz, speed) {
+    const dx = tx - e.x, dz = tz - e.z, d = Math.hypot(dx, dz) || 1;
+    e.dvx = dx / d * speed; e.dvz = dz / d * speed; e.yawT = Math.atan2(dx, dz);
+  }
+  const distP = e => Math.hypot(P.x - e.x, P.z - e.z);
+  // Feld unter den Füßen des Spielers (auch wenn er fliegt oder springt)
+  function playerCell() {
+    const x = Math.floor(P.x), z = Math.floor(P.z);
+    for (let y = Math.floor(P.y + 0.05), n = 0; n < 24 && y > 1; y--, n++) if (standable(x, y, z)) return [x, y, z];
+    return null;
+  }
+  // Freien Platz nahe (tx,ty,tz) suchen, möglichst nah an der Wunschstelle (tx+ox, tz+oz)
+  function freeSpotNear(tx, ty, tz, ox, oz) {
+    const cx = Math.floor(tx), cy = Math.floor(ty + 0.05), cz = Math.floor(tz);
+    let best = null, bd = 1e9;
+    for (let dy = -3; dy <= 3; dy++) for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+      if (Math.abs(dx) + Math.abs(dz) < 2) continue;
+      if (!standable(cx + dx, cy + dy, cz + dz)) continue;
+      const sc = Math.abs(dy) * 2 + Math.hypot(cx + dx + 0.5 - tx - ox, cz + dz + 0.5 - tz - oz);
+      if (sc < bd) { bd = sc; best = [cx + dx + 0.5, cy + dy, cz + dz + 0.5]; }
+    }
+    return best;
+  }
+  // Wo James am liebsten erscheint: schräg links vor dem Spieler, damit man ihn gleich sieht
+  const frontLeft = () => [-Math.sin(P.yaw) * 2.3 - Math.cos(P.yaw) * 1.6, -Math.cos(P.yaw) * 2.3 + Math.sin(P.yaw) * 1.6];
+  function teleportTo(e, spot) {
+    if (!spot) return false;
+    poof(e.x, e.y + 1, e.z, 10);
+    e.x = spot[0]; e.y = spot[1]; e.z = spot[2]; e.vx = e.vy = e.vz = 0; e.path = null; e.stuckT = 0;
+    poof(e.x, e.y + 1, e.z, 10);
+    return true;
+  }
+  function butlerToPlayer() {
+    if (!butler) return;
+    const s = freeSpotNear(P.x, P.y, P.z, ...frontLeft());
+    if (s) { teleportTo(butler, s); butler.yawT = butler.yaw = Math.atan2(P.x - s[0], P.z - s[2]); }
+  }
+
+  // --- Sprechen ---
+  let sayT = 0;
+  function say(who, text) { hintEl.textContent = (who ? who + ": " : "") + "„" + text + "“"; hintEl.hidden = false; sayT = 3.6; }
+
+  // --- Kampf ---
+  function damage(t, amt, src, kb) {
+    if (t.dead >= 0 || t.hp === undefined) return false;
+    t.hp -= amt; t.hurt = 0.35;
+    const dx = t.x - src.x, dz = t.z - src.z, d = Math.hypot(dx, dz) || 1, k = kb || 6;
+    t.vx = dx / d * k; t.vz = dz / d * k; t.vy = 5.5; t.ground = false;
+    if (t.voice) SND[t.voice](Math.max(0, 1 - distP(t) / 24), 1.35);
+    const c = t.m.startsWith("sheep") ? WOOL[t.m.slice(6)] : t.m === "cow" ? [110, 76, 54] : t.m === "pig" ? [238, 164, 162] : [246, 246, 240];
+    emit(t.x, t.y + t.h * 0.6, t.z, 8, () => c, 0.09, 2.5);
+    if (t.hp <= 0) { t.dead = 0; t.dvx = t.dvz = 0; t.state = "dead"; }
+    else if (t.kind === "animal") { t.state = "panic"; t.timer = 5; t.turnT = 0; }
+    return true;
+  }
+
+  // ---------- Butler James ----------
+  const JAMES_HELLO = ["Zu Diensten, der Herr.", "Wünschen der Herr einen Tee?", "Ein prächtiges Schloss, wenn ich das sagen darf.", "Ich bleibe stets an Ihrer Seite.", "Soll ich die Hecken schneiden lassen?"];
+  function butlerThink(e, dt) {
+    const dist = distP(e);
+    if (e.target && (e.target.dead >= 0 || !ents.includes(e.target) || Math.hypot(e.target.x - e.x, e.target.z - e.z) > 28)) e.target = null;
+    if (e.job && dist > 26) { e.job = null; e.tool = "umb"; }
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, true); return; }
+    if (e.target) return butlerFight(e, dt);
+    if (e.job) return butlerChop(e, dt);
+    e.tool = "umb";
+    if (e.stay) { e.dvx = e.dvz = 0; if (dist < 10) lookAt(e, P.x, P.y + 1.62, P.z); else lookAhead(e); return; }
+    butlerFollow(e, dt, dist);
+  }
+  function butlerFollow(e, dt, dist) {
+    const dy = P.y - e.y;
+    if (dist < 2.8 && Math.abs(dy) < 2.5) {
+      e.path = null; e.stuckT = 0;
+      // Nicht ins Bild laufen: schaut die Kamera von hinten und James steht genau dazwischen, tritt er zur Seite
+      const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), bx = (e.x - P.x) / (dist || 1), bz = (e.z - P.z) / (dist || 1);
+      if (camMode === 1 && -(fx * bx + fz * bz) > 0.75) {
+        const side = Math.cos(P.yaw) * bx - Math.sin(P.yaw) * bz >= 0 ? 1 : -1;
+        for (const sd of [side, -side]) {
+          const tx = P.x + Math.cos(P.yaw) * 1.9 * sd - fx * 0.4, tz = P.z - Math.sin(P.yaw) * 1.9 * sd - fz * 0.4;
+          if (standable(Math.floor(tx), Math.floor(e.y + 0.05), Math.floor(tz))) { steerTo(e, tx, tz, 2.4); lookAhead(e); return; }
+        }
+      }
+      e.dvx = e.dvz = 0;
+      lookAt(e, P.x, P.y + 1.62, P.z);
+      return;
+    }
+    // Weit weg oder festgefahren: zum Spieler kommen (wie ein Haustier in Minecraft)
+    if ((dist > 30 || Math.abs(dy) > 14 || e.stuckT > 3) && (P.ground || P.inWater)) { butlerToPlayer(); return; }
+    e.repath -= dt;
+    if (e.repath <= 0) {
+      e.repath = 0.7;
+      const g = playerCell();
+      if (g && pathQuota > -2) { pathQuota--; e.path = findPath(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z), g[0], g[1], g[2], 1, 2600); e.pi = 0; }
+    }
+    const sp = dist > 9 ? 5.6 : 4.3;
+    if (e.path) { if (followPath(e, sp)) { e.path = null; steerTo(e, P.x, P.z, sp); } }
+    else steerTo(e, P.x, P.z, sp);
+    lookAhead(e);
+    // Kommt er voran?
+    e.progT += dt;
+    if (e.progT > 1) { e.stuckT = (e.lastD - dist < 0.6) ? e.stuckT + e.progT : 0; e.lastD = dist; e.progT = 0; }
+  }
+  function butlerFight(e, dt) {
+    const t = e.target, dx = t.x - e.x, dz = t.z - e.z, d = Math.hypot(dx, dz), dy = t.y - e.y;
+    e.tool = "umb";
+    e.atkT = (e.atkT || 0) - dt;
+    if (d < 2.3 + t.r && Math.abs(dy) < 1.8) {
+      // In Reichweite des Regenschirms: zuschlagen und dabei dranbleiben
+      lookAt(e, t.x, t.y + t.h * 0.6, t.z, true);
+      if (d > 1.1 + t.r) steerTo(e, t.x, t.z, 4.5); else e.dvx = e.dvz = 0;
+      if (e.atkT <= 0) {
+        e.atkT = 0.55; e.swingT = 0; e.swingDur = 0.3;
+        damage(t, 3, e, 3.5); noiseHit(900, 1.2, 0.08, 0.06 * Math.max(0, 1 - distP(e) / 30));
+      }
+      return;
+    }
+    if (d < 8 && Math.abs(dy) < 1.2) { e.path = null; steerTo(e, t.x, t.z, 6.2); }
+    else {
+      e.repath -= dt;
+      if (e.repath <= 0) { e.repath = 0.5; if (pathQuota > -2) { pathQuota--; e.path = findPath(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z), Math.floor(t.x), Math.floor(t.y + 0.05), Math.floor(t.z), 1, 1500); e.pi = 0; } }
+      if (e.path) { if (followPath(e, 6)) e.path = null; } else steerTo(e, t.x, t.z, 6);
+    }
+    lookAt(e, t.x, t.y + t.h * 0.6, t.z);
+  }
+
+  // Bäume erkennen: ein Stamm mit Laub oben drauf (Hauspfosten zählen nicht)
+  function treeAt(x, y, z) {
+    const logs = []; let top = y;
+    for (let yy = y - 8; yy <= y + 8; yy++) if (get(x, yy, z) === LOG) { logs.push([x, yy, z]); top = Math.max(top, yy); }
+    let leaves = 0;
+    for (let dy = -1; dy <= 3; dy++) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (get(x + dx, top + dy, z + dz) === LEAVES) leaves++;
+    return leaves >= 6 && logs.length ? logs : null;
+  }
+  // Der Spieler hat bei (x,y,z) einen Stamm abgebaut: James fällt den Rest und die Bäume daneben
+  function butlerHelpTree(x, y, z) {
+    const e = butler;
+    if (!e || e.stay || e.target || Math.hypot(e.x - x, e.z - z) > 26) return;
+    const trees = [], t0 = treeAt(x, y, z);
+    if (t0) trees.push(t0);
+    const cand = [];
+    for (let dz = -9; dz <= 9; dz++) for (let dx = -9; dx <= 9; dx++) {
+      if (!dx && !dz) continue;
+      for (let yy = y - 6; yy <= y + 4; yy++) {
+        if (get(x + dx, yy, z + dz) === LOG && get(x + dx, yy - 1, z + dz) !== LOG) { const t = treeAt(x + dx, yy, z + dz); if (t) cand.push([Math.hypot(dx, dz), t]); break; }
+      }
+    }
+    cand.sort((a, b) => a[0] - b[0]);
+    for (const [, t] of cand) if (trees.length < 4) trees.push(t);
+    if (!trees.length) return;
+    const had = !!e.job;
+    e.job = { trees, cur: null, hits: 0, t: 0, giveUp: 0 };
+    e.path = null;
+    if (!had) say("James", pick(["Erlauben Sie, der Herr, ich übernehme die Bäume.", "Sehr wohl, ich hole das restliche Holz.", "Einen Moment, ich fälle die Bäume daneben."]));
+  }
+  function butlerChop(e, dt) {
+    const J = e.job;
+    if (!J.cur) {
+      while (J.trees.length && !J.trees[0].some(p => get(p[0], p[1], p[2]) === LOG)) J.trees.shift();
+      if (!J.trees.length) { e.job = null; e.tool = "umb"; say("James", "Erledigt, der Herr."); return; }
+      J.cur = J.trees[0].find(p => get(p[0], p[1], p[2]) === LOG);
+      J.base = J.trees[0][0][1]; J.hits = 0; J.giveUp = 14; J.fails = 0; e.path = null; e.repath = 0;
+    }
+    const [lx, ly, lz] = J.cur;
+    if (get(lx, ly, lz) !== LOG) { J.cur = null; return; }
+    J.giveUp -= dt;
+    if (J.giveUp <= 0) { J.trees.shift(); J.cur = null; return; }
+    const dx = lx + 0.5 - e.x, dz = lz + 0.5 - e.z, dh = Math.hypot(dx, dz), dy = ly + 0.5 - (e.y + 1.5);
+    if (dh < 2.8 && dy > -2.6 && dy < 4.6 && (e.ground || e.inWater)) {
+      e.dvx = e.dvz = 0; e.path = null; e.tool = "axe";
+      lookAt(e, lx + 0.5, ly + 0.5, lz + 0.5, true);
+      J.t -= dt;
+      if (J.t <= 0) {
+        J.t = 0.4; e.swingT = 0; e.swingDur = 0.34; J.hits++;
+        blockSound(LOG, "hit", 0.06 * Math.max(0, 1 - distP(e) / 30));
+        blockParticles(lx, ly, lz, LOG, 4);
+        if (J.hits >= 3) {
+          blockParticles(lx, ly, lz, LOG, 18); blockSound(LOG, "break", 0.07 * Math.max(0, 1 - distP(e) / 30));
+          editBlock(lx, ly, lz, AIR); scheduleDecay(lx, ly, lz); J.cur = null;
+        }
+      }
+      return;
+    }
+    e.tool = "umb";
+    e.repath -= dt;
+    if (e.repath <= 0) {
+      e.repath = 1.2;
+      if (pathQuota > -2) {
+        pathQuota--;
+        const path = findPath(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z), lx, J.base, lz, 1, 2600);
+        if ((!path || !path.found) && ++J.fails >= 3) { J.trees.shift(); J.cur = null; e.path = null; return; }
+        e.path = path; e.pi = 0;
+      }
+    }
+    if (e.path) { if (followPath(e, 4.3)) e.path = null; } else steerTo(e, lx + 0.5, lz + 0.5, 4.3);
+    lookAhead(e);
+  }
+
+  // Laub, das keinen Stamm mehr in der Nähe hat, zerfällt nach und nach (wie in Minecraft)
+  const decayQ = [], decaySet = new Set();
+  function logNear(x, y, z) {
+    for (let dy = -4; dy <= 4; dy++) for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) if (get(x + dx, y + dy, z + dz) === LOG) return true;
+    return false;
+  }
+  function scheduleDecay(x, y, z) {
+    for (let dy = -2; dy <= 5; dy++) for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+      const bx = x + dx, by = y + dy, bz = z + dz;
+      if (get(bx, by, bz) !== LEAVES) continue;
+      const k = idx(bx, by, bz); if (decaySet.has(k)) continue;
+      decaySet.add(k); decayQ.push({ x: bx, y: by, z: bz, k, t: 0.6 + Math.random() * 5 });
+    }
+  }
+  function updateDecay(dt) {
+    let list = null;
+    for (let i = decayQ.length - 1; i >= 0; i--) {
+      const q = decayQ[i]; q.t -= dt; if (q.t > 0) continue;
+      decayQ.splice(i, 1); decaySet.delete(q.k);
+      if (get(q.x, q.y, q.z) !== LEAVES || logNear(q.x, q.y, q.z)) continue;
+      (list = list || []).push([q.x, q.y, q.z, AIR]); recordEdit(q.x, q.y, q.z, AIR);
+      if (Math.hypot(q.x - P.x, q.z - P.z) < 40) blockParticles(q.x, q.y, q.z, LEAVES, 3);
+    }
+    if (list) setBlocks(list);
+  }
+
+  // ---------- Tiere ----------
+  const ANIMAL = {
+    cow: { r: 0.45, h: 1.35, eye: 1.2, hp: 10, speed: 1.2, voice: "moo", graze: true },
+    pig: { r: 0.45, h: 0.9, eye: 0.7, hp: 10, speed: 1.2, voice: "oink", graze: true },
+    sheep: { r: 0.45, h: 1.25, eye: 1.05, hp: 8, speed: 1.15, voice: "baa", graze: true },
+    chicken: { r: 0.22, h: 0.75, eye: 0.6, hp: 4, speed: 1.3, voice: "cluck", graze: true },
+  };
+  function sheepColor(r) { return r < 0.8 ? "white" : r < 0.85 ? "silver" : r < 0.9 ? "gray" : r < 0.95 ? "black" : r < 0.995 ? "brown" : "pink"; }
+  function spawnAnimal(type, x, y, z) {
+    const A = ANIMAL[type], m = type === "sheep" ? "sheep_" + sheepColor(Math.random()) : type;
+    return spawnEnt("animal", m, x, y, z, { type, r: A.r, h: A.h, eye: A.eye, hp: A.hp, maxHp: A.hp, speed: A.speed, voice: A.voice, canGraze: A.graze, yaw: Math.random() * 6.28, grazeT: 0, g: 0 });
+  }
+  // Wiese, auf der ein Tier stehen darf: Gras, nicht im Schloss, nicht zu hoch, Hühner auch im Dorf
+  function animalSpot(x, z, type) {
+    if (x < 16 || z < 16 || x >= W - 16 || z >= D - 16 || inCastle(x + 0.5, z + 0.5)) return -1;
+    const inVil = x >= VIL.x0 - 3 && x <= VIL.x1 + 3 && z >= VIL.z0 - 3 && z <= VIL.z1 + 3;
+    if (inVil && type !== "chicken") return -1;
+    const y = topY[x + z * W];
+    if (get(x, y, z) !== GRASS || y > 40 || !standable(x, y + 1, z)) return -1;
+    return y + 1;
+  }
+  function spawnHerd(type, n, rnd, far) {
+    for (let tries = 0; tries < 300; tries++) {
+      const x = 16 + Math.floor(rnd() * (W - 32)), z = 16 + Math.floor(rnd() * (D - 32));
+      if (animalSpot(x, z, type) < 0) continue;
+      if (far && Math.hypot(x - P.x, z - P.z) < 50) continue;
+      let made = 0;
+      for (let k = 0; k < 40 && made < n; k++) {
+        const ax = x + Math.floor(rnd() * 9) - 4, az = z + Math.floor(rnd() * 9) - 4, ay = animalSpot(ax, az, type);
+        if (ay >= 0) { spawnAnimal(type, ax + 0.5, ay, az + 0.5); made++; }
+      }
+      if (made) return true;
+    }
+    return false;
+  }
+  const HERDS = [["cow", 4, 3], ["sheep", 4, 3], ["pig", 3, 3], ["chicken", 4, 3]];
+  function spawnAnimals() {
+    const rnd = mulberry32(4242);
+    for (const [type, herds, per] of HERDS) for (let i = 0; i < herds; i++) spawnHerd(type, per, rnd, false);
+  }
+  let refillT = 30;
+  function refillAnimals(dt) {
+    if ((refillT -= dt) > 0) return;
+    refillT = 40;
+    for (const [type, herds, per] of HERDS) {
+      const have = ents.filter(e => e.type === type).length;
+      if (have < herds * per - 2) { spawnHerd(type, per, Math.random, true); return; }
+    }
+  }
+  // Einen Schritt in Richtung dir, dabei Wasser, Abgründe und das Schloss meiden
+  function moveDir(e, dx, dz, sp) {
+    const ax = e.x + dx * 0.9, az = e.z + dz * 0.9, fx = Math.floor(ax), fz = Math.floor(az), fy = Math.floor(e.y + 0.05);
+    let bad = inCastle(ax, az) || get(fx, fy, fz) === WATER || get(fx, fy - 1, fz) === WATER;
+    if (!bad && !solidAt(fx, fy - 1, fz) && !solidAt(fx, fy - 2, fz) && !solidAt(fx, fy - 3, fz)) bad = true;
+    if (!bad && solidAt(fx, fy, fz) && solidAt(fx, fy + 1, fz)) bad = true;
+    if (bad) {
+      e.dvx = e.dvz = 0;
+      if (e.state === "walk") { e.state = "idle"; e.timer = 1 + Math.random() * 2; }
+      else if (e.state === "panic") { const a = Math.atan2(-dx, -dz) + (Math.random() - 0.5); e.dir = [Math.sin(a), Math.cos(a)]; e.turnT = 1; }
+      return;
+    }
+    e.dvx = dx * sp; e.dvz = dz * sp; e.yawT = Math.atan2(dx, dz);
+  }
+  function animalThink(e, dt) {
+    if (e.dead >= 0) { e.dvx = e.dvz = 0; return; }
+    e.timer -= dt;
+    const dp = distP(e);
+    if (e.state === "panic") {
+      if (e.timer <= 0) { e.state = "idle"; e.timer = 2 + Math.random() * 3; }
+      if ((e.turnT -= dt) <= 0 || !e.dir) {
+        e.turnT = 0.8 + Math.random();
+        const away = Math.atan2(e.x - P.x, e.z - P.z) + (Math.random() - 0.5) * 1.6;
+        e.dir = [Math.sin(away), Math.cos(away)];
+      }
+      moveDir(e, e.dir[0], e.dir[1], e.type === "chicken" ? 3.2 : 3.8);
+      lookAhead(e);
+    } else if (e.state === "walk") {
+      const dx = e.tx - e.x, dz = e.tz - e.z, d = Math.hypot(dx, dz);
+      if (d < 0.6 || e.timer <= 0) { e.state = "idle"; e.timer = 2 + Math.random() * 7; e.dvx = e.dvz = 0; }
+      else moveDir(e, dx / d, dz / d, e.speed);
+      lookAhead(e);
+    } else {
+      e.dvx = e.dvz = 0;
+      if (e.grazeT > 0) e.grazeT -= dt;
+      if (dp < 7 && e.grazeT <= 0) lookAt(e, P.x, P.y + 1.5, P.z); else if (e.grazeT <= 0) lookAhead(e);
+      if (e.timer <= 0) {
+        if (e.canGraze && Math.random() < 0.4) { e.grazeT = e.type === "chicken" ? 0.5 : 2 + Math.random() * 3; e.timer = e.grazeT + 0.6; }
+        else {
+          const a = Math.random() * Math.PI * 2, r = 2 + Math.random() * 6;
+          e.tx = e.x + Math.sin(a) * r; e.tz = e.z + Math.cos(a) * r; e.state = "walk"; e.timer = 8;
+        }
+      }
+    }
+    if ((e.sndT -= dt) <= 0) { e.sndT = 8 + Math.random() * 18; if (dp < 20) SND[e.voice](1 - dp / 22, 0.9 + Math.random() * 0.2); }
+  }
+
+  // ---------- Dorfbewohner, Wachen und König ----------
+  const LINES = {
+    villager: ["Guten Tag, der Herr!", "Frisches Brot gibt es am Markt.", "Der Weizen wächst dieses Jahr prächtig.", "Hast du schon den König im Thronsaal besucht?", "Ein schöner Anzug, den du da trägst!", "Die große Mauer schützt unser Dorf.", "Vom Schlossdach aus sieht man das ganze Land."],
+    kid: ["Fang mich doch!", "Ich werde später Ritter!", "Hast du den Butler gesehen? Der ist lustig!", "Wir spielen Verstecken!"],
+    guard: ["Halt! Ach, Ihr seid es. Tretet ein.", "Alles ruhig am Tor.", "Der König erwartet Euch im Thronsaal.", "Die Zugbrücke öffnet Ihr mit dem Hebel.", "Ich stehe hier schon seit dem Morgengrauen."],
+    king: ["Willkommen in meinem Schloss, werter Herr!", "Mein Schloss ist das größte im ganzen Land.", "Hast du die Gemäldegalerie ganz oben gesehen?", "Dein Butler ist tüchtig. Einen solchen hätte ich auch gern.", "Neben meinem Thron ist ein Hebel für die Zugbrücke."],
+  };
+  const OUCH = ["Aua! Was soll das?", "He, lass das!", "Au! Das tut weh!"];
+  function personThink(e, dt) {
+    const dp = distP(e);
+    if (e.kind === "statue") { e.dvx = e.dvz = 0; return; }
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, e.kind !== "king"); return; }
+    if (e.kind === "king") {
+      if (dp < 14 && Math.abs(P.y - e.y) < 6) lookAt(e, P.x, P.y + 1.62, P.z); else { e.headYawT = Math.sin(performance.now() / 3000) * 0.3; e.headPitchT = 0; }
+      if (dp < 9 && Math.abs(P.y - e.y) < 5 && !e.greeted) { e.greeted = true; say("König", LINES.king[0]); }
+      if (dp > 30) e.greeted = false;
+      return;
+    }
+    if (e.kind === "guard") {
+      e.greetCd = (e.greetCd || 0) - dt;
+      if (e.patrol) {
+        const [ax, bx] = e.patrol, tx = e.leg ? bx : ax;
+        if (e.state === "pause") { e.dvx = e.dvz = 0; if ((e.timer -= dt) <= 0) { e.state = "walk"; e.leg = !e.leg; } }
+        else if (Math.abs(tx - e.x) < 0.3) { e.state = "pause"; e.timer = 2 + Math.random() * 3; e.dvx = e.dvz = 0; }
+        else steerTo(e, tx, e.pz, 1.4);
+      } else { e.dvx = e.dvz = 0; e.yawT = e.post; }
+      if (dp < 8 && Math.abs(P.y - e.y) < 4) {
+        lookAt(e, P.x, P.y + 1.62, P.z);
+        if (dp < 3.2 && e.greetCd <= 0) { e.greetCd = 90; say("Wache", pick(LINES.guard)); }
+      } else lookAhead(e);
+      return;
+    }
+    // Dorfbewohner und Kinder: von Ort zu Ort gehen
+    if (e.state === "walk") {
+      e.giveUp -= dt;
+      if (followPath(e, e.speed) || e.giveUp <= 0) { e.state = "idle"; e.timer = (e.kind === "kid" ? 1 : 3) + Math.random() * 6; e.path = null; }
+      lookAhead(e);
+    } else {
+      e.dvx = e.dvz = 0; e.timer -= dt;
+      if (dp < 5) lookAt(e, P.x, P.y + 1.62, P.z); else { e.headYawT = Math.sin(performance.now() / 2100 + e.phase0) * 0.5; e.headPitchT = 0.05; }
+      if (e.timer <= 0 && pathQuota > 0) {
+        pathQuota--;
+        const [tx, tz] = pick(VIL_POI);
+        const path = findPath(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z), Math.floor(tx), G0 + 1, Math.floor(tz), 0, 5000);
+        if (path && path.found) { e.path = path; e.pi = 0; e.state = "walk"; e.giveUp = 60; } else e.timer = 2;
+      }
+    }
+  }
+  function spawnPeople() {
+    const vil = ["farmer", "baker", "smith", "trader", "farmer", "trader", "baker", "smith"];
+    vil.forEach((m, i) => { const [x, z] = VIL_POI[(i * 7) % VIL_POI.length]; spawnEnt("villager", m, x, G0 + 1, z, { speed: 1.7, timer: 1 + i * 0.7, name: "Dorfbewohner", lines: LINES.villager, yaw: Math.random() * 6 }); });
+    for (let i = 0; i < 3; i++) { const [x, z] = VIL_POI[(i * 5 + 2) % VIL_POI.length]; spawnEnt("villager", "kid", x, G0 + 1, z, { kind: "kid", speed: 3.1, scale: 0.62, r: 0.2, h: 1.1, eye: 1, name: "Kind", lines: LINES.kid, timer: i }); }
+    const guard = (x, y, z, post, patrol) => spawnEnt("guard", "guard", x, y, z, { yaw: post, post, patrol, pz: z, name: "Wache", lines: LINES.guard, pose: "spear", leg: false });
+    guard(C - 5.5, G0 + 1, C + 62.5, 0); guard(C + 6.5, G0 + 1, C + 62.5, 0);     // vor dem Graben
+    guard(C - 4.5, G0 + 1, 143.5, 0); guard(C + 5.5, G0 + 1, 143.5, 0);          // im Tor
+    guard(C - 4.5, G0 + 1, 118.5, 0); guard(C + 5.5, G0 + 1, 118.5, 0);          // vor dem Bergfried
+    guard(88.5, G0 + 1, 79.5, 0.4); guard(104.5, G0 + 1, 79.5, -0.4);           // im Thronsaal
+    guard(60.5, G0 + 23, 146.5, 0, [56.5, 78.5]); guard(130.5, G0 + 23, 146.5, 0, [114.5, 136.5]); // auf der Mauer
+    // Der König sitzt auf seinem Thron
+    const s = 1.2;
+    spawnEnt("king", "king", C + 0.5, G0 + 4 - 10 * PXS * s, 76.03 - 6 * PXS * s, { scale: s, sit: true, pose: "sit", r: 0.36, h: 1.6, eye: 1.5, name: "König", lines: LINES.king });
+  }
+  function spawnButler(stay) {
+    const s = freeSpotNear(P.x, P.y, P.z, ...frontLeft()) || [P.x + 1.5, P.y, P.z + 1];
+    butler = spawnEnt("butler", "butler", s[0], s[1], s[2], { name: "James", pose: "towel", tool: "umb", stay: !!stay, lines: JAMES_HELLO });
+    butler.yaw = butler.yawT = Math.atan2(P.x - s[0], P.z - s[2]);
+    const tag = nameTag("James"); tag.position.y = 2.12; butler.mesh.add(tag);
+  }
+  function nameTag(text) {
+    const c = document.createElement("canvas"); c.width = 128; c.height = 32;
+    const g = c.getContext("2d"); g.font = "600 19px Nunito, system-ui, sans-serif";
+    const w = Math.ceil(g.measureText(text).width) + 18;
+    g.fillStyle = "rgba(10,14,20,.5)"; g.fillRect((128 - w) / 2, 4, w, 24);
+    g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(text, 64, 17);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    s.scale.set(1.1, 0.275, 1);
+    return s;
+  }
+
+  // ---------- Animation ----------
+  function animHuman(e, dt, t) {
+    const B = e.B, sp = Math.hypot(e.vx, e.vz);
+    e.walk += ((sp > 0.25 && !e.sit ? 1 : 0) - e.walk) * Math.min(1, dt * 7);
+    e.phase += dt * Math.min(sp, 6) * 2.4;
+    const A = 0.72 * e.walk * Math.min(1, 0.4 + sp / 4.5), s = Math.sin(e.phase), c = Math.cos(e.phase);
+    const air = !e.ground && !e.inWater && !e.sit && e.kind !== "king";
+    if (e.sit) { B.legR.rotation.set(-1.52, 0.1, 0); B.legL.rotation.set(-1.52, -0.1, 0); B.shinR.rotation.x = 1.5; B.shinL.rotation.x = 1.5; }
+    else if (air && e.fly) { B.legR.rotation.set(0.1, 0, 0); B.legL.rotation.set(-0.05, 0, 0); B.shinR.rotation.x = 0.25; B.shinL.rotation.x = 0.3; }
+    else {
+      B.legR.rotation.set(s * A, 0, 0); B.legL.rotation.set(-s * A, 0, 0);
+      B.shinR.rotation.x = 0.05 + Math.max(0, -c) * A * 1.25 + (air ? 0.4 : 0);
+      B.shinL.rotation.x = 0.05 + Math.max(0, c) * A * 1.25 + (air ? 0.4 : 0);
+    }
+    B.root.position.y = e.sit ? 0 : -Math.abs(s) * 0.045 * e.walk;
+    B.body.rotation.set(e.lean || 0, s * 0.07 * e.walk, 0);
+    B.body.position.y = B.body.userData.p0.y + Math.sin(t * 1.9 + e.phase0) * 0.005;
+    let aR = -s * A * 0.9, aL = s * A * 0.9, fR = -(0.12 + 0.55 * A * Math.max(0, s)), fL = -(0.12 + 0.55 * A * Math.max(0, -s));
+    let zR = -0.045 - Math.sin(t * 1.3 + e.phase0) * 0.02, zL = 0.045 + Math.sin(t * 1.3 + e.phase0) * 0.02;
+    if (e.pose === "towel") { aL = -0.1 + aL * 0.15; fL = -1.45; zL = 0.08; }
+    else if (e.pose === "spear") { aR *= 0.2; fR = -1.5; zR = -0.08; }
+    else if (e.pose === "sit") { aR = -0.3; fR = -1.2; aL = -0.3; fL = -1.25; zR = -0.2; zL = 0.2; }
+    if (e.talkT > 0 && e.pose !== "sit" && e.pose !== "spear") { aL = -0.5 - Math.sin(t * 5) * 0.25; fL = -0.9; zL = 0.15; }
+    if (air && e.fly) { aR = 0.15; aL = 0.15; zR = -0.25; zL = 0.25; fR = fL = -0.2; }
+    if (e.swingT >= 0) {
+      const k = Math.sin(Math.min(1, e.swingT) * Math.PI);
+      aR = -0.3 - 1.9 * k; fR = -0.3 - 0.35 * k; zR = -0.12; B.body.rotation.y -= 0.35 * k;
+      e.swingT += dt / (e.swingDur || 0.3); if (e.swingT >= 1) e.swingT = -1;
+    }
+    B.armR.rotation.set(aR, 0, zR); B.foreR.rotation.set(fR, 0, 0);
+    B.armL.rotation.set(aL, 0, zL); B.foreL.rotation.set(fL, 0, 0);
+    e.headYaw += (e.headYawT - e.headYaw) * Math.min(1, dt * 6); e.headPitch += (e.headPitchT - e.headPitch) * Math.min(1, dt * 6);
+    B.head.rotation.y = e.headYaw - B.body.rotation.y; B.head.rotation.x = e.headPitch - (e.lean || 0);
+    if (B.tails) B.tails.rotation.x = 0.1 + Math.abs(s) * 0.3 * e.walk + (air ? 0.4 : 0);
+    if (B.cape) B.cape.rotation.x = e.sit ? 0.02 : 0.05 + 0.2 * e.walk + Math.sin(t * 1.4) * 0.02;
+    if (B.axe) { const ax = e.tool === "axe"; B.axe.scale.setScalar(ax ? 1 : 1e-4); B.umb.scale.setScalar(ax ? 1e-4 : 1); B.umb.rotation.x = e.target ? -1 : 0; }
+  }
+  function animAnimal(e, dt, t) {
+    const B = e.B, sp = Math.hypot(e.vx, e.vz), chick = e.type === "chicken";
+    e.walk += ((sp > 0.2 ? 1 : 0) - e.walk) * Math.min(1, dt * 7);
+    e.phase += dt * Math.min(sp, 6) * (chick ? 6 : 3.4);
+    const A = 0.75 * e.walk, s = Math.sin(e.phase);
+    if (chick) {
+      B.legR.rotation.x = s * A; B.legL.rotation.x = -s * A;
+      const flap = (!e.ground && !e.inWater) || e.state === "panic" ? 0.55 + 0.45 * Math.sin(t * 30) : 0;
+      B.wingR.rotation.z = -flap * 1.1; B.wingL.rotation.z = flap * 1.1;
+    } else {
+      B.legFR.rotation.x = s * A; B.legBL.rotation.x = s * A; B.legFL.rotation.x = -s * A; B.legBR.rotation.x = -s * A;
+    }
+    e.g += ((e.grazeT > 0 ? 1 : 0) - e.g) * Math.min(1, dt * 5);
+    e.headYaw += (e.headYawT - e.headYaw) * Math.min(1, dt * 5); e.headPitch += (e.headPitchT - e.headPitch) * Math.min(1, dt * 5);
+    B.head.rotation.x = e.headPitch * (1 - e.g) + e.g * (chick ? 1.2 : 0.9) + (e.g > 0.5 ? Math.sin(t * 10) * 0.06 : 0);
+    B.head.rotation.y = e.headYaw * (1 - e.g);
+    B.head.position.y = B.head.userData.p0.y - e.g * (chick ? 1 : 4) * PXS + (chick ? Math.sin(e.phase * 2) * 0.02 * e.walk : 0);
+    if (B.tail) B.tail.rotation.z = Math.sin(t * 2.4 + e.phase0) * (e.type === "cow" ? 0.25 : 0.45);
+    B.body.position.y = B.body.userData.p0.y + Math.sin(t * 2 + e.phase0) * 0.004;
+  }
+
+  // ---------- Alle Lebewesen pro Bild aktualisieren ----------
+  function updateEnts(dt, t) {
+    pathQuota = 1;
+    const visR = Math.min(viewDist, 110);
+    for (let i = ents.length - 1; i >= 0; i--) {
+      const e = ents[i];
+      if (!e) continue;
+      const dp = distP(e), active = dp < 96 || e === butler;
+      e.mesh.visible = dp < visR;
+      if (!active) continue;
+      if (e.kind === "animal") animalThink(e, dt);
+      else if (e.kind === "butler") butlerThink(e, dt);
+      else personThink(e, dt);
+      if (!e.sit) entPhysics(e, dt);
+      const d = wrapA(e.yawT - e.yaw); e.yaw += Math.sign(d) * Math.min(Math.abs(d), dt * 7);
+      e.headYawT = Math.max(-1, Math.min(1, e.headYawT));
+      if (e.mesh.visible) { if (e.kind === "animal") animAnimal(e, dt, t); else animHuman(e, dt, t); }
+      e.mesh.position.set(e.x, e.y, e.z); e.mesh.rotation.y = e.yaw;
+      if (e.hurt > 0) { e.hurt -= dt; e.mesh.material.emissive.setRGB(e.hurt > 0 ? 0.55 : 0, 0, 0); }
+      if (e.dead >= 0) {
+        e.dead += dt;
+        e.mesh.rotation.z = Math.min(1, e.dead / 0.35) * Math.PI / 2;
+        e.mesh.material.emissive.setRGB(0.45, 0, 0);
+        if (e.dead > 0.9) { poof(e.x, e.y + 0.4, e.z, 14); removeEnt(e); }
+      }
+    }
+  }
+
+  // ---------- Partikel: Splitter beim Abbauen, Rauchwolken ----------
+  const PMAX = 700, parts = [];
+  let atlasPix = null;
+  const partMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial(), PMAX);
+  partMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  partMesh.frustumCulled = false; partMesh.count = 0;
+  partMesh.setColorAt(0, new THREE.Color(1, 1, 1));
+  scene.add(partMesh);
+  function emit(x, y, z, n, colorFn, size, speed, grav) {
+    for (let i = 0; i < n && parts.length < PMAX; i++) {
+      const c = colorFn(i);
+      parts.push({
+        x: x + (Math.random() - 0.5) * 0.6, y: y + (Math.random() - 0.5) * 0.6, z: z + (Math.random() - 0.5) * 0.6,
+        vx: (Math.random() - 0.5) * speed, vy: Math.random() * speed * 0.8 + (grav < 0 ? 0.2 : 1.2), vz: (Math.random() - 0.5) * speed,
+        life: 0.45 + Math.random() * 0.5, s: size * (0.7 + Math.random() * 0.6), r: c[0] / 255, g: c[1] / 255, b: c[2] / 255, grav: grav === undefined ? 16 : grav,
+      });
+    }
+  }
+  // Farben aus der echten Textur des Blocks
+  function blockParticles(bx, by, bz, b, n) {
+    const t = TEX[b] ? TEX[b][2] : 3, tx = (t % N) * T, ty = Math.floor(t / N) * T;
+    emit(bx + 0.5, by + 0.5, bz + 0.5, n || 16, () => {
+      for (let k = 0; k < 8; k++) {
+        const px = tx + Math.floor(Math.random() * T), py = ty + Math.floor(Math.random() * T), o = (py * T * N + px) * 4;
+        if (atlasPix && atlasPix[o + 3] > 100) return [atlasPix[o], atlasPix[o + 1], atlasPix[o + 2]];
+      }
+      return [140, 140, 140];
+    }, 0.1, 3.2);
+  }
+  function poof(x, y, z, n) { emit(x, y, z, n, () => { const g = 205 + Math.random() * 45; return [g, g, g]; }, 0.17, 1.4, -1.2); }
+  const _m4 = new THREE.Matrix4(), _col = new THREE.Color();
+  function updateParticles(dt) {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      if ((p.life -= dt) <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); continue; }
+      p.vy -= p.grav * dt;
+      const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt, nz = p.z + p.vz * dt;
+      if (solid(get(Math.floor(nx), Math.floor(ny), Math.floor(nz)))) { p.vx *= 0.4; p.vz *= 0.4; p.vy = 0; }
+      else { p.x = nx; p.y = ny; p.z = nz; }
+    }
+    let n = 0;
+    for (const p of parts) {
+      const s = p.s * Math.min(1, p.life * 3);
+      _m4.makeScale(s, s, s).setPosition(p.x, p.y, p.z);
+      partMesh.setMatrixAt(n, _m4); _col.setRGB(p.r, p.g, p.b); partMesh.setColorAt(n, _col); n++;
+    }
+    partMesh.count = n;
+    partMesh.instanceMatrix.needsUpdate = true;
+    if (partMesh.instanceColor) partMesh.instanceColor.needsUpdate = true;
+  }
+
+  // ---------- Gehaltener Block ----------
+  let itemMats = null;
+  function blockItemGeo(b) {
+    const geo = new THREE.BoxGeometry(1, 1, 1), uvA = geo.attributes.uv, faceS = [2, 2, 0, 1, 2, 2];
+    for (let f = 0; f < 6; f++) {
+      const t = TEX[b][faceS[f]];
+      for (let k = 0; k < 4; k++) { const i = f * 4 + k, uv = tileUV(t, uvA.getX(i), uvA.getY(i)); uvA.setXY(i, uv[0], uv[1]); }
+    }
+    return geo;
+  }
+  const itemMat = b => b === LAMP ? itemMats[2] : (b === GLASS || b === BARS || b === WHEAT) ? itemMats[1] : itemMats[0];
+
+  // ---------- Eigene Hand in der Ich-Ansicht (eigene kleine Szene, liegt immer vorne) ----------
+  const handScene = new THREE.Scene(), handCam = new THREE.PerspectiveCamera(70, 1, 0.02, 10);
+  handScene.add(new THREE.HemisphereLight(0xeef4ff, 0x7a664e, 0.72));
+  const handSun = new THREE.DirectionalLight(0xfff0d4, 0.55); handSun.position.set(0.4, 1, 0.6); handScene.add(handSun);
+  const handRoot = new THREE.Group(); handScene.add(handRoot);
+  let handArm = null, handItem = null, handSwing = -1, handEquip = 0, handBob = 0;
+  function buildHand() {
+    const M = model("business"), g = M.geo, keep = [M.bi.armR, M.bi.foreR], sh = M.abs[M.bi.armR];
+    const si = g.attributes.skinIndex.array, PA = g.attributes.position.array, NA = g.attributes.normal.array, UA = g.attributes.uv.array, IA = g.index.array;
+    const pos = [], nor = [], uv = [], ind = [], map = new Map();
+    for (let i = 0; i < IA.length; i++) {
+      const vi = IA[i];
+      if (!keep.includes(si[vi * 4])) continue;
+      let ni = map.get(vi);
+      if (ni === undefined) {
+        ni = pos.length / 3; map.set(vi, ni);
+        pos.push(PA[vi * 3] - sh[0] * PXS, PA[vi * 3 + 1] - sh[1] * PXS, PA[vi * 3 + 2] - sh[2] * PXS);
+        nor.push(NA[vi * 3], NA[vi * 3 + 1], NA[vi * 3 + 2]); uv.push(UA[vi * 2], UA[vi * 2 + 1]);
+      }
+      ind.push(ni);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(ind);
+    handArm = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: M.tex, alphaTest: 0.5 }));
+    handArm.rotation.order = "YXZ";
+    handArm.position.set(0.56, -0.62, -0.42); handArm.rotation.set(2.05, 0.28, 0.1);
+    handRoot.add(handArm);
+    handItem = new THREE.Mesh(blockItemGeo(HOTBAR[sel]), itemMat(HOTBAR[sel]));
+    handItem.position.set(0.37, -0.28, -0.92); handItem.rotation.set(0.12, 0.72, 0); handItem.scale.setScalar(0.19);
+    handRoot.add(handItem);
+  }
+  function setHeld(b) {
+    if (handItem) { handItem.geometry.dispose(); handItem.geometry = blockItemGeo(b); handItem.material = itemMat(b); handEquip = 1; }
+    if (PM) { PM.item.geometry.dispose(); PM.item.geometry = blockItemGeo(b); PM.item.material = itemMat(b); }
+  }
+  function swingHand() { handSwing = 0; if (PM) { PM.swingT = 0; PM.swingDur = 0.26; } }
+  function updateHand(dt) {
+    const sp = Math.hypot(P.vx, P.vz), moving = P.ground && sp > 0.5 && !P.fly;
+    handBob += dt * sp * 1.9;
+    const m = moving ? 1 : 0, bx = Math.cos(handBob) * 0.016 * m, by = -Math.abs(Math.sin(handBob)) * 0.02 * m;
+    let sx = 0, sy = 0, sz = 0, rx = 0, ry = 0;
+    if (handSwing >= 0) {
+      const t = handSwing, q = Math.sqrt(t);
+      sx = -0.14 * Math.sin(q * Math.PI); sy = 0.09 * Math.sin(q * Math.PI * 2); sz = -0.1 * Math.sin(t * Math.PI);
+      rx = -0.5 * Math.sin(q * Math.PI); ry = 0.3 * Math.sin(q * Math.PI);
+      handSwing += dt / 0.26; if (handSwing >= 1) handSwing = -1;
+    }
+    handEquip = Math.max(0, handEquip - dt * 5);
+    handRoot.position.set(bx + sx, by + sy - handEquip * 0.3, sz);
+    handRoot.rotation.set(rx, ry, 0);
+  }
+
+  // ---------- Ansichten: Ich-Ansicht, von hinten, von vorne ----------
+  let camMode = 0, PM = null;
+  const eyeV = new THREE.Vector3(), dirV = new THREE.Vector3();
+  const lookVec = out => { const cp = Math.cos(P.pitch); return out.set(-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp); };
+  // Die Kamera darf nicht in Blöcken stecken: ein kleiner Würfel um sie herum muss frei sein
+  const camFree = (x, y, z) => {
+    for (let k = 0; k < 8; k++) if (solid(blockAtF(x + (k & 1 ? 0.2 : -0.2), y + (k & 2 ? 0.16 : -0.16), z + (k & 4 ? 0.2 : -0.2)))) return false;
+    return true;
+  };
+  let camD = 0;
+  function placeCamera() {
+    eyeV.set(P.x, P.y + 1.62, P.z);
+    let d = 0;
+    if (camMode !== 0) {
+      lookVec(dirV);
+      const sg = camMode === 1 ? -1 : 1;
+      // Vom Kopf aus nach hinten (oder vorne) gehen, bis etwas im Weg ist
+      for (let s = 0.3; s <= 4.2; s += 0.1) { if (!camFree(eyeV.x + dirV.x * sg * s, eyeV.y + dirV.y * sg * s, eyeV.z + dirV.z * sg * s)) break; d = s; }
+      // Weich heranzoomen, aber sofort näher springen, wenn eine Wand kommt
+      camD = d < camD ? d : camD + (d - camD) * 0.2;
+      d = camD;
+      if (d >= 0.6) {
+        camera.position.set(eyeV.x + dirV.x * sg * d, eyeV.y + dirV.y * sg * d, eyeV.z + dirV.z * sg * d);
+        if (camMode === 1) camera.rotation.set(P.pitch, P.yaw, 0); else camera.lookAt(eyeV);
+        return true;
+      }
+    }
+    // Ich-Ansicht, oder hinter dem Spieler ist kein Platz für die Kamera
+    camera.position.copy(eyeV); camera.rotation.set(P.pitch, P.yaw, 0);
+    return false;
+  }
+  function makePlayerModel() {
+    const rig = makeRig(model("business"));
+    PM = { B: rig.B, mesh: rig.mesh, walk: 0, phase: 0, phase0: 0, swingT: -1, headYaw: 0, headPitch: 0, headYawT: 0, headPitchT: 0, vx: 0, vz: 0, ground: true, inWater: false, pose: "", kind: "player" };
+    PM.mesh.visible = false;
+    scene.add(PM.mesh);
+    PM.item = new THREE.Mesh(blockItemGeo(HOTBAR[sel]), itemMat(HOTBAR[sel]));
+    PM.item.scale.setScalar(0.26); PM.item.position.set(0, -7 * PXS, 1.8 * PXS); PM.item.castShadow = true;
+    PM.B.foreR.add(PM.item);
+  }
+  function updatePlayerModel(dt, t, show) {
+    PM.mesh.visible = show;
+    if (!show) return;
+    PM.vx = P.vx; PM.vz = P.vz; PM.ground = P.ground; PM.inWater = P.inWater; PM.fly = P.fly && !P.ground;
+    PM.lean = P.sprint ? 0.12 : 0;
+    PM.headYawT = 0; PM.headPitchT = Math.max(-0.9, Math.min(0.9, -P.pitch));
+    animHuman(PM, dt, t);
+    PM.mesh.position.set(P.x, P.y, P.z); PM.mesh.rotation.y = P.yaw + Math.PI;
+  }
+  const crossEl = document.getElementById("cross");
+  function setView(m) { camMode = m; crossEl.hidden = m === 2; }
+  function cycleView() {
+    setView((camMode + 1) % 3);
+    showName(["Ich-Ansicht", "Ansicht von hinten", "Ansicht von vorne"][camMode]);
+  }
+  // ---------- Zielen: Blöcke und Lebewesen ----------
+  function raycast(ox, oy, oz, dx, dy, dz, max) {
     let x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
     const stX = Math.sign(dx), stY = Math.sign(dy), stZ = Math.sign(dz);
     const tdX = Math.abs(1 / dx), tdY = Math.abs(1 / dy), tdZ = Math.abs(1 / dz);
@@ -940,7 +2391,7 @@
     let tmZ = dz > 0 ? (z + 1 - oz) * tdZ : (oz - z) * tdZ;
     let px = x, py = y, pz = z, t = 0;
     while (t <= max) {
-      if (solid(get(x, y, z))) return { x, y, z, px, py, pz };
+      if (solid(get(x, y, z))) return { x, y, z, px, py, pz, t };
       px = x; py = y; pz = z;
       if (tmX < tmY && tmX < tmZ) { x += stX; t = tmX; tmX += tdX; }
       else if (tmY < tmZ) { y += stY; t = tmY; tmY += tdY; }
@@ -948,56 +2399,171 @@
     }
     return null;
   }
+  // Strahl gegen einen Quader (Slab-Verfahren); Abstand oder -1
+  function rayBox(ox, oy, oz, dx, dy, dz, x0, y0, z0, x1, y1, z1) {
+    let tn = 0, tf = 1e9;
+    const ax = [[ox, dx, x0, x1], [oy, dy, y0, y1], [oz, dz, z0, z1]];
+    for (const [o, d, a, b] of ax) {
+      if (Math.abs(d) < 1e-9) { if (o < a || o > b) return -1; continue; }
+      let t1 = (a - o) / d, t2 = (b - o) / d; if (t1 > t2) { const s = t1; t1 = t2; t2 = s; }
+      tn = Math.max(tn, t1); tf = Math.min(tf, t2); if (tn > tf) return -1;
+    }
+    return tn;
+  }
   const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)), new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.55 }));
   outline.visible = false; scene.add(outline);
-  let target = null;
-  function breakBlock() { if (target) setBlock(target.x, target.y, target.z, AIR); }
+  let target = null, targetEnt = null, atkCd = 0;
+  function updateTarget() {
+    lookVec(dirV);
+    const ox = P.x, oy = P.y + 1.62, oz = P.z;
+    target = raycast(ox, oy, oz, dirV.x, dirV.y, dirV.z, 6);
+    targetEnt = null;
+    let best = target ? target.t : 4.5;
+    for (const e of ents) {
+      if (e.dead >= 0 || Math.abs(e.x - ox) > 6 || Math.abs(e.z - oz) > 6) continue;
+      const t = rayBox(ox, oy, oz, dirV.x, dirV.y, dirV.z, e.x - e.r - 0.05, e.y, e.z - e.r - 0.05, e.x + e.r + 0.05, e.y + e.h, e.z + e.r + 0.05);
+      if (t >= 0 && t < best && t < 4.5) { best = t; targetEnt = e; }
+    }
+    if (targetEnt) target = null;
+  }
+  function entOverlaps(x, y, z) {
+    for (const e of ents) if (x + 1 > e.x - e.r && x < e.x + e.r && z + 1 > e.z - e.r && z < e.z + e.r && y + 1 > e.y && y < e.y + e.h) return true;
+    return false;
+  }
+  function breakBlock() {
+    if (targetEnt) { attack(targetEnt); return; }
+    if (!target) return;
+    const { x, y, z } = target, b = get(x, y, z);
+    swingHand();
+    blockParticles(x, y, z, b, 18); blockSound(b, "break", 0.08);
+    editBlock(x, y, z, AIR);
+    if (b === LEVER || b === LEVER_ON) { const i = levers.findIndex(l => l[0] === x && l[1] === y && l[2] === z); if (i >= 0) levers.splice(i, 1); }
+    if (b === LOG) { scheduleDecay(x, y, z); butlerHelpTree(x, y, z); }
+  }
   function placeBlock() {
+    if (targetEnt) { interact(targetEnt); return; }
     if (!target) return;
     const tb = get(target.x, target.y, target.z);
-    if (tb === LEVER || tb === LEVER_ON) { toggleGate(); return; }
+    if (tb === LEVER || tb === LEVER_ON) { swingHand(); toggleGate(); return; }
     const { px, py, pz } = target;
     if (px < 0 || pz < 0 || px >= W || pz >= D || py < 0 || py >= H) return;
     const cur = get(px, py, pz); if (cur !== AIR && cur !== WATER) return;
     const overlap = px + 1 > P.x - 0.3 && px < P.x + 0.3 && pz + 1 > P.z - 0.3 && pz < P.z + 0.3 && py + 1 > P.y && py < P.y + 1.8;
-    if (overlap) return;
-    setBlock(px, py, pz, HOTBAR[sel]);
+    if (overlap || entOverlaps(px, py, pz)) return;
+    let b = HOTBAR[sel];
+    if (b === LEVER) { b = gate.open ? LEVER_ON : LEVER; levers.push([px, py, pz]); }
+    editBlock(px, py, pz, b);
+    swingHand(); blockSound(b, "place", 0.07);
+  }
+  function attack(e) {
+    if (atkCd > 0) return;
+    atkCd = 0.32; swingHand();
+    if (e.kind === "animal") {
+      noiseHit(700, 1, 0.09, 0.06);
+      const killed = damage(e, 2.5, P) && e.dead >= 0;
+      if (!killed && butler && !butler.stay && butler !== e && Math.hypot(butler.x - e.x, butler.z - e.z) < 28) {
+        if (!butler.target) say("James", pick(["Erlauben Sie, der Herr!", "Ich helfe Ihnen!", "Überlassen Sie das mir."]));
+        butler.target = e; butler.job = null;
+      }
+    } else if (e === butler) { e.talkT = 2.5; say("James", pick(["Sehr witzig, der Herr.", "Ich muss doch sehr bitten.", "Wie der Herr meinen."])); }
+    else { e.talkT = 2.5; say(e.name, pick(OUCH)); }
+  }
+  function interact(e) {
+    if (e === butler) {
+      e.stay = !e.stay; e.job = null; e.target = null; e.talkT = 1.6;
+      say("James", e.stay ? "Sehr wohl, ich warte hier auf Sie." : "Sehr wohl, ich folge Ihnen.");
+      updateJamesTag(); saveSoon();
+      return;
+    }
+    if (e.lines) { e.talkT = 3; say(e.name, pick(e.lines)); }
+    else if (e.voice) SND[e.voice](1, 1);
   }
 
-  // ---------- Hotbar ----------
+  // ---------- Hotbar und Block-Auswahl ----------
   let sel = 0;
   const bar = document.getElementById("bar"), nameEl = document.getElementById("blockName");
   let nameTimer = 0;
+  const PALETTE = [GRASS, DIRT, STONE, COBBLE, SAND, SNOW, LOG, PLANKS, DPLANK, LEAVES, HEDGE, BRICK, SBRICK, SLATE, QUARTZ, GOLD, GLASS, BARS, SHELF, LAMP,
+    RWOOL, WWOOL, BWOOL, WHEAT, LEVER, 60, 61, 62, 63];
+  function showName(text, ms) {
+    nameEl.textContent = text; nameEl.style.opacity = 1;
+    clearTimeout(nameTimer); nameTimer = setTimeout(() => nameEl.style.opacity = 0, ms || 1400);
+  }
+  function drawIcon(cv, b) {
+    const g = cv.getContext("2d"); g.imageSmoothingEnabled = false; g.clearRect(0, 0, 16, 16);
+    const t = TEX[b][2]; g.drawImage(atlasCanvas, (t % N) * T, Math.floor(t / N) * T, T, T, 0, 0, 16, 16);
+  }
   function buildBar() {
     HOTBAR.forEach((b, i) => {
-      const s = document.createElement("div"); s.className = "slot"; s.tabIndex = 0; s.setAttribute("role", "button"); s.setAttribute("aria-label", NAMES[b]);
+      const s = document.createElement("div"); s.className = "slot"; s.tabIndex = 0; s.setAttribute("role", "button");
       const cv = document.createElement("canvas"); cv.width = cv.height = 16;
-      const g = cv.getContext("2d"); g.imageSmoothingEnabled = false;
-      const t = TEX[b][2]; g.drawImage(atlasCanvas, (t % N) * T, Math.floor(t / N) * T, T, T, 0, 0, 16, 16);
       const n = document.createElement("span"); n.textContent = i + 1;
       s.append(cv, n);
       s.addEventListener("pointerdown", e => { e.stopPropagation(); select(i); });
       bar.appendChild(s);
     });
+    refreshBar();
     select(0);
+  }
+  function refreshBar() {
+    [...bar.children].forEach((s, i) => { drawIcon(s.firstChild, HOTBAR[i]); s.setAttribute("aria-label", NAMES[HOTBAR[i]]); });
   }
   function select(i) {
     sel = (i + HOTBAR.length) % HOTBAR.length;
     [...bar.children].forEach((c, j) => c.classList.toggle("sel", j === sel));
-    nameEl.textContent = NAMES[HOTBAR[sel]]; nameEl.style.opacity = 1;
-    clearTimeout(nameTimer); nameTimer = setTimeout(() => nameEl.style.opacity = 0, 1400);
+    showName(NAMES[HOTBAR[sel]]);
+    setHeld(HOTBAR[sel]);
   }
+  function putInHand(b) {
+    const i = HOTBAR.indexOf(b);
+    if (i >= 0) { select(i); return; }
+    HOTBAR[sel] = b; refreshBar(); select(sel); saveSoon();
+  }
+  // Mittlere Maustaste: angeschauten Block nehmen
+  function pickBlock() {
+    if (!target) return;
+    let b = get(target.x, target.y, target.z);
+    if (b === LEVER_ON) b = LEVER;
+    if (PALETTE.includes(b)) putInHand(b);
+  }
+  const palEl = document.getElementById("palette"), palGrid = document.getElementById("palGrid");
+  let palOpen = false;
+  function buildPalette() {
+    for (const b of PALETTE) {
+      const btn = document.createElement("button"); btn.type = "button"; btn.className = "pal";
+      const cv = document.createElement("canvas"); cv.width = cv.height = 16; drawIcon(cv, b);
+      const n = document.createElement("span"); n.textContent = b >= 60 ? "Bild: " + ["Blume", "Mond", "Schiff", "Burg"][b - 60] : NAMES[b];
+      btn.append(cv, n);
+      btn.addEventListener("click", () => { putInHand(b); closePalette(); });
+      palGrid.appendChild(btn);
+    }
+  }
+  function openPalette() {
+    if (palOpen) return;
+    palOpen = true; palEl.hidden = false;
+    for (const k in keys) keys[k] = false;
+    if (document.pointerLockElement === canvas) document.exitPointerLock();
+  }
+  function closePalette() {
+    if (!palOpen) return;
+    palOpen = false; palEl.hidden = true;
+    if (playing && !isTouch && !dragLook) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  }
+  document.getElementById("palClose").addEventListener("click", closePalette);
 
   // ---------- Eingabe ----------
   const menu = document.getElementById("menu"), playBtn = document.getElementById("play"), menuText = document.getElementById("menuText");
   const touchUI = document.getElementById("touch"), pauseBtn = document.getElementById("pauseBtn"), flyTag = document.getElementById("flyTag");
+  const jamesTag = document.getElementById("jamesTag"), resetBtn = document.getElementById("reset");
   const isTouch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   let playing = false, dragLook = false;
   if (isTouch) document.getElementById("keyList").hidden = true;
+  function updateJamesTag() { jamesTag.textContent = butler ? (butler.stay ? "James wartet" : "James folgt") : ""; }
 
   function toggleFly() { P.fly = !P.fly; P.vy = 0; flyTag.hidden = !P.fly; }
   function start() {
-    menu.hidden = true; playing = true;
+    initAudio();
+    menu.hidden = true; playing = true; resetBtn.hidden = false;
     if (isTouch) { touchUI.hidden = false; pauseBtn.hidden = false; return; }
     try {
       const r = canvas.requestPointerLock && canvas.requestPointerLock();
@@ -1007,25 +2573,41 @@
   }
   function pause() {
     playing = false; menu.hidden = false; touchUI.hidden = true;
-    menuText.textContent = "Pausiert. Deine Welt bleibt so, wie du sie gebaut hast, solange dieser Tab offen ist.";
+    closePalette();
+    menuText.textContent = "Pausiert. Alles, was du baust, wird automatisch in diesem Browser gespeichert.";
     playBtn.textContent = "Weiterspielen";
     for (const k in keys) keys[k] = false;
+    saveNow();
   }
   playBtn.addEventListener("click", start);
   pauseBtn.addEventListener("click", pause);
+  let resetArmed = false;
+  resetBtn.addEventListener("click", () => {
+    if (!resetArmed) { resetArmed = true; resetBtn.textContent = "Wirklich alles zurücksetzen? Nochmal klicken"; setTimeout(() => { resetArmed = false; resetBtn.textContent = "Welt zurücksetzen"; }, 4000); return; }
+    noSave = true;
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    location.reload();
+  });
   document.addEventListener("pointerlockerror", () => { dragLook = true; });
   document.addEventListener("pointerlockchange", () => {
-    if (document.pointerLockElement !== canvas && playing && !dragLook) pause();
+    if (document.pointerLockElement !== canvas && playing && !dragLook && !palOpen) pause();
   });
   document.addEventListener("keydown", e => {
+    if (palOpen) { if (e.code === "Escape" || e.code === "KeyB") closePalette(); return; }
     if (!playing) { if (e.code === "Enter" && !playBtn.disabled) start(); return; }
+    initAudio();
     keys[e.code] = true;
     if (e.code === "Space" || e.code.startsWith("Arrow")) e.preventDefault();
     if (e.code.startsWith("Digit")) { const n = +e.code.slice(5); if (n >= 1 && n <= 9) select(n - 1); }
     if (e.code === "KeyF" && !e.repeat) toggleFly();
-    if (e.code === "KeyT" && !e.repeat) toGate();
+    if (e.code === "KeyT" && !e.repeat) { toGate(); butlerToPlayer(); }
+    if (e.code === "KeyV" && !e.repeat) cycleView();
+    if (e.code === "KeyB" && !e.repeat) openPalette();
     if (e.code === "KeyG" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (!e.repeat) toggleGate(); return; }
-    if (e.code === "KeyE" && !e.repeat && target) { const tb = get(target.x, target.y, target.z); if (tb === LEVER || tb === LEVER_ON) toggleGate(); }
+    if (e.code === "KeyE" && !e.repeat) {
+      if (targetEnt) interact(targetEnt);
+      else if (target) { const tb = get(target.x, target.y, target.z); if (tb === LEVER || tb === LEVER_ON) { swingHand(); toggleGate(); } }
+    }
     if (e.code === "Escape" && dragLook) pause();
   });
   document.addEventListener("keyup", e => { keys[e.code] = false; });
@@ -1037,7 +2619,9 @@
   let down = null;
   canvas.addEventListener("contextmenu", e => e.preventDefault());
   canvas.addEventListener("mousedown", e => {
-    if (!playing || isTouch) return;
+    if (!playing || isTouch || palOpen) return;
+    initAudio();
+    if (e.button === 1) { e.preventDefault(); pickBlock(); return; }
     if (document.pointerLockElement === canvas) { if (e.button === 0) breakBlock(); else if (e.button === 2) placeBlock(); }
     else if (dragLook) down = { x: e.clientX, y: e.clientY, b: e.button, moved: 0 };
   });
@@ -1046,16 +2630,16 @@
     down = null;
   });
   document.addEventListener("mousemove", e => {
-    if (!playing) return;
+    if (!playing || palOpen) return;
     if (document.pointerLockElement === canvas) look(e.movementX, e.movementY, 0.0022);
     else if (down) { down.moved += Math.abs(e.movementX) + Math.abs(e.movementY); look(e.movementX, e.movementY, 0.004); }
   });
-  window.addEventListener("wheel", e => { if (playing) select(sel + (e.deltaY > 0 ? 1 : -1)); }, { passive: true });
+  window.addEventListener("wheel", e => { if (playing && !palOpen) select(sel + (e.deltaY > 0 ? 1 : -1)); }, { passive: true });
 
   // Touch: Joystick links, Umsehen per Wischen, Knöpfe rechts
   const joyEl = document.getElementById("joy"), knob = document.getElementById("knob");
   let joyId = null, joyO = null;
-  joyEl.addEventListener("touchstart", e => { e.preventDefault(); const t = e.changedTouches[0]; joyId = t.identifier; const r = joyEl.getBoundingClientRect(); joyO = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, { passive: false });
+  joyEl.addEventListener("touchstart", e => { e.preventDefault(); initAudio(); const t = e.changedTouches[0]; joyId = t.identifier; const r = joyEl.getBoundingClientRect(); joyO = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, { passive: false });
   let lookId = null, lookLast = null;
   canvas.addEventListener("touchstart", e => { e.preventDefault(); if (lookId === null) { const t = e.changedTouches[0]; lookId = t.identifier; lookLast = { x: t.clientX, y: t.clientY }; } }, { passive: false });
   window.addEventListener("touchmove", e => {
@@ -1076,9 +2660,10 @@
     }
   };
   window.addEventListener("touchend", endTouch); window.addEventListener("touchcancel", endTouch);
-  const hold = (id, on, off) => { const el = document.getElementById(id); el.addEventListener("touchstart", e => { e.preventDefault(); on(); }, { passive: false }); if (off) el.addEventListener("touchend", off); };
+  const hold = (id, on, off) => { const el = document.getElementById(id); el.addEventListener("touchstart", e => { e.preventDefault(); initAudio(); on(); }, { passive: false }); if (off) el.addEventListener("touchend", off); };
   hold("tJump", () => keys.Space = true, () => keys.Space = false);
   hold("tBreak", breakBlock); hold("tPlace", placeBlock); hold("tFly", toggleFly); hold("tGate", toggleGate);
+  hold("tView", cycleView); hold("tBlocks", openPalette);
 
   // ---------- Grafikstufen ----------
   // "Auto" misst die Bildrate beim Spielen und wählt die schönste Stufe, die noch flüssig läuft.
@@ -1102,7 +2687,7 @@
     }
     renderer.shadowMap.type = L.shadow >= 2048 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     if (sunLight.castShadow !== sh) { sunLight.castShadow = sh; renderer.shadowMap.enabled = sh; }
-    mats.forEach(m => m.needsUpdate = true);
+    scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
     viewDist = L.view;
     qBtn.textContent = "Grafik: " + (auto ? "Auto (" + L.name + ")" : L.name);
     resize();
@@ -1130,16 +2715,27 @@
   // ---------- Hauptschleife ----------
   const hintEl = document.getElementById("hint");
   const posEl = document.getElementById("pos"), tint = document.getElementById("waterTint");
-  function resize() { const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    handCam.aspect = w / h; handCam.updateProjectionMatrix();
+  }
   window.addEventListener("resize", resize); resize();
-  let last = performance.now(), hudT = 0;
+  let last = performance.now(), hudT = 0, worldReady = false, autoSaveT = 20;
   function frame(now) {
     requestAnimationFrame(frame);
-    const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (playing) { step(dt); autoTune(dt); }
+    const dt = Math.min(0.05, (now - last) / 1000), t = now / 1000; last = now;
+    if (playing && !palOpen) { step(dt); autoTune(dt); }
     updateGate(dt);
-    camera.position.set(P.x, P.y + 1.62, P.z);
-    camera.rotation.y = P.yaw; camera.rotation.x = P.pitch;
+    if (worldReady) {
+      updateEnts(dt, t); updateDecay(dt); refillAnimals(dt);
+      if (playing && (autoSaveT -= dt) <= 0) { autoSaveT = 20; saveNow(); }
+    }
+    updateParticles(dt);
+    atkCd -= dt;
+    const third = placeCamera();
+    if (PM) updatePlayerModel(dt, t, third);
+    if (!third && handArm) updateHand(dt);
     sky.position.copy(camera.position);
     sun.position.copy(camera.position).addScaledVector(sunDir, 380);
     clouds.position.set(camera.position.x, 122, camera.position.z);
@@ -1147,23 +2743,32 @@
     const lx = Math.round(P.x), lz = Math.round(P.z);
     sunLight.target.position.set(lx, 0, lz);
     sunLight.position.set(lx + sunDir.x * 220, sunDir.y * 220, lz + sunDir.z * 220);
-    const under = get(Math.floor(P.x), Math.floor(P.y + 1.62), Math.floor(P.z)) === WATER;
+    const under = blockAtF(camera.position.x, camera.position.y, camera.position.z) === WATER;
     scene.fog.color.copy(under ? UNDERWATER : HORIZON); scene.fog.near = under ? 1 : viewDist * 0.35; scene.fog.far = under ? 20 : viewDist;
     tint.hidden = !under;
-    if (playing) {
-      target = raycast(6);
+    if (playing && !palOpen) {
+      updateTarget();
       outline.visible = !!target;
       if (target) outline.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5);
-      const tb = target ? get(target.x, target.y, target.z) : AIR;
-      hintEl.hidden = !(tb === LEVER || tb === LEVER_ON);
-      if (!hintEl.hidden) hintEl.textContent = (isTouch ? "Tippe auf „Bauen“, um das Tor zu " : "Rechtsklick oder E, um das Tor zu ") + (gate.open ? "schließen" : "öffnen");
-    } else { outline.visible = false; hintEl.hidden = true; }
+    } else outline.visible = false;
+    // Hinweise: erst gesprochene Sätze, sonst was man mit dem Angeschauten tun kann
+    if (sayT > 0) { sayT -= dt; if (sayT <= 0) hintEl.hidden = true; }
+    else if (playing && !palOpen) {
+      let msg = "";
+      const tb = target ? get(target.x, target.y, target.z) : AIR, act = isTouch ? "„Bauen“: " : "E: ";
+      if (tb === LEVER || tb === LEVER_ON) msg = (isTouch ? "Tippe auf „Bauen“, um das Tor zu " : "Rechtsklick oder E, um das Tor zu ") + (gate.open ? "schließen" : "öffnen");
+      else if (targetEnt && targetEnt === butler) msg = act + (butler.stay ? "James soll dir wieder folgen" : "James soll hier warten");
+      else if (targetEnt && targetEnt.lines) msg = act + "mit " + ({ king: "dem König", guard: "der Wache", kid: "dem Kind" }[targetEnt.kind] || "dem Dorfbewohner") + " reden";
+      hintEl.hidden = !msg; if (msg) hintEl.textContent = msg;
+    } else hintEl.hidden = true;
     if ((hudT -= dt) <= 0) { hudT = 0.2; cullChunks(); posEl.textContent = `X ${Math.floor(P.x)}  Y ${Math.floor(P.y)}  Z ${Math.floor(P.z)}`; }
     renderer.render(scene, camera);
+    if (!third && handArm) { renderer.autoClear = false; renderer.clearDepth(); renderer.render(handScene, handCam); renderer.autoClear = true; }
   }
 
   // ---------- Start ----------
   makeAtlas();
+  atlasPix = atlasCanvas.getContext("2d").getImageData(0, 0, T * N, T * N).data;
   const atlas = new THREE.CanvasTexture(atlasCanvas);
   atlas.magFilter = THREE.NearestFilter; atlas.minFilter = THREE.NearestFilter; atlas.generateMipmaps = false;
   mats = [
@@ -1172,19 +2777,47 @@
     new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true, alphaTest: 0.5 }),
     new THREE.MeshBasicMaterial({ map: atlas, vertexColors: true }),
   ];
-  buildBar();
+  itemMats = [new THREE.MeshLambertMaterial({ map: atlas }), new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.5, side: THREE.DoubleSide }), new THREE.MeshBasicMaterial({ map: atlas })];
+  const save = loadSave();
+  if (save && Array.isArray(save.bar) && save.bar.length === HOTBAR.length && save.bar.every(b => PALETTE.includes(b))) HOTBAR.splice(0, HOTBAR.length, ...save.bar);
+  buildBar(); buildPalette();
   let savedQ = null; try { savedQ = localStorage.getItem("blockwelt-quality"); } catch (e) {}
   if (savedQ !== null && savedQ !== "auto") { auto = false; applyLevel(+savedQ); }
   else applyLevel(isTouch || (navigator.hardwareConcurrency || 8) <= 4 ? 0 : 1);
   requestAnimationFrame(frame);
+  window.addEventListener("pagehide", saveNow);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) saveNow(); });
   setTimeout(() => {
     generate();
+    if (save) {
+      if (save.gate) gateInstantOpen();
+      for (let i = 0; i + 1 < save.e.length; i += 2) {
+        const k = save.e[i], b = save.e[i + 1];
+        if (!(k >= 0 && k < world.length && b >= 0 && b < 64)) continue;
+        world[k] = b; edits.set(k, b);
+        if (b === LEVER || b === LEVER_ON) {
+          const x = k % W, z = Math.floor(k / W) % D, y = Math.floor(k / (W * D));
+          if (!levers.some(l => l[0] === x && l[1] === y && l[2] === z)) levers.push([x, y, z]);
+        }
+      }
+      for (let i = levers.length - 1; i >= 0; i--) {
+        const k = idx(levers[i][0], levers[i][1], levers[i][2]);
+        if (world[k] !== LEVER && world[k] !== LEVER_ON) levers.splice(i, 1); else world[k] = gate.open ? LEVER_ON : LEVER;
+      }
+    }
     for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) { let y = H - 1; while (y > 0 && world[idx(x, y, z)] === AIR) y--; topY[x + z * W] = y; }
     for (let cz = 0; cz < D / CS; cz++) for (let cx = 0; cx < W / CS; cx++) rebuildChunk(cx, cz);
+    buildHand(); makePlayerModel();
     toGate();
+    if (save && Array.isArray(save.p) && save.p.length === 5 && save.p.every(Number.isFinite)) {
+      [P.x, P.y, P.z, P.yaw, P.pitch] = save.p;
+      if (P.x < 1 || P.z < 1 || P.x > W - 1 || P.z > D - 1 || hits(P.x, P.y, P.z)) toGate();
+      if (save.fly) { P.fly = true; flyTag.hidden = false; }
+    }
+    if (save && [0, 1, 2].includes(save.view)) setView(save.view);
+    spawnPeople(); spawnAnimals(); spawnButler(save && save.stay); updateJamesTag();
+    worldReady = true;
     playBtn.disabled = false; playBtn.textContent = isTouch ? "Spielen" : "Spielen (Klick)";
   }, 30);
 })();
 </script>
-</body>
-</html>
