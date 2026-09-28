@@ -4,17 +4,23 @@ Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und
 
 ## Was drin ist
 
-- Du spielst einen Geschäftsmann im Nadelstreifenanzug. Mit V siehst du dich selbst von hinten oder von vorne.
-- Dein Butler James folgt dir überallhin. Fällst du einen Baum, fällt er die Bäume in der Nähe mit. Greifst du ein Tier an, hilft er dir mit seinem Regenschirm. Mit E sagst du ihm, dass er warten oder wieder folgen soll.
+- Du bist der König dieses Landes, auch wenn du lieber Anzug trägst als Krone. Mit V siehst du dich selbst von hinten oder von vorne.
+- Der Thron im Thronsaal gehört dir: Rechtsklick oder E, und du setzt dich drauf. Auch auf die Stühle im Speisesaal und aufs Sofa kannst du dich setzen.
+- Dein Butler James folgt dir überallhin. Fällst du einen Baum, fällt er die Bäume in der Nähe mit. Greifst du ein Tier oder einen Zombie an, hilft er dir mit seinem Regenschirm. Sitzt du auf dem Thron, stellt er sich neben dich. Mit E sagst du ihm, dass er warten oder wieder folgen soll.
+- Echtes Licht wie in Minecraft: Leuchtsteine, Laternen und Kronleuchter erhellen ihre Umgebung, und drinnen ist es dunkler als draußen.
+- Tag und Nacht mit Sonne, Mond, Sternen und Abendrot. Ein ganzer Tag dauert 20 Minuten, oben links steht die Uhrzeit. Mit N springst du zum nächsten Morgen, Mittag, Abend oder zur Nacht.
+- Nachts steigen draußen Zombies aus der Erde. Im Schloss und im Dorf bist du sicher. Bei Sonnenaufgang fangen die Zombies Feuer.
+- Du hast zehn Herzen. Zombies, tiefe Stürze und zu langes Tauchen kosten Herzen, mit der Zeit heilen sie wieder. Stirbst du, wachst du vor dem Schlosstor wieder auf.
+- In den Betten im Schloss schläfst du nachts bis sechs Uhr morgens, und danach wachst du nach dem Sterben dort auf. Ein eigenes Bett baust du aus weißer Wolle als Kissen und roter oder blauer Wolle als Decke.
 - Kühe, Schweine, Schafe in verschiedenen Farben und Hühner leben auf den Wiesen, aber nie im Schloss.
-- Der König sitzt auf seinem Thron, Wachen stehen am Tor, im Thronsaal und auf der Mauer, und Dorfbewohner und Kinder laufen durchs Dorf. Mit E oder Rechtsklick redest du mit ihnen.
+- Wachen stehen am Tor, im Thronsaal und auf der Mauer, und Dorfbewohner und Kinder laufen durchs Dorf. Mit E oder Rechtsklick redest du mit ihnen.
 - Ein riesiges Schloss mit Burggraben, Zugbrücke und Fallgitter
-- Thronsaal mit Goldthron und rotem Teppich, Bibliothek, Speisesaal, Schlafzimmer und eine Gemäldegalerie
+- Thronsaal mit Goldthron, rotem Teppich und Leuchtern an Ketten, Bibliothek, Speisesaal, Schlafzimmer und eine Gemäldegalerie
 - Ein Dorf mit Häusern, Marktplatz, Brunnen und Weizenfeldern
 - Eine große Mauer mit Wachtürmen rund um die ganze Welt
 - Mit B bekommst du alle Blöcke zum Bauen, auch Hebel und Gemälde. Alles, was du baust, wird automatisch im Browser gespeichert.
-- Laub zerfällt, wenn sein Baum gefällt ist, wie in Minecraft. Schritte, Blöcke und Tiere haben Geräusche.
-- Schatten, weiche Ecken-Schatten und Wolken. Die Grafik passt sich von selbst an schwache PCs an.
+- Laub zerfällt, wenn sein Baum gefällt ist, wie in Minecraft. Schritte, Blöcke, Tiere und Zombies haben Geräusche.
+- Schatten, weiche Ecken-Schatten, bewegtes Wasser und Wolken. Die Grafik passt sich von selbst an schwache PCs an.
 
 ## Spielen
 
@@ -24,20 +30,22 @@ Lade `index.html` herunter und öffne die Datei im Browser (Chrome, Edge oder Fi
 
 | Taste | Aktion |
 | --- | --- |
-| W A S D | Laufen |
+| W A S D | Laufen, im Sitzen aufstehen |
 | Maus | Umsehen |
-| Leertaste | Springen, Schwimmen, im Flug steigen |
+| Leertaste | Springen, Schwimmen, im Flug steigen, aufstehen |
 | Shift | Sprinten, im Flug sinken |
-| Linksklick | Block abbauen, Tiere angreifen |
-| Rechtsklick | Block setzen, mit Leuten reden |
+| Linksklick | Block abbauen, Tiere und Zombies angreifen |
+| Rechtsklick | Block setzen, reden, hinsetzen, im Bett schlafen |
+| Shift + Rechtsklick | Immer einen Block setzen, auch auf Stühle und Betten |
 | 1–9 / Mausrad | Block auswählen |
 | B | Alle Blöcke zum Bauen |
 | Mittlere Maustaste | Angeschauten Block in die Hand nehmen |
 | V | Ansicht wechseln: Ich-Ansicht, von hinten, von vorne |
-| E | Hebel umlegen, reden, James warten oder folgen lassen |
+| E | Hebel umlegen, reden, hinsetzen, schlafen, James warten oder folgen lassen |
+| N | Zeit überspringen: Morgen, Mittag, Abend, Nacht |
 | Strg + G | Zugbrücke und Tor von überall öffnen oder schließen |
 | F | Fliegen an / aus |
 | T | Zurück vor das Schlosstor, James kommt mit |
 | Esc | Pause |
 
-Im Pausenmenü kannst du mit „Welt zurücksetzen“ alles Gebaute löschen und neu anfangen.
+Im Pausenmenü stellst du die Tageszeit ein, schaltest die Monster an oder aus und kannst mit „Welt zurücksetzen“ alles Gebaute löschen und neu anfangen.

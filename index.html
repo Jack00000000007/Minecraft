@@ -34,19 +34,32 @@
   #cross::before { left: 10px; top: 0; width: 2px; height: 22px; }
   #cross::after { top: 10px; left: 0; height: 2px; width: 22px; }
 
-  #bar { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
-    display: flex; gap: 4px; padding: 5px; background: var(--panel); border: 1px solid var(--panel-line); border-radius: 8px; max-width: calc(100% - 32px); }
+  #bottom { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    display: flex; flex-direction: column; gap: 5px; max-width: calc(100% - 32px); }
+  #stats { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; padding: 0 2px; pointer-events: none; }
+  #stats canvas { width: 162px; height: 20px; image-rendering: pixelated; flex: 0 1 auto; min-width: 0; }
+  #bar { display: flex; gap: 4px; padding: 5px; background: var(--panel); border: 1px solid var(--panel-line); border-radius: 8px; box-sizing: border-box; }
   .slot { position: relative; width: 44px; height: 44px; border: 2px solid transparent; border-radius: 5px; padding: 4px; box-sizing: border-box;
     background: rgba(255,255,255,.05); cursor: pointer; flex: 0 1 44px; min-width: 30px; }
   .slot canvas { width: 100%; height: 100%; image-rendering: pixelated; display: block; border-radius: 2px; }
   .slot.sel { border-color: var(--sun); background: rgba(240,181,65,.18); }
   .slot span { position: absolute; top: 1px; left: 4px; font: 500 10px "Pixelify Sans", monospace; color: var(--ink-dim); text-shadow: 0 1px 0 #000; }
-  #blockName { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  #blockName { position: fixed; left: 50%; bottom: calc(104px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
     font: 500 15px "Pixelify Sans", monospace; text-shadow: 0 2px 0 rgba(0,0,0,.6); transition: opacity .4s; pointer-events: none; }
 
   #hint { position: fixed; left: 50%; top: calc(50% + 28px); transform: translateX(-50%); padding: 6px 12px; border-radius: 6px; max-width: calc(100% - 32px);
     background: var(--panel); border: 1px solid var(--panel-line); font: 500 14px "Pixelify Sans", monospace; color: var(--sun); text-align: center; pointer-events: none; }
   #waterTint { position: fixed; inset: 0; background: rgba(20, 70, 150, .35); pointer-events: none; }
+  #hurt { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(170, 0, 0, 0) 42%, rgba(175, 0, 0, .6) 100%); }
+  #sleep { position: fixed; inset: 0; pointer-events: none; background: #05070c; opacity: 0; }
+  #clock { color: var(--sun); font-family: "Pixelify Sans", monospace; }
+  #clock.night { color: #9fb8ff; }
+  #death { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(110, 8, 8, .5); }
+  #death h1 { color: #ff7a66; }
+  #respawn { font: 700 20px "Pixelify Sans", monospace; padding: 12px; border-radius: 6px; border: 0; cursor: pointer;
+    background: var(--grass); color: #10200a; box-shadow: inset 0 -4px 0 rgba(0,0,0,.25); }
+  #respawn:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
   #menu { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(8, 14, 20, .45); overflow-y: auto; }
   .card { width: min(460px, 100%); background: var(--panel); border: 1px solid var(--panel-line); border-radius: 10px; padding: 26px 24px; box-sizing: border-box;
@@ -58,9 +71,9 @@
   #play:hover { filter: brightness(1.08); }
   #play:focus-visible, .slot:focus-visible, #pauseBtn:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
   #play:disabled { opacity: .6; cursor: wait; }
-  #quality { font: 500 15px "Pixelify Sans", monospace; padding: 9px; border-radius: 6px; cursor: pointer; background: transparent; color: var(--ink);
+  #quality, .opt { font: 500 15px "Pixelify Sans", monospace; padding: 9px; border-radius: 6px; cursor: pointer; background: transparent; color: var(--ink);
     border: 1px solid var(--panel-line); }
-  #quality:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+  #quality:focus-visible, .opt:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
   .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; }
   .keys kbd { font: 500 12px "Pixelify Sans", monospace; background: rgba(255,255,255,.08); border: 1px solid var(--panel-line);
     border-bottom-width: 3px; border-radius: 4px; padding: 1px 7px; color: var(--ink); white-space: nowrap; justify-self: start; }
@@ -86,17 +99,22 @@
   .pal canvas { width: 40px; height: 40px; image-rendering: pixelated; }
   .pal:hover, .pal:focus-visible { background: rgba(240,181,65,.18); border-color: var(--sun); outline: none; }
   #palClose { font: 700 16px "Pixelify Sans", monospace; padding: 10px; border-radius: 6px; border: 0; cursor: pointer; background: var(--grass); color: #10200a; }
-  @media (max-width: 480px) { .card h1 { font-size: 36px; } .slot { width: 36px; height: 36px; padding: 3px; } }
+  @media (max-width: 480px) { .card h1 { font-size: 36px; } .slot { width: 36px; height: 36px; padding: 3px; } #stats canvas { width: 130px; height: 16px; } }
 </style>
 
 <canvas id="c"></canvas>
 <div id="waterTint" hidden></div>
-<div id="info"><b>Blockwelt</b><span id="pos">–</span><span id="jamesTag"></span><span id="flyTag" hidden>Fliegen</span></div>
+<div id="hurt"></div>
+<div id="sleep" hidden></div>
+<div id="info"><b>Blockwelt</b><span id="clock">12:00</span><span id="pos">–</span><span id="jamesTag"></span><span id="flyTag" hidden>Fliegen</span></div>
 <button id="pauseBtn" hidden aria-label="Pause">II</button>
 <div id="cross"></div>
 <div id="blockName"></div>
 <div id="hint" hidden></div>
-<div id="bar"></div>
+<div id="bottom">
+  <div id="stats"><canvas id="hearts" width="81" height="10" aria-label="Leben"></canvas><canvas id="air" width="81" height="10" hidden aria-label="Luft"></canvas></div>
+  <div id="bar"></div>
+</div>
 <div id="touch" hidden>
   <div id="joy"><div id="knob"></div></div>
   <div class="tbtns">
@@ -109,6 +127,13 @@
     <button id="tPlace">Bauen</button>
   </div>
 </div>
+<div id="death" hidden>
+  <div class="card">
+    <h1>Du bist gestorben!</h1>
+    <p id="deathText">Ein Zombie hat dich erwischt.</p>
+    <button id="respawn">Wiederbeleben</button>
+  </div>
+</div>
 <div id="palette" hidden>
   <div class="card palcard">
     <h2>Blöcke</h2>
@@ -119,27 +144,29 @@
 <div id="menu">
   <div class="card">
     <h1>Blockwelt</h1>
-    <p id="menuText">Du bist ein Geschäftsmann, und dein Butler James begleitet dich überallhin. Vor dir steht ein riesiges Schloss mit Thronsaal, Bibliothek und Gemäldegalerie, auf dem Thron sitzt der König. Hinter dir liegt ein Dorf, und auf den Wiesen leben Kühe, Schafe, Schweine und Hühner. Zieh den Hebel oder drück Strg + G, dann senkt sich die Zugbrücke.</p>
+    <p id="menuText">Du bist der König dieses Landes, auch wenn du lieber Anzug trägst als Krone. Dein Butler James begleitet dich überallhin. Vor dir steht dein Schloss mit Thronsaal, Bibliothek und Gemäldegalerie, und der Thron gehört dir. Hinter dir liegt das Dorf, auf den Wiesen leben Kühe, Schafe, Schweine und Hühner. Nachts steigen draußen Zombies aus der Erde, im Schloss und im Dorf bist du sicher. Zieh den Hebel oder drück Strg + G, dann senkt sich die Zugbrücke.</p>
     <button id="play" disabled>Welt wird erzeugt …</button>
     <button id="quality">Grafik: Auto</button>
+    <div class="opts"><button id="timeBtn" class="opt">Tageszeit: Morgen</button><button id="monBtn" class="opt">Monster: an</button></div>
     <div class="keys" id="keyList">
       <kbd>W A S D</kbd><div>Laufen</div>
       <kbd>Maus</kbd><div>Umsehen</div>
       <kbd>Leertaste</kbd><div>Springen, Schwimmen, im Flug steigen</div>
       <kbd>Shift</kbd><div>Sprinten, im Flug sinken</div>
-      <kbd>Linksklick</kbd><div>Block abbauen, Tiere angreifen</div>
-      <kbd>Rechtsklick</kbd><div>Block setzen, mit Leuten reden</div>
+      <kbd>Linksklick</kbd><div>Block abbauen, Tiere und Zombies angreifen</div>
+      <kbd>Rechtsklick</kbd><div>Block setzen, reden, hinsetzen, schlafen (mit Shift immer Block setzen)</div>
       <kbd>1–9 / Mausrad</kbd><div>Block auswählen</div>
       <kbd>B</kbd><div>Alle Blöcke zum Bauen</div>
       <kbd>Mittlere Maustaste</kbd><div>Angeschauten Block in die Hand nehmen</div>
       <kbd>V</kbd><div>Ansicht wechseln, dich selbst von hinten oder vorne sehen</div>
-      <kbd>E</kbd><div>Hebel umlegen, reden, James warten oder folgen lassen</div>
+      <kbd>E</kbd><div>Hebel umlegen, reden, hinsetzen, im Bett schlafen, James warten oder folgen lassen</div>
+      <kbd>N</kbd><div>Zeit überspringen: Morgen, Mittag, Abend, Nacht</div>
       <kbd>F</kbd><div>Fliegen an / aus</div>
       <kbd>Strg + G</kbd><div>Zugbrücke und Tor von überall öffnen oder schließen</div>
       <kbd>T</kbd><div>Zurück vor das Schlosstor</div>
       <kbd>Esc</kbd><div>Pause</div>
     </div>
-    <p class="tip">Fällst du einen Baum, fällt James die Bäume in der Nähe gleich mit. Greifst du ein Tier an, hilft er dir. Alles, was du baust, wird automatisch gespeichert.</p>
+    <p class="tip">Fällst du einen Baum, fällt James die Bäume in der Nähe gleich mit. Greifst du ein Tier oder einen Zombie an, hilft er dir. Ein Tag dauert 20 Minuten, nachts kannst du in den Betten im Schloss schlafen. Alles, was du baust, wird automatisch gespeichert.</p>
     <button id="reset" class="linkbtn" hidden>Welt zurücksetzen</button>
   </div>
 </div>
@@ -415,6 +442,18 @@
       fill(110, Fk + 1, lz, 121, Fk + 11, lz + 2, AIR);
       for (let i = 0; i < 12; i++) fill(121 - i, Fk + 1, lz, 121 - i, Fk + 1 + i, lz + 2, DPLANK);
       fill(111, Fk + 12, lz, 121, Fk + 12, lz + 2, AIR);
+    }
+
+    // Hängelampen an Ketten in allen Etagen, damit es drinnen überall hell genug ist
+    for (let k = 0; k < 4; k++) {
+      const Fk = G0 + FH * k;
+      for (let z = z0 + 5; z <= z1 - 4; z += 6) for (let x = x0 + 5; x <= x1 - 4; x += 6) {
+        let ok = true;
+        for (let y = Fk + 5; y <= Fk + 11 && ok; y++) if (get(x, y, z) !== AIR) ok = false;
+        for (let dz = -3; dz <= 3 && ok; dz++) for (let dx = -3; dx <= 3 && ok; dx++) for (let y = Fk + 1; y <= Fk + 11; y++) if (get(x + dx, y, z + dz) === LAMP) { ok = false; break; }
+        if (!ok) continue;
+        fill(x, Fk + 7, z, x, Fk + 11, z, BARS); setB(x, Fk + 6, z, LAMP);
+      }
     }
 
     // Großer Turm auf dem Dach
@@ -712,18 +751,15 @@
   ];
   FACES.forEach(f => f.ax = [0, 1, 2].filter(k => f.d[k] === 0));
   const AOV = [0.48, 0.66, 0.83, 1];
-  const sA = [0, 0, 0], sB = [0, 0, 0];
-  function aoAt(x, y, z, f, cr) {
-    const bx = x + f.d[0], by = y + f.d[1], bz = z + f.d[2];
-    sA[0] = sA[1] = sA[2] = 0; sB[0] = sB[1] = sB[2] = 0;
-    sA[f.ax[0]] = cr[f.ax[0]] ? 1 : -1; sB[f.ax[1]] = cr[f.ax[1]] ? 1 : -1;
-    const s1 = opaque(get(bx + sA[0], by + sA[1], bz + sA[2])) ? 1 : 0;
-    const s2 = opaque(get(bx + sB[0], by + sB[1], bz + sB[2])) ? 1 : 0;
-    const c = opaque(get(bx + sA[0] + sB[0], by + sA[1] + sB[1], bz + sA[2] + sB[2])) ? 1 : 0;
-    return (s1 && s2) ? 0 : 3 - (s1 + s2 + c);
-  }
   // Ebenen: 0 fest, 1 Wasser, 2 Glas, 3 leuchtend
   const layerOf = b => b === WATER ? 1 : (b === GLASS || b === BARS || b === WHEAT) ? 2 : b === LAMP ? 3 : 0;
+  // Für jede Seite die 3x3 Zellen davor: daraus kommen Ecken-Schatten und weiches Licht jeder Ecke
+  FACES.forEach(f => {
+    f.o9 = [];
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const o = f.d.slice(); o[f.ax[0]] += a; o[f.ax[1]] += b; f.o9.push(o); }
+    f.vk = f.c.map(cr => { const sa = cr[f.ax[0]] ? 1 : -1, sb = cr[f.ax[1]] ? 1 : -1; return [(sa + 1) * 3 + 1, 3 + sb + 1, (sa + 1) * 3 + sb + 1]; });
+  });
+  const nO = new Uint8Array(9), nS = new Uint8Array(9), nB = new Uint8Array(9);
   function buildGeo(cx, cz) {
     const L = [0, 1, 2, 3].map(() => ({ p: [], n: [], u: [], c: [], i: [] }));
     const ao = [0, 0, 0, 0];
@@ -738,13 +774,26 @@
         if (ly === 1 ? nb !== AIR : ly === 2 ? (nb === b || opaque(nb)) : opaque(nb)) continue;
         const t = TEX[b][f.s], tg = L[ly], base = tg.p.length / 3;
         const lowerTop = ly === 1 && get(x, y + 1, z) !== WATER;
+        if (ly !== 3) for (let k = 0; k < 9; k++) {
+          const o = f.o9[k], qx = x + o[0], qy = y + o[1], qz = z + o[2];
+          if (qy < 0) { nO[k] = 1; nS[k] = 0; nB[k] = 0; }
+          else if (qy >= H || qx < 0 || qz < 0 || qx >= W || qz >= D) { nO[k] = 0; nS[k] = 15; nB[k] = 0; }
+          else { const i = qx + qz * W + qy * WD, q = world[i]; nO[k] = OPQ[q]; nS[k] = skyL[i]; nB[k] = blkL[i]; }
+        }
         for (let k = 0; k < 4; k++) {
           const cr = f.c[k];
           tg.p.push(x + cr[0], y + cr[1] - (lowerTop && cr[1] === 1 ? 0.12 : 0), z + cr[2]);
           tg.n.push(f.d[0], f.d[1], f.d[2]);
           const uv = tileUV(t, cr[3], cr[4]); tg.u.push(uv[0], uv[1]);
-          ao[k] = (ly === 1 || ly === 3) ? 3 : aoAt(x, y, z, f, cr);
-          const s = AOV[ao[k]]; tg.c.push(s, s, s);
+          if (ly === 3) { ao[k] = 3; tg.c.push(1, 1, 1); continue; }
+          // Rot: Ecken-Schatten; Grün: Himmelslicht; Blau: Lampenlicht (Mittel der offenen Zellen an dieser Ecke)
+          const vk = f.vk[k], s1 = nO[vk[0]], s2 = nO[vk[1]], cc = nO[vk[2]];
+          ao[k] = ly === 1 ? 3 : (s1 && s2) ? 0 : 3 - (s1 + s2 + cc);
+          let ls = nS[4], lb = nB[4], cnt = 1;
+          if (!s1) { ls += nS[vk[0]]; lb += nB[vk[0]]; cnt++; }
+          if (!s2) { ls += nS[vk[1]]; lb += nB[vk[1]]; cnt++; }
+          if (!cc && !(s1 && s2)) { ls += nS[vk[2]]; lb += nB[vk[2]]; cnt++; }
+          tg.c.push(AOV[ao[k]], ls / (cnt * 15), lb / (cnt * 15));
         }
         if (ao[0] + ao[3] > ao[1] + ao[2]) tg.i.push(base, base + 1, base + 3, base, base + 3, base + 2);
         else tg.i.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
@@ -833,25 +882,16 @@
     ms.forEach((m, i) => { if (m) { if (i === 1) m.renderOrder = 1; m.userData.c = [cx * CS + CS / 2, cz * CS + CS / 2]; scene.add(m); } });
     chunks.set(key, ms);
   }
+  // Blöcke ändern: die Chunks werden einmal pro Bild neu gebaut (siehe flushWorld), das Licht wird dabei nachgerechnet
   function setBlock(x, y, z, b) {
     if (x < 0 || z < 0 || x >= W || z >= D || y < 0 || y >= H) return;
-    world[idx(x, y, z)] = b;
+    const i = idx(x, y, z), old = world[i];
+    world[i] = b;
     if (b && y > topY[x + z * W]) topY[x + z * W] = y;
-    const done = new Set();
-    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
-      const cx = Math.floor((x + dx) / CS), cz = Math.floor((z + dz) / CS), k = cx + "," + cz;
-      if (!done.has(k)) { done.add(k); rebuildChunk(cx, cz); }
-    }
+    markEdit(x, y, z, old, b);
   }
-
   function setBlocks(list) {
-    const todo = new Set();
-    for (const [x, y, z, b] of list) {
-      world[idx(x, y, z)] = b;
-      if (b && y > topY[x + z * W]) topY[x + z * W] = y;
-      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) todo.add(Math.floor((x + dx) / CS) + "," + Math.floor((z + dz) / CS));
-    }
-    for (const k of todo) { const [cx, cz] = k.split(",").map(Number); rebuildChunk(cx, cz); }
+    for (const [x, y, z, b] of list) setBlock(x, y, z, b);
   }
   // Vom Spieler oder von James veränderte Blöcke werden gemerkt und gespeichert
   function editBlock(x, y, z, b) { setBlock(x, y, z, b); recordEdit(x, y, z, b); }
@@ -868,8 +908,9 @@
       const e = [];
       for (const [k, b] of edits) e.push(k, b);
       localStorage.setItem(SAVE_KEY, JSON.stringify({
-        v: 1, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false,
-        p: [P.x, P.y, P.z, P.yaw, P.pitch].map(n => Math.round(n * 1000) / 1000), fly: P.fly,
+        v: 1, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false, t: Math.round(dayT * 10000) / 10000,
+        p: P.dead ? null : (P.seat ? [...standSpot(P.seat), P.yaw, P.pitch] : [P.x, P.y, P.z, P.yaw, P.pitch]).map(n => Math.round(n * 1000) / 1000), fly: P.fly,
+        hp: P.dead ? 20 : P.hp, mon: monsters, sp: P.spawn,
       }));
     } catch (err) {}
   }
@@ -933,6 +974,8 @@
     oink: (v, p) => { voice(250 * p, 160 * p, 0.15, "sawtooth", 0.08 * v, { lp: 1000, q: 3 }); voice(230 * p, 150 * p, 0.13, "sawtooth", 0.07 * v, { lp: 950, q: 3, delay: 0.19 }); },
     baa: (v, p) => voice(330 * p, 290 * p, 0.65 / p, "square", 0.05 * v, { lp: 1400, trem: [21, 0.8] }),
     cluck: (v, p) => { for (let i = 0; i < 3; i++) voice(980 * p, 640 * p, 0.06, "triangle", 0.06 * v, { lp: 3200, delay: i * 0.11 + Math.random() * 0.03 }); },
+    groan: (v, p) => { voice(112 * p, 76 * p, 1.0 / p, "sawtooth", 0.09 * v, { lp: 430, q: 6, vib: [7, 5] }); voice(168 * p, 118 * p, 0.85 / p, "square", 0.025 * v, { lp: 620, q: 3, delay: 0.05 }); },
+    hurt: (v, p) => { voice(330 * p, 190 * p, 0.2, "square", 0.06 * v, { lp: 900, q: 2 }); noiseHit(420, 1, 0.14, 0.09 * v); },
   };
   const matOf = b => (b === GRASS || b === LEAVES || b === HEDGE || b === WHEAT) ? "grass" : b === DIRT ? "dirt" : (b === SAND || b === SNOW) ? "sand"
     : (b === LOG || b === PLANKS || b === DPLANK || b === SHELF || b >= 32) ? "wood" : (b === RWOOL || b === WWOOL || b === BWOOL) ? "wool" : b === GLASS ? "glass" : b === WATER ? "water" : "stone";
@@ -985,7 +1028,8 @@
   }
 
   // ---------- Spieler ----------
-  const P = { x: C + 0.5, y: 40, z: C + 64.5, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0.12, ground: false, fly: false, inWater: false, stepD: 0, sprint: false };
+  const P = { x: C + 0.5, y: 40, z: C + 64.5, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0.12, ground: false, fly: false, inWater: false, stepD: 0, sprint: false,
+    hp: 20, air: 15, dead: false, deadT: 0, lastHurt: 99, inv: 0, shake: 0, fallTop: 40, safeFall: false, seat: null, spawn: null };
   const keys = {};
   const joy = { x: 0, y: 0 };
   const solidAt = (x, y, z) => (x < 0 || z < 0 || x >= W || z >= D || y < 0) ? true : (y >= H ? false : solid(world[idx(x, y, z)]));
@@ -999,15 +1043,22 @@
   function toGate() {
     const x = C, z = C + 64;
     let y = H - 1; while (y > 0 && !solid(get(x, y, z))) y--;
-    P.x = x + 0.5; P.z = z + 0.5; P.y = y + 1; P.vx = P.vy = P.vz = 0; P.yaw = 0; P.pitch = 0.12;
+    P.x = x + 0.5; P.z = z + 0.5; P.y = y + 1; P.vx = P.vy = P.vz = 0; P.yaw = 0; P.pitch = 0.12; P.fallTop = P.y; P.seat = null;
   }
 
   function step(dt) {
+    if (P.dead || sleepT >= 0) { P.vx = P.vz = 0; return; }
     let f = 0, s = 0;
     if (keys.KeyW || keys.ArrowUp) f += 1; if (keys.KeyS || keys.ArrowDown) f -= 1;
     if (keys.KeyD || keys.ArrowRight) s += 1; if (keys.KeyA || keys.ArrowLeft) s -= 1;
     f -= joy.y; s += joy.x;
     const len = Math.hypot(f, s); if (len > 1) { f /= len; s /= len; }
+    // Sitzen: Laufen, Springen oder Shift lässt dich aufstehen
+    if (P.seat) {
+      P.seat.t += dt;
+      if (P.seat.t > 0.35 && (Math.abs(f) > 0.3 || Math.abs(s) > 0.3 || keys.Space || keys.ShiftLeft || keys.ShiftRight)) standUp();
+      else { P.vx = P.vy = P.vz = 0; P.ground = true; return; }
+    }
     const inWater = blockAtF(P.x, P.y + 0.4, P.z) === WATER;
     if (inWater && !P.inWater && P.vy < -3) noiseHit(700, 0.5, 0.35, 0.08);
     P.inWater = inWater;
@@ -1040,6 +1091,13 @@
       let nz = P.z + P.vz * h; if (!hits(P.x, P.y, nz)) P.z = nz; else P.vz = 0;
       let ny = P.y + P.vy * h; if (!hits(P.x, ny, P.z)) P.y = ny; else { if (P.vy < 0) P.ground = true; P.vy = 0; }
     }
+    // Fallschaden wie in Minecraft: jeder Block über drei kostet ein halbes Herz. Nach dem Fliegen landest du sanft.
+    if (P.fly || inWater) { P.fallTop = P.y; if (P.fly) P.safeFall = true; }
+    else if (P.ground) {
+      const fall = P.fallTop - P.y;
+      if (!wasGround && fall > 3.25 && !P.safeFall) hurtPlayer(Math.ceil(fall - 3.25), "fall");
+      P.fallTop = P.y; P.safeFall = false;
+    } else if (P.y > P.fallTop) P.fallTop = P.y;
     // Schritte und Landen hörbar machen
     const under = get(Math.floor(P.x), Math.floor(P.y - 0.2), Math.floor(P.z));
     if (P.ground && !P.fly) {
@@ -1050,6 +1108,285 @@
     const targetFov = sprinting ? 84 : 75;
     if (Math.abs(camera.fov - targetFov) > 0.05) { camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix(); }
   }
+
+  // ---------- Licht wie in Minecraft: Himmelslicht und Lampenlicht, jeweils 0 bis 15 ----------
+  // Jede Zelle merkt sich, wie viel Himmel sie sieht und wie nah eine Lampe ist. Daraus werden die
+  // Blockflächen beim Bauen der Chunks hell oder dunkel; Figuren fragen das Licht an ihrer Stelle ab.
+  const WD = W * D;
+  const skyL = new Uint8Array(W * H * D), blkL = new Uint8Array(W * H * D);
+  const OPQ = new Uint8Array(256), ATT = new Uint8Array(256), EMIT = new Uint8Array(256);
+  for (let b = 0; b < 256; b++) { OPQ[b] = opaque(b) ? 1 : 0; ATT[b] = OPQ[b] ? 15 : 1; }
+  ATT[LEAVES] = 2; ATT[HEDGE] = 2; ATT[WATER] = 2;   // Laub und Wasser dämpfen das Licht nur
+  EMIT[LAMP] = 15;
+
+  // Warteschlange für die Ausbreitung (Ringpuffer)
+  const QM = (1 << 21) - 1, lq = new Int32Array(QM + 1);
+  let qh = 0, qt = 0, rb = null;
+  const qpush = i => { const n = (qt + 1) & QM; if (n !== qh) { lq[qt] = i; qt = n; } };
+  function spreadTo(L, j, v, x, y, z) {
+    const nv = v - ATT[world[j]];
+    if (nv <= L[j]) return;
+    L[j] = nv; qpush(j);
+    if (rb && (x < rb[0] || x > rb[3] || z < rb[2] || z > rb[5] || y < rb[1] || y > rb[4])) markLight(x, z);
+  }
+  function spreadLight(L) {
+    while (qh !== qt) {
+      const i = lq[qh]; qh = (qh + 1) & QM;
+      const v = L[i];
+      if (v <= 1) continue;
+      const x = i % W, r = (i - x) / W, z = r % D, y = (r - z) / D;
+      if (x > 0) spreadTo(L, i - 1, v, x - 1, y, z);
+      if (x < W - 1) spreadTo(L, i + 1, v, x + 1, y, z);
+      if (z > 0) spreadTo(L, i - W, v, x, y, z - 1);
+      if (z < D - 1) spreadTo(L, i + W, v, x, y, z + 1);
+      if (y > 0) spreadTo(L, i - WD, v, x, y - 1, z);
+      if (y < H - 1) spreadTo(L, i + WD, v, x, y + 1, z);
+    }
+  }
+  // Die ganze Welt beleuchten (beim Start)
+  function lightAll() {
+    skyL.fill(0); blkL.fill(0); rb = null;
+    const top = new Int16Array(WD);
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+      let v = 15, i = x + z * W + (H - 1) * WD, t = -1;
+      for (let y = H - 1; y >= 0; y--, i -= WD) {
+        const a = ATT[world[i]];
+        if (a > 1) { if (t < 0) t = y; if (a >= 15) break; v -= a - 1; if (v <= 0) break; }
+        skyL[i] = v;
+      }
+      top[x + z * W] = t;
+    }
+    // Seitlich ausbreiten: Startpunkte sind helle Zellen neben höheren Nachbarsäulen und Zellen unter Laub oder Wasser
+    qh = qt = 0;
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+      const c = x + z * W, t = top[c];
+      let m = t;
+      if (x > 0) m = Math.max(m, top[c - 1]); if (x < W - 1) m = Math.max(m, top[c + 1]);
+      if (z > 0) m = Math.max(m, top[c - W]); if (z < D - 1) m = Math.max(m, top[c + W]);
+      for (let y = Math.max(0, t + 1); y <= m && y < H; y++) qpush(c + y * WD);
+      if (t >= 0) for (let y = t, i = c + t * WD; y >= 0 && skyL[i] > 1; y--, i -= WD) qpush(i);
+    }
+    spreadLight(skyL);
+    qh = qt = 0;
+    for (let i = 0; i < world.length; i++) { const e = EMIT[world[i]]; if (e) { blkL[i] = e; qpush(i); } }
+    spreadLight(blkL);
+  }
+
+  // --- Nach Änderungen nur einen Ausschnitt neu beleuchten ---
+  const NCX = W / CS, NCZ = D / CS, chunkGeo = new Uint8Array(NCX * NCZ), chunkLit = new Uint8Array(NCX * NCZ);
+  const markChunk = (F, cx, cz) => { if (cx >= 0 && cz >= 0 && cx < NCX && cz < NCZ) F[cx + cz * NCX] = 1; };
+  function markAround(F, x, z) { const a = (x - 1) >> 4, b = (x + 1) >> 4, c = (z - 1) >> 4, d = (z + 1) >> 4; markChunk(F, a, c); markChunk(F, b, c); markChunk(F, a, d); markChunk(F, b, d); }
+  const markLight = (x, z) => markAround(chunkLit, x, z);
+  let oldS = new Uint8Array(40 * 40 * H), oldB = new Uint8Array(40 * 40 * H);
+  function relightBox(x0, y0, z0, x1, y1, z1) {
+    x0 = Math.max(0, x0); z0 = Math.max(0, z0); y0 = Math.max(0, y0);
+    x1 = Math.min(W - 1, x1); z1 = Math.min(D - 1, z1); y1 = Math.min(H - 1, y1);
+    const sx = x1 - x0 + 1, sz = z1 - z0 + 1, sy = y1 - y0 + 1, n = sx * sz * sy;
+    if (n > oldS.length) { oldS = new Uint8Array(n); oldB = new Uint8Array(n); }
+    // 1) Alte Werte merken; Himmelslicht nur von oben, Lampenlicht nur an den Lampen selbst
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      let v = 15, i = x + z * W + (H - 1) * WD;
+      for (let y = H - 1; y >= y0; y--, i -= WD) {
+        const a = ATT[world[i]];
+        if (a > 1) v = a >= 15 ? 0 : Math.max(0, v - (a - 1));
+        if (y <= y1) {
+          const k = ((y - y0) * sz + (z - z0)) * sx + (x - x0);
+          oldS[k] = skyL[i]; oldB[k] = blkL[i]; skyL[i] = v; blkL[i] = EMIT[world[i]];
+        }
+      }
+    }
+    // 2) Von allen hellen Zellen der Kiste und vom Rand drumherum aus neu ausbreiten
+    rb = [x0, y0, z0, x1, y1, z1];
+    for (const L of [skyL, blkL]) {
+      qh = qt = 0;
+      for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0, i = x0 + z * W + y * WD; x <= x1; x++, i++) if (L[i] > 1) qpush(i);
+      const edge = (x, y, z) => { if (x >= 0 && z >= 0 && x < W && z < D && y >= 0 && y < H) { const i = x + z * W + y * WD; if (L[i] > 1) qpush(i); } };
+      for (let y = y0; y <= y1; y++) {
+        for (let z = z0; z <= z1; z++) { edge(x0 - 1, y, z); edge(x1 + 1, y, z); }
+        for (let x = x0; x <= x1; x++) { edge(x, y, z0 - 1); edge(x, y, z1 + 1); }
+      }
+      for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { edge(x, y1 + 1, z); edge(x, y0 - 1, z); }
+      spreadLight(L);
+    }
+    rb = null;
+    // 3) Nur Chunks neu bauen, in denen sich das Licht wirklich geändert hat
+    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
+      let k = ((y - y0) * sz + (z - z0)) * sx, i = x0 + z * W + y * WD;
+      for (let x = x0; x <= x1; x++, k++, i++) if (oldS[k] !== skyL[i] || oldB[k] !== blkL[i]) markLight(x, z);
+    }
+  }
+  const pendingLight = [];
+  // Ein Block hat sich geändert: Chunk neu bauen und, falls nötig, das Licht drumherum neu berechnen
+  function markEdit(x, y, z, oldBk, newBk) {
+    markAround(chunkGeo, x, z);
+    if (!worldReady || (ATT[oldBk] === ATT[newBk] && EMIT[oldBk] === EMIT[newBk])) return;
+    const open = y + 1 >= H || skyL[x + z * W + (y + 1) * WD] === 15;
+    const b0 = [x - 15, open ? 0 : y - 15, z - 15, x + 15, y + 15, z + 15];
+    for (const b of pendingLight) {
+      const nx0 = Math.min(b[0], b0[0]), nz0 = Math.min(b[2], b0[2]), nx1 = Math.max(b[3], b0[3]), nz1 = Math.max(b[5], b0[5]);
+      if (nx1 - nx0 <= 48 && nz1 - nz0 <= 48) { b[0] = nx0; b[2] = nz0; b[3] = nx1; b[5] = nz1; b[1] = Math.min(b[1], b0[1]); b[4] = Math.max(b[4], b0[4]); return; }
+    }
+    pendingLight.push(b0);
+  }
+  // Einmal pro Bild: Licht nachrechnen, geänderte Chunks sofort, nur heller/dunkler gewordene nach und nach neu bauen
+  function flushWorld(budget) {
+    while (pendingLight.length) relightBox(...pendingLight.pop());
+    for (let k = 0; k < chunkGeo.length; k++) if (chunkGeo[k]) { chunkGeo[k] = 0; chunkLit[k] = 0; rebuildChunk(k % NCX, (k / NCX) | 0); }
+    let n = budget === undefined ? 2 : budget;
+    while (n-- > 0) {
+      let best = -1, bd = 1e9;
+      for (let k = 0; k < chunkLit.length; k++) if (chunkLit[k]) {
+        const d = Math.hypot((k % NCX) * CS + 8 - P.x, ((k / NCX) | 0) * CS + 8 - P.z);
+        if (d < bd) { bd = d; best = k; }
+      }
+      if (best < 0) break;
+      chunkLit[best] = 0; rebuildChunk(best % NCX, (best / NCX) | 0);
+    }
+  }
+  // Licht an einer Stelle als 0..1 (Himmel, Lampe); steckt die Stelle in einem Block, zählt die Zelle darüber
+  const _lv = new THREE.Vector2();
+  function lightAt(x, y, z) {
+    const ix = Math.floor(x), iz = Math.floor(z); let iy = Math.floor(y);
+    if (ix < 0 || iz < 0 || ix >= W || iz >= D || iy >= H) return _lv.set(1, 0);
+    if (iy < 0) return _lv.set(0, 0);
+    let i = ix + iz * W + iy * WD;
+    if (OPQ[world[i]] && iy + 1 < H) i += WD;
+    return _lv.set(skyL[i] / 15, blkL[i] / 15);
+  }
+
+  // --- Shader: Blöcke und Figuren bekommen Himmels- und Lampenlicht ---
+  const uLamp = { value: new THREE.Vector3(1.08, 0.8, 0.5) };
+  const OUT_LINE = "vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;";
+  const LIGHT_GLSL = `
+    float fS = lvS / (3.0 - 2.0 * lvS), fB = lvB / (3.0 - 2.0 * lvB);
+    float skyF = 0.08 + 0.92 * mix(fS, 1.0 - pow(1.0 - fS, 4.0), 0.5);
+    float blkF = mix(fB, 1.0 - pow(1.0 - fB, 4.0), 0.5);
+    vec3 sceneL = (reflectedLight.directDiffuse + reflectedLight.indirectDiffuse) * skyF;
+    vec3 lampL = diffuseColor.rgb * uLamp * blkF;
+    vec3 outgoingLight = max(sceneL, lampL) + lampL * 0.12 + totalEmissiveRadiance;`;
+  // Chunks: Rot = Ecken-Schatten, Grün = Himmelslicht, Blau = Lampenlicht (pro Ecke gemittelt)
+  function blockOBC(shader) {
+    shader.uniforms.uLamp = uLamp;
+    shader.fragmentShader = "uniform vec3 uLamp;\n" + shader.fragmentShader
+      .replace("#include <color_fragment>", "diffuseColor.rgb *= vColor.r;")
+      .replace(OUT_LINE, "float lvS = vColor.g, lvB = vColor.b;" + LIGHT_GLSL);
+  }
+  // Figuren und Gegenstände: ein Lichtwert für das ganze Modell
+  function entOBC(shader) {
+    shader.uniforms.uLamp = uLamp; shader.uniforms.uLight = this.userData.uLight;
+    shader.fragmentShader = "uniform vec3 uLamp;\nuniform vec2 uLight;\n" + shader.fragmentShader
+      .replace(OUT_LINE, "float lvS = uLight.x, lvB = uLight.y;" + LIGHT_GLSL);
+  }
+  function litBlocks(mat) { mat.onBeforeCompile = blockOBC; return mat; }
+  function litEnt(mat, u) { mat.userData.uLight = u || { value: new THREE.Vector2(1, 0) }; mat.onBeforeCompile = entOBC; return mat; }
+  const playerLight = { value: new THREE.Vector2(1, 0) };
+
+  // ---------- Tag und Nacht ----------
+  // dayT: 0 = Mitternacht, 0.25 = Sonnenaufgang, 0.5 = Mittag, 0.75 = Sonnenuntergang. Ein ganzer Tag dauert 20 Minuten.
+  const DAY_LEN = 1200;
+  let dayT = 0.3, dayF = 1, nightF = 0;
+  const lightDir = new THREE.Vector3().copy(sunDir);
+  const hemi = scene.children.find(o => o.isHemisphereLight);
+  const skyTop = sky.material.uniforms.top.value;
+  const K = {
+    dayTop: new THREE.Color(0x2c68c8), dayHor: new THREE.Color(0xcfe4ee),
+    duskTop: new THREE.Color(0x3b4f96), duskHor: new THREE.Color(0xf29a62),
+    nightTop: new THREE.Color(0x03060f), nightHor: new THREE.Color(0x0c1526),
+    hemiDay: new THREE.Color(0xd8ecff), hemiNight: new THREE.Color(0x6474a6), groundDay: new THREE.Color(0x6b5a44), groundNight: new THREE.Color(0x14141c),
+    sunWarm: new THREE.Color(0xffb070), sunDay: new THREE.Color(0xfff0d4), moon: new THREE.Color(0xa8bce8),
+  };
+  const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  // Sterne und Mond
+  const stars = (() => {
+    const pos = [], rnd = mulberry32(777);
+    for (let i = 0; i < 1100; i++) {
+      const u = rnd() * 2 - 1, a = rnd() * Math.PI * 2, r = Math.sqrt(1 - u * u);
+      pos.push(Math.cos(a) * r * 400, u * 400, Math.sin(a) * r * 400);
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    const grp = new THREE.Group();
+    const small = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xdfe8ff, size: 1.3, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+    const g2 = new THREE.BufferGeometry(); g2.setAttribute("position", new THREE.Float32BufferAttribute(pos.slice(0, 180 * 3), 3));
+    const big = new THREE.Points(g2, new THREE.PointsMaterial({ color: 0xffffff, size: 2.4, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+    grp.add(small, big); grp.renderOrder = -1; small.renderOrder = big.renderOrder = -1;
+    small.frustumCulled = big.frustumCulled = false;
+    scene.add(grp);
+    return grp;
+  })();
+  const moon = (() => {
+    const c = document.createElement("canvas"); c.width = c.height = 16; const g = c.getContext("2d"), img = g.createImageData(16, 16), rnd = mulberry32(55);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const k = (y * 16 + x) * 4, inner = x >= 3 && x <= 12 && y >= 3 && y <= 12;
+      let v = 0, a = 0;
+      if (inner) { v = 222 + rnd() * 26; a = 255; if (Math.hypot(x - 6, y - 6) < 1.6 || Math.hypot(x - 10, y - 9) < 1.3 || Math.hypot(x - 5.5, y - 10.5) < 1) v -= 46; }
+      else if (x >= 2 && x <= 13 && y >= 2 && y <= 13) { v = 200; a = 70; }
+      img.data[k] = v; img.data[k + 1] = v; img.data[k + 2] = v * 0.94 + 12; img.data[k + 3] = a;
+    }
+    g.putImageData(img, 0, 0);
+    const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, fog: false, depthWrite: false, transparent: true }));
+    s.scale.set(46, 46, 1); s.renderOrder = -1; scene.add(s);
+    return s;
+  })();
+  const _c1 = new THREE.Color(), _c2 = new THREE.Color();
+  function updateSky(dt) {
+    dayT = (dayT + dt / DAY_LEN) % 1;
+    const a = (dayT - 0.25) * Math.PI * 2;
+    sunDir.set(Math.cos(a), Math.sin(a), 0.32).normalize();
+    const e = sunDir.y;
+    dayF = smooth(-0.3, 0.2, e); nightF = 1 - smooth(-0.24, 0.0, e);
+    const dusk = Math.max(0, 1 - Math.abs(e + 0.03) / 0.26);
+    // Himmelsfarben
+    _c1.copy(K.nightTop).lerp(K.dayTop, dayF).lerp(K.duskTop, dusk * 0.45); skyTop.copy(_c1);
+    _c2.copy(K.nightHor).lerp(K.dayHor, dayF).lerp(K.duskHor, dusk * 0.62); HORIZON.copy(_c2);
+    // Sonne am Tag, Mond in der Nacht (ein Licht mit Schatten)
+    const sunUp = e > -0.03;
+    if (sunUp) {
+      lightDir.copy(sunDir);
+      sunLight.intensity = 0.68 * smooth(-0.03, 0.16, e);
+      sunLight.color.copy(K.sunWarm).lerp(K.sunDay, smooth(0.0, 0.3, e));
+    } else {
+      lightDir.copy(sunDir).negate();
+      sunLight.intensity = 0.44 * smooth(0.03, 0.2, -e);
+      sunLight.color.copy(K.moon);
+    }
+    if (lightDir.y < 0.12) lightDir.y = 0.12;
+    lightDir.normalize();
+    hemi.intensity = 0.38 + 0.17 * dayF;
+    hemi.color.copy(K.hemiNight).lerp(K.hemiDay, dayF);
+    hemi.groundColor.copy(K.groundNight).lerp(K.groundDay, dayF);
+    handSun.intensity = 0.1 + 0.45 * dayF; handHemi.intensity = 0.2 + 0.52 * dayF;
+    // Sonne, Mond, Sterne, Wolken
+    sun.position.copy(camera.position).addScaledVector(sunDir, 380);
+    sun.material.opacity = smooth(-0.14, 0.02, e);
+    moon.position.copy(camera.position).addScaledVector(sunDir, -380);
+    moon.material.opacity = smooth(-0.2, 0.05, -e);
+    stars.position.copy(camera.position);
+    stars.rotation.set(0, 0, a);
+    stars.children[0].material.opacity = stars.children[1].material.opacity = nightF * 0.95;
+    stars.visible = nightF > 0.01;
+    clouds.material.color.setRGB(0.2 + 0.8 * dayF + 0.2 * dusk, 0.22 + 0.78 * dayF + 0.05 * dusk, 0.3 + 0.7 * dayF - 0.05 * dusk);
+  }
+  // Tageszeit per Knopf im Menü
+  const TIMES = [["Morgen", 7 / 24], ["Mittag", 0.5], ["Abend", 0.75], ["Nacht", 22 / 24]];
+  const timeName = () => dayT < 0.23 || dayT >= 0.8 ? "Nacht" : dayT < 0.4 ? "Morgen" : dayT < 0.62 ? "Mittag" : "Abend";
+
+  // Wasser bewegt sich: die Wasserkachel im Atlas wird immer wieder neu gemalt
+  let waterT = 0;
+  const waterNoise = (() => { const r = mulberry32(88), a = new Float32Array(256); for (let i = 0; i < 256; i++) a[i] = r(); return a; })();
+  function animWater(dt, t) {
+    if ((waterT -= dt) > 0 || !atlasTex) return;
+    waterT = 0.12;
+    const g = atlasCanvas.getContext("2d"), img = g.createImageData(T, T), ph = t * 1.6;
+    for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+      const w = Math.sin((x + y * 2) * 0.9 + ph) + Math.sin((x * 2 - y) * 0.55 - ph * 0.7) * 0.8 + (waterNoise[y * 16 + x] - 0.5) * 0.9;
+      const k = (y * T + x) * 4, hi = w > 1.3 ? 1 : 0;
+      img.data[k] = hi ? 86 : 44 + w * 5; img.data[k + 1] = hi ? 142 : 94 + w * 7; img.data[k + 2] = hi ? 228 : 196 + w * 6; img.data[k + 3] = 255;
+    }
+    g.putImageData(img, (8 % N) * T, Math.floor(8 / N) * T);
+    atlasTex.needsUpdate = true;
+  }
+  let atlasTex = null;
 
   // ---------- Figuren: Modelle mit Gelenken, die Skins werden hier im Code gemalt ----------
   // Maße in "Figuren-Pixeln" wie bei Minecraft (eine Figur ist 32 Pixel = 1,8 Blöcke groß).
@@ -1133,7 +1470,7 @@
   function makeRig(M) {
     const bones = M.def.bones.map(b => { const o = new THREE.Bone(); o.position.set(b.at[0] * PXS, b.at[1] * PXS, b.at[2] * PXS); if (b.n === "head") o.rotation.order = "YXZ"; return o; });
     M.def.bones.forEach((b, i) => { if (b.p) bones[M.bi[b.p]].add(bones[i]); });
-    const mesh = new THREE.SkinnedMesh(M.geo, M.mat.clone());
+    const mesh = new THREE.SkinnedMesh(M.geo, litEnt(M.mat.clone()));
     mesh.add(bones[0]); mesh.updateMatrixWorld(true);
     mesh.bind(new THREE.Skeleton(bones), mesh.matrixWorld);
     mesh.castShadow = true; mesh.receiveShadow = true;
@@ -1240,7 +1577,7 @@
   function human(o) {
     const B = humanBones(o.bones);
     const boxes = [
-      { b: "head", f: [-4, 0, -4], t: [4, 8, 4], p: humanHead(o.head) },
+      { b: "head", f: [-4, 0, -4], t: [4, 8, 4], p: o.headPaint || humanHead(o.head) },
       { b: "body", f: [-4, 0, -2], t: [4, 12, 2], p: o.torso },
       { b: "armR", f: [-2, -4, -2], t: [2, 2, 2], p: o.arm },
       { b: "foreR", f: [-2, -6, -2], t: [2, 0, 2], p: o.fore },
@@ -1341,43 +1678,38 @@
     });
   }
 
-  // --- König ---
-  const ROYAL = [152, 22, 36];
-  const ermine = (x, y, v) => (x % 4 === 1 && y % 3 === 1) ? [24, 24, 26] : v([246, 244, 238], 6);
-  function defKing() {
+  // --- Zombie: grüne Haut, zerrissenes Hemd, Arme nach vorne ---
+  const ZSKIN = [98, 148, 78], ZSHIRT = [46, 150, 160], ZPANTS = [62, 56, 146];
+  function defZombie() {
+    const S = ZSKIN, dS = shade(ZSKIN, 0.8), HAIR = [44, 86, 38];
+    const skin = (f, x, y, w, h, v) => v((x * 7 + y * 3) % 11 === 0 ? dS : S, 14);
     return human({
-      seed: 31, double: true,
-      bones: [{ n: "cape", p: "body", at: [0, 12, -2] }, { n: "scep", p: "foreR", at: [0, -5.5, 0] }],
-      head: { skin: [232, 186, 154], hair: [238, 238, 234], style: "long", brow: [238, 238, 234], iris: [74, 112, 176], mouth: [176, 92, 92], beard: [240, 240, 236], mustache: [240, 240, 236], cheek: true },
+      seed: 51,
+      headPaint: (f, x, y, w, h, v) => {
+        if (f === "py") return v(HAIR, 16);
+        if (f === "ny") return v(shade(S, 0.75), 6);
+        if (f === "nz") return y < 6 ? v(HAIR, 14) : v(shade(S, 0.9), 14);
+        if (f === "px" || f === "nx") { const fr = front(f, x, w); return (y < 3 || (fr < 0.5 && y < 6)) ? v(HAIR, 14) : v(shade(S, 0.94), 14); }
+        if (y < 3) return v(HAIR, 14);
+        // tief liegende, dunkle Augen
+        if (y >= 6 && y <= 8 && ((x >= 2 && x <= 5) || (x >= 10 && x <= 13))) return (y >= 7 && (x === 3 || x === 4 || x === 11 || x === 12)) ? [14, 18, 12] : v(shade(S, 0.6), 5);
+        if ((x === 7 || x === 8) && (y === 9 || y === 10)) return v(shade(S, 0.68), 6);
+        if (y === 12 && x >= 4 && x <= 11) return [30, 40, 26];
+        if (y === 13 && x >= 5 && x <= 10) return v(shade(S, 0.66), 6);
+        return v((x * 5 + y * 3) % 13 === 0 ? dS : S, 14);
+      },
       torso: (f, x, y, w, h, v) => {
-        if (f === "py") return ermine(x, y, v);
-        if (y < 4) return ermine(x, y, v);
-        if (y === 15 || y === 16) return v(GOLDC, 10);
-        if (f === "pz" && (x === 7 || x === 8)) return (y % 4 === 1) ? [255, 226, 110] : v(GOLDC, 10);
-        return v(x % 4 === 0 ? shade(ROYAL, 0.8) : ROYAL, 8);
+        if (f === "py") return v(ZSHIRT, 10);
+        if (f === "ny") return v(shade(ZPANTS, 0.9), 8);
+        // zerrissenes Hemd: ausgefranster Saum und ein paar Löcher
+        if (y >= 20 && (x * 3 + y) % 5 === 0) return v(S, 12);
+        if (f === "pz" && ((x === 3 && y >= 9 && y <= 11) || (x === 12 && y >= 14 && y <= 15))) return v(S, 12);
+        return v(y >= 21 ? shade(ZSHIRT, 0.78) : ZSHIRT, 12);
       },
-      arm: (f, x, y, w, h, v) => v(x % 4 === 0 ? shade(ROYAL, 0.8) : ROYAL, 8),
-      fore: (f, x, y, w, h, v) => {
-        if (f === "ny") return v(SKIN, 5);
-        if (y >= 7) return (y === 9 && x === 1 && f === "pz") ? [250, 210, 80] : v(y === 11 ? shade(SKIN, 0.9) : SKIN, 6);
-        if (y >= 4) return ermine(x, y, v);
-        return v(ROYAL, 8);
-      },
-      thigh: flat([88, 34, 92], 8),
-      shin: shin([88, 34, 92], [220, 176, 60]),
-      extra: [
-        { b: "head", f: [-3.6, -2.2, 3.8], t: [3.6, 3.4, 5.4], p: (f, x, y, w, h, v) => v((x + y * 2) % 5 === 0 ? [216, 216, 212] : [244, 244, 240], 6) },
-        { b: "head", f: [-4.5, 7.2, -4.5], t: [4.5, 10.4, 4.5], skip: ["py", "ny"], p: (f, x, y, w, h, v) => {
-          if (y < 3 && !(x % 6 === 2 || x % 6 === 3)) return null;
-          if (y === 4 && x % 6 === 3) return [210, 30, 40];
-          if (y === 4 && x % 6 === 0) return [40, 90, 200];
-          return v(y < 2 ? [255, 222, 110] : GOLDC, 10);
-        } },
-        { b: "cape", f: [-4.6, -21, -0.8], t: [4.6, 0, 0], p: (f, x, y, w, h, v) => y < 4 ? ermine(x, y, v) : y > 38 ? v(GOLDC, 10) : v(x % 5 === 0 ? shade(ROYAL, 0.75) : shade(ROYAL, 0.9), 8) },
-        { b: "scep", f: [-0.35, -0.35, -3], t: [0.35, 0.35, 12], p: flat(GOLDC, 10) },
-        { b: "scep", f: [-1, -1, 12], t: [1, 1, 14], p: flat([210, 30, 44], 10) },
-        { b: "scep", f: [-0.3, -0.3, 14], t: [0.3, 0.3, 16], p: flat([255, 226, 110], 6) },
-      ],
+      arm: (f, x, y, w, h, v) => y < 7 ? v(ZSHIRT, 12) : skin(f, x, y, w, h, v),
+      fore: (f, x, y, w, h, v) => f === "ny" ? v(shade(S, 0.8), 6) : skin(f, x, y, w, h, v),
+      thigh: (f, x, y, w, h, v) => v((x + y * 2) % 9 === 0 ? shade(ZPANTS, 0.82) : ZPANTS, 10),
+      shin: shin(ZPANTS, [52, 50, 60]),
     });
   }
 
@@ -1586,7 +1918,7 @@
   }
 
   const MODEL_DEFS = {
-    business: defBusiness, butler: defButler, king: defKing, guard: defGuard,
+    business: defBusiness, butler: defButler, zombie: defZombie, guard: defGuard,
     farmer: () => defVillager("farmer"), baker: () => defVillager("baker"), smith: () => defVillager("smith"), trader: () => defVillager("trader"), kid: () => defVillager("kid"),
     pig: defPig, cow: defCow, chicken: defChicken,
   };
@@ -1618,7 +1950,7 @@
   }
   function removeEnt(e) {
     const i = ents.indexOf(e); if (i >= 0) ents.splice(i, 1);
-    scene.remove(e.mesh); e.mesh.material.dispose(); if (e.mesh.skeleton.dispose) e.mesh.skeleton.dispose();
+    e.gone = true; scene.remove(e.mesh); e.mesh.material.dispose(); if (e.mesh.skeleton.dispose) e.mesh.skeleton.dispose();
     for (const o of ents) if (o.target === e) o.target = null;
   }
 
@@ -1670,7 +2002,7 @@
     }
   }
   const DIRS8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-  function findPath(sx, sy, sz, gx, gy, gz, near, budget) {
+  function findPath(sx, sy, sz, gx, gy, gz, near, budget, avoid) {
     const WD = W * D, hf = (x, y, z) => Math.hypot(x - gx, z - gz) + Math.abs(y - gy) * 0.7;
     // Startfeld: falls die Figur gerade halb in der Luft ist, darunter suchen
     for (let d = 0; d < 3 && !standable(sx, sy, sz); d++) sy--;
@@ -1686,6 +2018,7 @@
       const gc = g.get(cur);
       for (const [dx, dz] of DIRS8) {
         const nx = cx + dx, nz = cz + dz, diag = dx && dz;
+        if (avoid && avoid(nx + 0.5, nz + 0.5)) continue;
         if (diag && (solidAt(cx + dx, cy, cz) || solidAt(cx + dx, cy + 1, cz) || solidAt(cx, cy, cz + dz) || solidAt(cx, cy + 1, cz + dz))) continue;
         let ny = -1;
         if (standable(nx, cy, nz)) ny = cy;
@@ -1773,7 +2106,7 @@
     const dx = t.x - src.x, dz = t.z - src.z, d = Math.hypot(dx, dz) || 1, k = kb || 6;
     t.vx = dx / d * k; t.vz = dz / d * k; t.vy = 5.5; t.ground = false;
     if (t.voice) SND[t.voice](Math.max(0, 1 - distP(t) / 24), 1.35);
-    const c = t.m.startsWith("sheep") ? WOOL[t.m.slice(6)] : t.m === "cow" ? [110, 76, 54] : t.m === "pig" ? [238, 164, 162] : [246, 246, 240];
+    const c = t.m.startsWith("sheep") ? WOOL[t.m.slice(6)] : t.m === "cow" ? [110, 76, 54] : t.m === "pig" ? [238, 164, 162] : t.m === "zombie" ? ZSKIN : [246, 246, 240];
     emit(t.x, t.y + t.h * 0.6, t.z, 8, () => c, 0.09, 2.5);
     if (t.hp <= 0) { t.dead = 0; t.dvx = t.dvz = 0; t.state = "dead"; }
     else if (t.kind === "animal") { t.state = "panic"; t.timer = 5; t.turnT = 0; }
@@ -1781,12 +2114,24 @@
   }
 
   // ---------- Butler James ----------
-  const JAMES_HELLO = ["Zu Diensten, der Herr.", "Wünschen der Herr einen Tee?", "Ein prächtiges Schloss, wenn ich das sagen darf.", "Ich bleibe stets an Ihrer Seite.", "Soll ich die Hecken schneiden lassen?"];
+  const JAMES_HELLO = ["Zu Diensten, Majestät.", "Wünschen Majestät einen Tee?", "Ein prächtiges Schloss, Majestät, wenn ich das sagen darf.", "Ich bleibe stets an Ihrer Seite.", "Soll ich die Hecken schneiden lassen?"];
+  const ZLINES = ["Zurück, du Ungeheuer!", "Nicht mit Seiner Majestät!", "Überlassen Sie das mir, Majestät!", "Ein Zombie! Ich kümmere mich darum."];
   function butlerThink(e, dt) {
     const dist = distP(e);
     if (e.target && (e.target.dead >= 0 || !ents.includes(e.target) || Math.hypot(e.target.x - e.x, e.target.z - e.z) > 28)) e.target = null;
     if (e.job && dist > 26) { e.job = null; e.tool = "umb"; }
     if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, true); return; }
+    // Zombies in der Nähe des Königs (oder bei James selbst) greift er von sich aus an
+    if (!e.target && (e.scanT = (e.scanT || 0) - dt) <= 0) {
+      e.scanT = 0.4;
+      let best = null, bd = 1e9;
+      for (const z of ents) {
+        if (z.kind !== "zombie" || z.dead >= 0 || z.rise > 0 || Math.abs(z.y - e.y) > 6) continue;
+        const dJ = Math.hypot(z.x - e.x, z.z - e.z), dP = Math.hypot(z.x - P.x, z.z - P.z);
+        if ((dJ < 8 || (!e.stay && dP < 14)) && dJ < bd) { bd = dJ; best = z; }
+      }
+      if (best) { e.target = best; e.path = null; if ((e.zSay = (e.zSay || 0) - 1) <= 0) { e.zSay = 4; say("James", pick(ZLINES)); } }
+    }
     if (e.target) return butlerFight(e, dt);
     if (e.job) return butlerChop(e, dt);
     e.tool = "umb";
@@ -1795,6 +2140,26 @@
   }
   function butlerFollow(e, dt, dist) {
     const dy = P.y - e.y;
+    // Sitzt der König, stellt sich James neben ihn
+    if (P.seat && dist < 20) {
+      const s = P.seat;
+      if (s.james === undefined) s.james = freeSpotNear(P.x, P.y, P.z, -s.dz * 1.7 + s.dx * 0.7, s.dx * 1.7 + s.dz * 0.7) || null;
+      const g = s.james;
+      if (g) {
+        const d = Math.hypot(g[0] - e.x, g[2] - e.z);
+        if (d < 0.3 && Math.abs(g[1] - e.y) < 1) {
+          e.dvx = e.dvz = 0; e.path = null; e.yawT = s.yaw;
+          if (Math.hypot(P.x - e.x, P.z - e.z) < 3) lookAt(e, P.x, P.y + 1.3, P.z); else lookAhead(e);
+          if (s.throne && !s.greet) { s.greet = true; say("James", "Eure Majestät."); }
+          return;
+        }
+        e.repath -= dt;
+        if (e.repath <= 0 && pathQuota > -2) { e.repath = 1; pathQuota--; e.path = findPath(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z), Math.floor(g[0]), g[1], Math.floor(g[2]), 0, 2600); e.pi = 0; }
+        if (e.path) { if (followPath(e, 3.2)) { e.path = null; steerTo(e, g[0], g[2], 1.5); } } else steerTo(e, g[0], g[2], d > 1 ? 3.2 : 1.5);
+        lookAhead(e);
+        return;
+      }
+    }
     if (dist < 2.8 && Math.abs(dy) < 2.5) {
       e.path = null; e.stuckT = 0;
       // Nicht ins Bild laufen: schaut die Kamera von hinten und James steht genau dazwischen, tritt er zur Seite
@@ -1876,13 +2241,13 @@
     const had = !!e.job;
     e.job = { trees, cur: null, hits: 0, t: 0, giveUp: 0 };
     e.path = null;
-    if (!had) say("James", pick(["Erlauben Sie, der Herr, ich übernehme die Bäume.", "Sehr wohl, ich hole das restliche Holz.", "Einen Moment, ich fälle die Bäume daneben."]));
+    if (!had) say("James", pick(["Erlauben Sie, Majestät, ich übernehme die Bäume.", "Sehr wohl, ich hole das restliche Holz.", "Einen Moment, ich fälle die Bäume daneben."]));
   }
   function butlerChop(e, dt) {
     const J = e.job;
     if (!J.cur) {
       while (J.trees.length && !J.trees[0].some(p => get(p[0], p[1], p[2]) === LOG)) J.trees.shift();
-      if (!J.trees.length) { e.job = null; e.tool = "umb"; say("James", "Erledigt, der Herr."); return; }
+      if (!J.trees.length) { e.job = null; e.tool = "umb"; say("James", "Erledigt, Majestät."); return; }
       J.cur = J.trees[0].find(p => get(p[0], p[1], p[2]) === LOG);
       J.base = J.trees[0][0][1]; J.hits = 0; J.giveUp = 14; J.fails = 0; e.path = null; e.repath = 0;
     }
@@ -2043,24 +2408,17 @@
     if ((e.sndT -= dt) <= 0) { e.sndT = 8 + Math.random() * 18; if (dp < 20) SND[e.voice](1 - dp / 22, 0.9 + Math.random() * 0.2); }
   }
 
-  // ---------- Dorfbewohner, Wachen und König ----------
+  // ---------- Dorfbewohner und Wachen ----------
   const LINES = {
-    villager: ["Guten Tag, der Herr!", "Frisches Brot gibt es am Markt.", "Der Weizen wächst dieses Jahr prächtig.", "Hast du schon den König im Thronsaal besucht?", "Ein schöner Anzug, den du da trägst!", "Die große Mauer schützt unser Dorf.", "Vom Schlossdach aus sieht man das ganze Land."],
-    kid: ["Fang mich doch!", "Ich werde später Ritter!", "Hast du den Butler gesehen? Der ist lustig!", "Wir spielen Verstecken!"],
-    guard: ["Halt! Ach, Ihr seid es. Tretet ein.", "Alles ruhig am Tor.", "Der König erwartet Euch im Thronsaal.", "Die Zugbrücke öffnet Ihr mit dem Hebel.", "Ich stehe hier schon seit dem Morgengrauen."],
-    king: ["Willkommen in meinem Schloss, werter Herr!", "Mein Schloss ist das größte im ganzen Land.", "Hast du die Gemäldegalerie ganz oben gesehen?", "Dein Butler ist tüchtig. Einen solchen hätte ich auch gern.", "Neben meinem Thron ist ein Hebel für die Zugbrücke."],
+    villager: ["Guten Tag, Eure Majestät!", "Frisches Brot gibt es am Markt, Majestät.", "Der Weizen wächst dieses Jahr prächtig.", "Ein schöner Anzug, Majestät!", "Die große Mauer schützt unser Dorf.", "Vom Schlossdach aus sieht man das ganze Land.", "Nachts kommen Zombies aus der Erde. Im Dorf und im Schloss seid Ihr sicher."],
+    kid: ["Fang mich doch!", "Ich werde später Ritter!", "Hast du den Butler gesehen? Der ist lustig!", "Bist du wirklich der König? Du hast ja gar keine Krone!", "Wir spielen Verstecken!"],
+    guard: ["Eure Majestät! Tretet ein.", "Alles ruhig am Tor, Majestät.", "Euer Thron wartet auf Euch, Majestät.", "Die Zugbrücke öffnet Ihr mit dem Hebel.", "Ich stehe hier schon seit dem Morgengrauen.", "Nachts kommen die Zombies nicht über den Graben."],
   };
   const OUCH = ["Aua! Was soll das?", "He, lass das!", "Au! Das tut weh!"];
   function personThink(e, dt) {
     const dp = distP(e);
     if (e.kind === "statue") { e.dvx = e.dvz = 0; return; }
-    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, e.kind !== "king"); return; }
-    if (e.kind === "king") {
-      if (dp < 14 && Math.abs(P.y - e.y) < 6) lookAt(e, P.x, P.y + 1.62, P.z); else { e.headYawT = Math.sin(performance.now() / 3000) * 0.3; e.headPitchT = 0; }
-      if (dp < 9 && Math.abs(P.y - e.y) < 5 && !e.greeted) { e.greeted = true; say("König", LINES.king[0]); }
-      if (dp > 30) e.greeted = false;
-      return;
-    }
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, true); return; }
     if (e.kind === "guard") {
       e.greetCd = (e.greetCd || 0) - dt;
       if (e.patrol) {
@@ -2101,9 +2459,6 @@
     guard(C - 4.5, G0 + 1, 118.5, 0); guard(C + 5.5, G0 + 1, 118.5, 0);          // vor dem Bergfried
     guard(88.5, G0 + 1, 79.5, 0.4); guard(104.5, G0 + 1, 79.5, -0.4);           // im Thronsaal
     guard(60.5, G0 + 23, 146.5, 0, [56.5, 78.5]); guard(130.5, G0 + 23, 146.5, 0, [114.5, 136.5]); // auf der Mauer
-    // Der König sitzt auf seinem Thron
-    const s = 1.2;
-    spawnEnt("king", "king", C + 0.5, G0 + 4 - 10 * PXS * s, 76.03 - 6 * PXS * s, { scale: s, sit: true, pose: "sit", r: 0.36, h: 1.6, eye: 1.5, name: "König", lines: LINES.king });
   }
   function spawnButler(stay) {
     const s = freeSpotNear(P.x, P.y, P.z, ...frontLeft()) || [P.x + 1.5, P.y, P.z + 1];
@@ -2128,7 +2483,7 @@
     e.walk += ((sp > 0.25 && !e.sit ? 1 : 0) - e.walk) * Math.min(1, dt * 7);
     e.phase += dt * Math.min(sp, 6) * 2.4;
     const A = 0.72 * e.walk * Math.min(1, 0.4 + sp / 4.5), s = Math.sin(e.phase), c = Math.cos(e.phase);
-    const air = !e.ground && !e.inWater && !e.sit && e.kind !== "king";
+    const air = !e.ground && !e.inWater && !e.sit;
     if (e.sit) { B.legR.rotation.set(-1.52, 0.1, 0); B.legL.rotation.set(-1.52, -0.1, 0); B.shinR.rotation.x = 1.5; B.shinL.rotation.x = 1.5; }
     else if (air && e.fly) { B.legR.rotation.set(0.1, 0, 0); B.legL.rotation.set(-0.05, 0, 0); B.shinR.rotation.x = 0.25; B.shinL.rotation.x = 0.3; }
     else {
@@ -2144,9 +2499,17 @@
     if (e.pose === "towel") { aL = -0.1 + aL * 0.15; fL = -1.45; zL = 0.08; }
     else if (e.pose === "spear") { aR *= 0.2; fR = -1.5; zR = -0.08; }
     else if (e.pose === "sit") { aR = -0.3; fR = -1.2; aL = -0.3; fL = -1.25; zR = -0.2; zL = 0.2; }
+    else if (e.pose === "zombie") {
+      aR = -1.42 + Math.sin(t * 2.3 + e.phase0) * 0.07 - s * A * 0.12; aL = -1.42 + Math.sin(t * 2.3 + e.phase0 + 1.3) * 0.07 + s * A * 0.12;
+      fR = -0.12; fL = -0.16; zR = -0.08; zL = 0.08;
+    }
     if (e.talkT > 0 && e.pose !== "sit" && e.pose !== "spear") { aL = -0.5 - Math.sin(t * 5) * 0.25; fL = -0.9; zL = 0.15; }
     if (air && e.fly) { aR = 0.15; aL = 0.15; zR = -0.25; zL = 0.25; fR = fL = -0.2; }
-    if (e.swingT >= 0) {
+    if (e.swingT >= 0 && e.pose === "zombie") {
+      const k = Math.sin(Math.min(1, e.swingT) * Math.PI);
+      aR = aL = -1.42 - 0.6 * k; fR = fL = -0.05; B.body.rotation.x += 0.22 * k;
+      e.swingT += dt / (e.swingDur || 0.3); if (e.swingT >= 1) e.swingT = -1;
+    } else if (e.swingT >= 0) {
       const k = Math.sin(Math.min(1, e.swingT) * Math.PI);
       aR = -0.3 - 1.9 * k; fR = -0.3 - 0.35 * k; zR = -0.12; B.body.rotation.y -= 0.35 * k;
       e.swingT += dt / (e.swingDur || 0.3); if (e.swingT >= 1) e.swingT = -1;
@@ -2192,12 +2555,17 @@
       if (!active) continue;
       if (e.kind === "animal") animalThink(e, dt);
       else if (e.kind === "butler") butlerThink(e, dt);
+      else if (e.kind === "zombie") zombieThink(e, dt, dp);
       else personThink(e, dt);
+      if (e.gone) continue;
       if (!e.sit) entPhysics(e, dt);
       const d = wrapA(e.yawT - e.yaw); e.yaw += Math.sign(d) * Math.min(Math.abs(d), dt * 7);
       e.headYawT = Math.max(-1, Math.min(1, e.headYawT));
-      if (e.mesh.visible) { if (e.kind === "animal") animAnimal(e, dt, t); else animHuman(e, dt, t); }
-      e.mesh.position.set(e.x, e.y, e.z); e.mesh.rotation.y = e.yaw;
+      if (e.mesh.visible) {
+        if (e.kind === "animal") animAnimal(e, dt, t); else animHuman(e, dt, t);
+        e.mesh.material.userData.uLight.value.lerp(lightAt(e.x, e.y + e.h * 0.8, e.z), Math.min(1, dt * 6));
+      }
+      e.mesh.position.set(e.x, e.y - (e.sink || 0), e.z); e.mesh.rotation.y = e.yaw;
       if (e.hurt > 0) { e.hurt -= dt; e.mesh.material.emissive.setRGB(e.hurt > 0 ? 0.55 : 0, 0, 0); }
       if (e.dead >= 0) {
         e.dead += dt;
@@ -2207,6 +2575,278 @@
       }
     }
   }
+  // ---------- Nachts: Zombies steigen aus der Erde ----------
+  // Im Schloss und im Dorf bist du sicher: dort entstehen keine Zombies, und sie gehen auch nicht hinein.
+  const noGo = (x, z) => inCastle(x, z) || (x >= VIL.x0 - 3 && x <= VIL.x1 + 3 && z >= VIL.z0 - 3 && z <= VIL.z1 + 3);
+  const Z_MAX = 6;
+  let monsters = true, zSpawnT = 4;
+  function zombieSpot() {
+    for (let k = 0; k < 24; k++) {
+      const a = Math.random() * Math.PI * 2, r = 22 + Math.random() * 22;
+      const x = Math.floor(P.x + Math.sin(a) * r), z = Math.floor(P.z + Math.cos(a) * r);
+      if (x < 14 || z < 14 || x >= W - 14 || z >= D - 14 || noGo(x + 0.5, z + 0.5)) continue;
+      const y = topY[x + z * W] + 1, b = get(x, y - 1, z);
+      if (b !== GRASS && b !== DIRT && b !== SAND && b !== SNOW && b !== STONE) continue;
+      if (!standable(x, y, z) || blkL[idx(x, y, z)] > 5) continue;
+      return [x + 0.5, y, z + 0.5];
+    }
+    return null;
+  }
+  function spawnZombie(x, y, z) {
+    return spawnEnt("zombie", "zombie", x, y, z, { hp: 16, maxHp: 16, voice: "groan", pose: "zombie", lean: 0.08, speed: 2.3, yaw: Math.random() * 6.28, rise: 1.4, sink: 1.7, atkT: 0.8, name: "Zombie", sndT: 1 + Math.random() * 5 });
+  }
+  function updateMonsters(dt) {
+    if ((zSpawnT -= dt) > 0) return;
+    zSpawnT = 2.5;
+    let n = 0;
+    for (let i = ents.length - 1; i >= 0; i--) {
+      const e = ents[i];
+      if (e.kind !== "zombie") continue;
+      if (distP(e) > 80) { removeEnt(e); continue; }
+      if (e.dead < 0) n++;
+    }
+    if (!monsters || P.dead || dayF > 0.25 || n >= Z_MAX) return;
+    const s = zombieSpot();
+    if (s) spawnZombie(s[0], s[1], s[2]);
+  }
+  // Darf der Zombie einen Schritt in diese Richtung machen? (nicht ins Schloss, ins Dorf, ins Wasser oder in einen Abgrund)
+  function zStepOk(e, dx, dz) {
+    const ax = e.x + dx * 0.9, az = e.z + dz * 0.9, fx = Math.floor(ax), fz = Math.floor(az), fy = Math.floor(e.y + 0.05);
+    if (noGo(ax, az) || get(fx, fy, fz) === WATER || get(fx, fy - 1, fz) === WATER) return false;
+    return solidAt(fx, fy - 1, fz) || solidAt(fx, fy - 2, fz) || solidAt(fx, fy - 3, fz);
+  }
+  function zombieThink(e, dt, dp) {
+    if (e.dead >= 0) { e.dvx = e.dvz = 0; return; }
+    if (!monsters) { poof(e.x, e.y + 1, e.z, 10); removeEnt(e); return; }
+    // Aus der Erde steigen
+    if (e.rise > 0) {
+      e.rise -= dt; e.sink = Math.max(0, e.rise / 1.4) * 1.7; e.dvx = e.dvz = 0;
+      const bx = Math.floor(e.x), by = Math.floor(e.y) - 1, bz = Math.floor(e.z);
+      if (Math.random() < dt * 12) blockParticles(bx, by, bz, get(bx, by, bz) || DIRT, 2);
+      if (e.rise <= 0) { e.sink = 0; if (dp < 30) SND.groan(1 - dp / 32, 0.9); }
+      return;
+    }
+    // Im Tageslicht fangen Zombies Feuer
+    const hi = idx(Math.floor(e.x), Math.min(H - 1, Math.floor(e.y + 1.6)), Math.floor(e.z));
+    const burn = dayF > 0.5 && skyL[hi] >= 12 && !e.inWater;
+    if (burn !== !!e.burning && !(e.hurt > 0)) e.mesh.material.emissive.setRGB(burn ? 0.4 : 0, burn ? 0.14 : 0, 0);
+    e.burning = burn;
+    if (burn) {
+      if (Math.random() < dt * 40) emit(e.x + (Math.random() - 0.5) * 0.6, e.y + Math.random() * 1.9, e.z + (Math.random() - 0.5) * 0.6, 1, () => [255, 110 + Math.random() * 130, 30], 0.14, 0.7, -3.5);
+      if ((e.burnT = (e.burnT || 0) - dt) <= 0) {
+        e.burnT = 1; e.hp -= 2; e.hurt = 0.3;
+        if (e.hp <= 0) { e.dead = 0; e.dvx = e.dvz = 0; e.state = "dead"; return; }
+      }
+    }
+    if ((e.sndT -= dt) <= 0) { e.sndT = 4 + Math.random() * 8; if (dp < 26) SND.groan(1 - dp / 28, 0.85 + Math.random() * 0.3); }
+    e.atkT -= dt;
+    // Den König jagen, solange er draußen ist
+    const hunt = playing && !P.dead && dp < 24 && Math.abs(P.y - e.y) < 10 && !noGo(P.x, P.z);
+    if (hunt) {
+      const dx = P.x - e.x, dz = P.z - e.z, dy = P.y - e.y;
+      if (dp < 1.25 + e.r && Math.abs(dy) < 1.7) {
+        e.dvx = e.dvz = 0; e.path = null;
+        lookAt(e, P.x, P.y + 1.62, P.z, true);
+        if (e.atkT <= 0) { e.atkT = 1; e.swingT = 0; e.swingDur = 0.35; hurtPlayer(3, "zombie", e); }
+        return;
+      }
+      if (dp < 7 && Math.abs(dy) < 1.2 && zStepOk(e, dx / dp, dz / dp)) { e.path = null; steerTo(e, P.x, P.z, e.speed * 1.12); }
+      else {
+        e.repath -= dt;
+        if (e.repath <= 0 && pathQuota > 0) {
+          pathQuota--; e.repath = 1 + Math.random() * 0.4;
+          const g = playerCell();
+          e.path = g ? findPath(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z), g[0], g[1], g[2], 1, 1200, noGo) : null; e.pi = 0;
+        }
+        if (e.path) { if (followPath(e, e.speed)) e.path = null; }
+        else if (zStepOk(e, dx / dp, dz / dp)) steerTo(e, P.x, P.z, e.speed); else e.dvx = e.dvz = 0;
+      }
+      lookAt(e, P.x, P.y + 1.62, P.z);
+      return;
+    }
+    // Sonst herumschlurfen
+    e.path = null;
+    if (e.state === "walk") {
+      const dx = e.tx - e.x, dz = e.tz - e.z, d = Math.hypot(dx, dz) || 1;
+      if (d < 0.6 || (e.timer -= dt) <= 0 || !zStepOk(e, dx / d, dz / d)) { e.state = "idle"; e.timer = 2 + Math.random() * 5; e.dvx = e.dvz = 0; }
+      else { e.dvx = dx / d * 1.1; e.dvz = dz / d * 1.1; e.yawT = Math.atan2(dx, dz); }
+      lookAhead(e);
+    } else {
+      e.dvx = e.dvz = 0;
+      if (dp < 20) lookAt(e, P.x, P.y + 1.62, P.z); else lookAhead(e);
+      if ((e.timer -= dt) <= 0) { const a = Math.random() * 6.28, r = 3 + Math.random() * 6; e.tx = e.x + Math.sin(a) * r; e.tz = e.z + Math.cos(a) * r; e.state = "walk"; e.timer = 8; }
+    }
+  }
+
+  // ---------- Leben, Schaden und Luft ----------
+  const MAX_HP = 20, AIR_MAX = 15;
+  const heartsCv = document.getElementById("hearts"), airCv = document.getElementById("air");
+  const hurtEl = document.getElementById("hurt"), deathEl = document.getElementById("death"), deathText = document.getElementById("deathText");
+  const respawnBtn = document.getElementById("respawn");
+  let hurtFlash = 0, hurtOp = -1, regenT = 0, hudKey = "";
+  // Herzen und Luftblasen im Minecraft-Stil, 9 x 9 Pixel
+  const HEART = [".KK...KK.", "KRRK.KRRK", "KRWRKRRRK", "KRRRRRRRK", "KRRRRRRDK", ".KRRRRDK.", "..KRRDK..", "...KRK...", "....K...."];
+  const BUBBLE = ["..KKKKK..", ".KBBBBBK.", "KBWWBBBBK", "KBWBBBBBK", "KBBBBBBBK", "KBBBBBBBK", "KBBBBBBBK", ".KBBBBBK.", "..KKKKK.."];
+  const HPAL = { K: "#2b0808", R: "#dc2a2e", W: "#ffd4d4", D: "#9e1418", E: "rgba(60,16,16,.8)" };
+  const BPAL = { K: "#1b4a86", B: "#7cc4ff", W: "#ffffff" };
+  function drawIcon9(g, rows, ox, oy, pal, mode, flash) {
+    for (let y = 0; y < 9; y++) for (let x = 0; x < 9; x++) {
+      const ch = rows[y][x]; if (ch === ".") continue;
+      const c = ch === "K" ? (flash ? "#ffffff" : pal.K) : (mode === 2 || (mode === 1 && x < 5)) ? pal[ch] : pal.E;
+      if (c) { g.fillStyle = c; g.fillRect(ox + x, oy + y, 1, 1); }
+    }
+  }
+  function drawHUD() {
+    const bubbles = Math.ceil(P.air / (AIR_MAX / 10) - 0.001), jig = P.hp <= 4 && !P.dead, flash = hurtFlash > 0.55;
+    const key = P.hp + "|" + flash + "|" + bubbles + "|" + (jig ? Math.floor(performance.now() / 110) : 0);
+    if (key === hudKey) return;
+    hudKey = key;
+    let g = heartsCv.getContext("2d"); g.clearRect(0, 0, heartsCv.width, heartsCv.height);
+    for (let i = 0; i < 10; i++) { const v = P.hp - i * 2; drawIcon9(g, HEART, i * 8, jig ? Math.round(Math.random()) : 0, HPAL, v >= 2 ? 2 : v === 1 ? 1 : 0, flash); }
+    airCv.hidden = bubbles >= 10;
+    if (!airCv.hidden) { g = airCv.getContext("2d"); g.clearRect(0, 0, airCv.width, airCv.height); for (let i = 0; i < bubbles; i++) drawIcon9(g, BUBBLE, 72 - i * 8, 0, BPAL, 2, false); }
+  }
+  function hurtPlayer(amt, why, src) {
+    if (P.dead || P.inv > 0 || amt <= 0 || (P.lastHurt < 0.5 && why !== "drown")) return false;
+    if (P.seat) standUp();
+    P.hp = Math.max(0, P.hp - amt); P.lastHurt = 0; hurtFlash = 1; P.shake = 0.3;
+    if (src) { const dx = P.x - src.x, dz = P.z - src.z, d = Math.hypot(dx, dz) || 1; P.vx = dx / d * 7; P.vz = dz / d * 7; P.vy = 5.2; P.ground = false; P.fallTop = P.y; }
+    SND.hurt(1, 1);
+    if (P.hp <= 0) die(why);
+    else if (src && src.kind === "zombie" && butler && !butler.target && (!butler.stay || Math.hypot(butler.x - src.x, butler.z - src.z) < 10)) { butler.target = src; butler.path = null; say("James", pick(ZLINES)); }
+    return true;
+  }
+  function die(why) {
+    P.dead = true; P.deadT = 0; P.hp = 0; P.vx = P.vz = 0; P.fly = false; flyTag.hidden = true; crossEl.hidden = true;
+    deathText.textContent = why === "fall" ? "Du bist zu tief gefallen." : why === "drown" ? "Du bist ertrunken." : "Ein Zombie hat dich erwischt.";
+    for (const k in keys) keys[k] = false;
+    joy.x = joy.y = 0;
+    setTimeout(() => {
+      if (!P.dead) return;
+      deathEl.hidden = false; touchUI.hidden = true;
+      if (document.pointerLockElement === canvas) document.exitPointerLock();
+      respawnBtn.focus();
+    }, 1000);
+  }
+  function respawn() {
+    if (!P.dead) return;
+    P.dead = false; P.hp = MAX_HP; P.air = AIR_MAX; P.inv = 3; P.lastHurt = 99; P.shake = 0; hurtFlash = 0;
+    deathEl.hidden = true; crossEl.hidden = camMode === 2;
+    const sp = P.spawn;
+    if (sp && standable(Math.floor(sp[0]), sp[1], Math.floor(sp[2]))) { P.x = sp[0]; P.y = sp[1]; P.z = sp[2]; P.vx = P.vy = P.vz = 0; P.fallTop = P.y; }
+    else toGate();
+    butlerToPlayer();
+    for (let i = ents.length - 1; i >= 0; i--) { const e = ents[i]; if (e.kind === "zombie" && Math.hypot(e.x - P.x, e.z - P.z) < 24) { poof(e.x, e.y + 1, e.z, 8); removeEnt(e); } }
+    if (isTouch) { if (playing) touchUI.hidden = false; }
+    else if (playing && !dragLook) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+    saveSoon();
+  }
+  respawnBtn.addEventListener("click", respawn);
+  function updateHealth(dt) {
+    P.lastHurt += dt; if (P.inv > 0) P.inv -= dt;
+    if (P.dead) P.deadT += dt;
+    else {
+      // Ohne Schaden heilen die Herzen langsam wieder
+      if (P.hp < MAX_HP && P.lastHurt > 5) { if ((regenT += dt) >= 2.5) { regenT = 0; P.hp++; } } else regenT = 0;
+      // Unter Wasser reicht die Luft 15 Sekunden
+      if (!P.fly && blockAtF(P.x, P.y + 1.62, P.z) === WATER) {
+        P.air = Math.max(0, P.air - dt);
+        if (P.air <= 0 && (P.drownT = (P.drownT || 0) - dt) <= 0) { P.drownT = 1; hurtPlayer(2, "drown"); }
+      } else { P.air = Math.min(AIR_MAX, P.air + dt * 5); P.drownT = 0; }
+    }
+    hurtFlash = Math.max(0, hurtFlash - dt * 2.2);
+    const op = Math.round(hurtFlash * 85) / 100;
+    if (op !== hurtOp) { hurtOp = op; hurtEl.style.opacity = op; }
+    drawHUD();
+  }
+
+  // ---------- Hinsetzen: auf jeden Block mit Lehne, etwa den Thron, die Stühle und das Sofa ----------
+  const SEATB = [PLANKS, DPLANK, RWOOL, WWOOL, BWOOL, GOLD, QUARTZ];
+  const DIR4 = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+  function seatAt(x, y, z) {
+    if (!SEATB.includes(get(x, y, z)) || !solid(get(x, y - 1, z)) || solid(get(x, y + 1, z)) || solid(get(x, y + 2, z))) return null;
+    for (const [dx, dz] of DIR4)
+      if (solid(get(x - dx, y + 1, z - dz)) && !solid(get(x + dx, y, z + dz)) && !solid(get(x + dx, y + 1, z + dz)))
+        return { x, y, z, dx, dz, throne: x === C && y === G0 + 3 && z === 75 };
+    return null;
+  }
+  function sitDown(s) {
+    if (P.dead) return;
+    P.seat = Object.assign(s, { t: 0, yaw: Math.atan2(s.dx, s.dz) });
+    P.fly = false; flyTag.hidden = true;
+    P.x = s.x + 0.5 + s.dx * 0.19; P.z = s.z + 0.5 + s.dz * 0.19; P.y = s.y + 1 - 10 * PXS;
+    P.vx = P.vy = P.vz = 0; P.yaw = Math.atan2(-s.dx, -s.dz); P.pitch = 0.06;
+    blockSound(get(s.x, s.y, s.z), "step", 0.07);
+    if (s.throne) say("Wache", "Lang lebe der König!");
+  }
+  function standSpot(s) {
+    for (let d = 1; d <= 3; d++) for (const k of [0, 1, -1, 2]) { const x = s.x + s.dx * d, y = s.y + k, z = s.z + s.dz * d; if (standable(x, y, z)) return [x + 0.5, y, z + 0.5]; }
+    return [s.x + 0.5, s.y + 1, s.z + 0.5];
+  }
+  function standUp() {
+    const s = P.seat; if (!s) return;
+    P.seat = null;
+    [P.x, P.y, P.z] = standSpot(s); P.vx = P.vy = P.vz = 0; P.fallTop = P.y;
+  }
+
+  // ---------- Schlafen: ein Bett aus weißer Wolle (Kissen) und roter oder blauer Wolle (Decke) ----------
+  const freeAbove = (x, y, z) => !solid(get(x, y + 1, z));
+  function bedAt(x, y, z) {
+    const b = get(x, y, z);
+    if (b !== WWOOL && b !== RWOOL && b !== BWOOL) return null;
+    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+      const px = x + dx, pz = z + dz;
+      if (get(px, y, pz) !== WWOOL) continue;
+      for (const [ax, az] of DIR4) { const n = get(px + ax, y, pz + az); if ((n === RWOOL || n === BWOOL) && freeAbove(px + ax, y, pz + az)) return { x: px, y, z: pz, dx: ax, dz: az }; }
+    }
+    return null;
+  }
+  const isNight = () => dayT >= 0.77 || dayT < 0.23;
+  const sleepEl = document.getElementById("sleep");
+  let sleepT = -1, sleepBed = null;
+  function useBed(bed) {
+    if (P.dead || sleepT >= 0) return;
+    const sp = freeSpotNear(bed.x + 0.5, bed.y, bed.z + 0.5, bed.dx * 1.5, bed.dz * 1.5);
+    if (sp) P.spawn = sp;
+    if (!isNight()) { say("", "Hier wachst du ab jetzt auf. Schlafen kannst du nur nachts."); saveSoon(); return; }
+    for (const e of ents) if (e.kind === "zombie" && e.dead < 0 && Math.hypot(e.x - P.x, e.z - P.z) < 12) { say("", "Du kannst jetzt nicht schlafen, Monster sind in der Nähe."); return; }
+    if (P.seat) standUp();
+    sleepT = 0; sleepBed = bed; P.fly = false; flyTag.hidden = true;
+    for (const k in keys) keys[k] = false;
+  }
+  function updateSleep(dt) {
+    if (sleepT < 0) return;
+    const b = sleepBed, before = sleepT;
+    sleepT += dt;
+    // Hinlegen: Kopf beim Kissen, Blick zur Decke
+    if (sleepT < 2.2) { P.x = b.x + 0.5 + b.dx * 0.6; P.z = b.z + 0.5 + b.dz * 0.6; P.y = b.y + 1.3 - 1.62; P.vx = P.vy = P.vz = 0; P.pitch = 1.1; P.yaw = Math.atan2(-b.dx, -b.dz); }
+    if (before < 2.2 && sleepT >= 2.2) {
+      dayT = 0.25; updateSky(0);
+      const sp = P.spawn || freeSpotNear(b.x + 0.5, b.y, b.z + 0.5, 0, 0);
+      if (sp) { P.x = sp[0]; P.y = sp[1]; P.z = sp[2]; } else P.y = b.y + 1;
+      P.pitch = 0.05; P.fallTop = P.y;
+      butlerToPlayer();
+      say("James", "Guten Morgen, Majestät! Ich hoffe, Sie haben gut geschlafen.");
+      saveSoon();
+    }
+    sleepEl.style.opacity = sleepT < 2.2 ? Math.min(1, sleepT / 1.4) : Math.max(0, 1 - (sleepT - 2.2) / 0.9);
+    sleepEl.hidden = false;
+    if (sleepT > 3.1) { sleepT = -1; sleepEl.hidden = true; }
+  }
+
+  // ---------- Uhrzeit wie in Minecraft: ein ganzer Tag dauert 20 Minuten ----------
+  const clockEl = document.getElementById("clock"), timeBtn = document.getElementById("timeBtn"), monBtn = document.getElementById("monBtn");
+  const clockText = () => { const m = Math.floor(dayT * 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+  function skipTime() {
+    const i = TIMES.findIndex(([n]) => n === timeName()), [name, t] = TIMES[(i + 1) % TIMES.length];
+    dayT = t; updateSky(0);
+    showName(name + ", " + clockText() + " Uhr", 1800);
+    timeBtn.textContent = "Tageszeit: " + name;
+    saveSoon();
+  }
+  function setMonsters(on) { monsters = on; monBtn.textContent = on ? "Monster: an" : "Monster: aus"; }
+  timeBtn.addEventListener("click", skipTime);
+  monBtn.addEventListener("click", () => { setMonsters(!monsters); saveSoon(); });
 
   // ---------- Partikel: Splitter beim Abbauen, Rauchwolken ----------
   const PMAX = 700, parts = [];
@@ -2215,6 +2855,7 @@
   partMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   partMesh.frustumCulled = false; partMesh.count = 0;
   partMesh.setColorAt(0, new THREE.Color(1, 1, 1));
+  litEnt(partMesh.material, playerLight);
   scene.add(partMesh);
   function emit(x, y, z, n, colorFn, size, speed, grav) {
     for (let i = 0; i < n && parts.length < PMAX; i++) {
@@ -2273,7 +2914,7 @@
 
   // ---------- Eigene Hand in der Ich-Ansicht (eigene kleine Szene, liegt immer vorne) ----------
   const handScene = new THREE.Scene(), handCam = new THREE.PerspectiveCamera(70, 1, 0.02, 10);
-  handScene.add(new THREE.HemisphereLight(0xeef4ff, 0x7a664e, 0.72));
+  const handHemi = new THREE.HemisphereLight(0xeef4ff, 0x7a664e, 0.72); handScene.add(handHemi);
   const handSun = new THREE.DirectionalLight(0xfff0d4, 0.55); handSun.position.set(0.4, 1, 0.6); handScene.add(handSun);
   const handRoot = new THREE.Group(); handScene.add(handRoot);
   let handArm = null, handItem = null, handSwing = -1, handEquip = 0, handBob = 0;
@@ -2297,7 +2938,7 @@
     geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
     geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
     geo.setIndex(ind);
-    handArm = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: M.tex, alphaTest: 0.5 }));
+    handArm = new THREE.Mesh(geo, litEnt(new THREE.MeshLambertMaterial({ map: M.tex, alphaTest: 0.5 }), playerLight));
     handArm.rotation.order = "YXZ";
     handArm.position.set(0.56, -0.62, -0.42); handArm.rotation.set(2.05, 0.28, 0.1);
     handRoot.add(handArm);
@@ -2339,7 +2980,7 @@
   function placeCamera() {
     eyeV.set(P.x, P.y + 1.62, P.z);
     let d = 0;
-    if (camMode !== 0) {
+    if (camMode !== 0 && sleepT < 0) {
       lookVec(dirV);
       const sg = camMode === 1 ? -1 : 1;
       // Vom Kopf aus nach hinten (oder vorne) gehen, bis etwas im Weg ist
@@ -2369,11 +3010,16 @@
   function updatePlayerModel(dt, t, show) {
     PM.mesh.visible = show;
     if (!show) return;
-    PM.vx = P.vx; PM.vz = P.vz; PM.ground = P.ground; PM.inWater = P.inWater; PM.fly = P.fly && !P.ground;
+    PM.vx = P.vx; PM.vz = P.vz; PM.ground = P.ground || !!P.seat; PM.inWater = P.inWater; PM.fly = P.fly && !P.ground;
     PM.lean = P.sprint ? 0.12 : 0;
-    PM.headYawT = 0; PM.headPitchT = Math.max(-0.9, Math.min(0.9, -P.pitch));
+    PM.sit = !!P.seat; PM.pose = P.seat ? "sit" : "";
+    // Im Sitzen zeigt der Körper nach vorne, nur der Kopf folgt dem Blick
+    PM.headYawT = P.seat ? Math.max(-1, Math.min(1, wrapA(P.yaw + Math.PI - P.seat.yaw))) : 0;
+    PM.headPitchT = Math.max(-0.9, Math.min(0.9, -P.pitch));
     animHuman(PM, dt, t);
-    PM.mesh.position.set(P.x, P.y, P.z); PM.mesh.rotation.y = P.yaw + Math.PI;
+    PM.mesh.position.set(P.x, P.y, P.z); PM.mesh.rotation.y = P.seat ? P.seat.yaw : P.yaw + Math.PI;
+    PM.mesh.rotation.z = P.dead ? Math.min(1, P.deadT / 0.35) * Math.PI / 2 : 0;
+    PM.mesh.material.userData.uLight.value.copy(playerLight.value);
   }
   const crossEl = document.getElementById("cross");
   function setView(m) { camMode = m; crossEl.hidden = m === 2; }
@@ -2431,6 +3077,7 @@
     return false;
   }
   function breakBlock() {
+    if (P.dead || sleepT >= 0) return;
     if (targetEnt) { attack(targetEnt); return; }
     if (!target) return;
     const { x, y, z } = target, b = get(x, y, z);
@@ -2440,11 +3087,23 @@
     if (b === LEVER || b === LEVER_ON) { const i = levers.findIndex(l => l[0] === x && l[1] === y && l[2] === z); if (i >= 0) levers.splice(i, 1); }
     if (b === LOG) { scheduleDecay(x, y, z); butlerHelpTree(x, y, z); }
   }
+  // Hebel, Betten und Sitze benutzen; gibt true zurück, wenn etwas passiert ist
+  function useTarget() {
+    if (!target) return false;
+    const { x, y, z } = target, tb = get(x, y, z);
+    if (tb === LEVER || tb === LEVER_ON) { swingHand(); toggleGate(); return true; }
+    const bed = bedAt(x, y, z); if (bed) { useBed(bed); return true; }
+    const seat = seatAt(x, y, z); if (seat) { sitDown(seat); return true; }
+    return false;
+  }
   function placeBlock() {
+    if (P.dead || sleepT >= 0) return;
     if (targetEnt) { interact(targetEnt); return; }
     if (!target) return;
+    // Rechtsklick benutzt Hebel, Betten und Sitze; mit Shift setzt man stattdessen einen Block
+    if (!(keys.ShiftLeft || keys.ShiftRight) && useTarget()) return;
     const tb = get(target.x, target.y, target.z);
-    if (tb === LEVER || tb === LEVER_ON) { swingHand(); toggleGate(); return; }
+    if (tb === LEVER || tb === LEVER_ON) return;
     const { px, py, pz } = target;
     if (px < 0 || pz < 0 || px >= W || pz >= D || py < 0 || py >= H) return;
     const cur = get(px, py, pz); if (cur !== AIR && cur !== WATER) return;
@@ -2458,14 +3117,18 @@
   function attack(e) {
     if (atkCd > 0) return;
     atkCd = 0.32; swingHand();
-    if (e.kind === "animal") {
+    if (e.kind === "zombie") {
+      noiseHit(700, 1, 0.09, 0.06);
+      damage(e, 3, P, 7);
+      if (butler && !butler.target && (!butler.stay || Math.hypot(butler.x - e.x, butler.z - e.z) < 10)) { butler.target = e; butler.path = null; }
+    } else if (e.kind === "animal") {
       noiseHit(700, 1, 0.09, 0.06);
       const killed = damage(e, 2.5, P) && e.dead >= 0;
       if (!killed && butler && !butler.stay && butler !== e && Math.hypot(butler.x - e.x, butler.z - e.z) < 28) {
-        if (!butler.target) say("James", pick(["Erlauben Sie, der Herr!", "Ich helfe Ihnen!", "Überlassen Sie das mir."]));
+        if (!butler.target) say("James", pick(["Erlauben Sie, Majestät!", "Ich helfe Ihnen!", "Überlassen Sie das mir."]));
         butler.target = e; butler.job = null;
       }
-    } else if (e === butler) { e.talkT = 2.5; say("James", pick(["Sehr witzig, der Herr.", "Ich muss doch sehr bitten.", "Wie der Herr meinen."])); }
+    } else if (e === butler) { e.talkT = 2.5; say("James", pick(["Sehr witzig, Majestät.", "Ich muss doch sehr bitten.", "Wie Majestät meinen."])); }
     else { e.talkT = 2.5; say(e.name, pick(OUCH)); }
   }
   function interact(e) {
@@ -2557,10 +3220,10 @@
   const jamesTag = document.getElementById("jamesTag"), resetBtn = document.getElementById("reset");
   const isTouch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   let playing = false, dragLook = false;
-  if (isTouch) document.getElementById("keyList").hidden = true;
+  if (isTouch) { document.getElementById("keyList").hidden = true; menuText.textContent = menuText.textContent.replace("drück Strg + G", "tippe auf „Tor“"); }
   function updateJamesTag() { jamesTag.textContent = butler ? (butler.stay ? "James wartet" : "James folgt") : ""; }
 
-  function toggleFly() { P.fly = !P.fly; P.vy = 0; flyTag.hidden = !P.fly; }
+  function toggleFly() { if (P.dead || sleepT >= 0) return; standUp(); P.fly = !P.fly; P.vy = 0; flyTag.hidden = !P.fly; }
   function start() {
     initAudio();
     menu.hidden = true; playing = true; resetBtn.hidden = false;
@@ -2575,6 +3238,7 @@
     playing = false; menu.hidden = false; touchUI.hidden = true;
     closePalette();
     menuText.textContent = "Pausiert. Alles, was du baust, wird automatisch in diesem Browser gespeichert.";
+    timeBtn.textContent = "Tageszeit: " + timeName();
     playBtn.textContent = "Weiterspielen";
     for (const k in keys) keys[k] = false;
     saveNow();
@@ -2590,23 +3254,25 @@
   });
   document.addEventListener("pointerlockerror", () => { dragLook = true; });
   document.addEventListener("pointerlockchange", () => {
-    if (document.pointerLockElement !== canvas && playing && !dragLook && !palOpen) pause();
+    if (document.pointerLockElement !== canvas && playing && !dragLook && !palOpen && !P.dead) pause();
   });
   document.addEventListener("keydown", e => {
     if (palOpen) { if (e.code === "Escape" || e.code === "KeyB") closePalette(); return; }
     if (!playing) { if (e.code === "Enter" && !playBtn.disabled) start(); return; }
+    if (P.dead) return;
     initAudio();
     keys[e.code] = true;
     if (e.code === "Space" || e.code.startsWith("Arrow")) e.preventDefault();
     if (e.code.startsWith("Digit")) { const n = +e.code.slice(5); if (n >= 1 && n <= 9) select(n - 1); }
     if (e.code === "KeyF" && !e.repeat) toggleFly();
-    if (e.code === "KeyT" && !e.repeat) { toGate(); butlerToPlayer(); }
+    if (e.code === "KeyT" && !e.repeat && sleepT < 0) { toGate(); butlerToPlayer(); }
+    if (e.code === "KeyN" && !e.repeat) skipTime();
     if (e.code === "KeyV" && !e.repeat) cycleView();
     if (e.code === "KeyB" && !e.repeat) openPalette();
     if (e.code === "KeyG" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (!e.repeat) toggleGate(); return; }
-    if (e.code === "KeyE" && !e.repeat) {
+    if (e.code === "KeyE" && !e.repeat && sleepT < 0) {
       if (targetEnt) interact(targetEnt);
-      else if (target) { const tb = get(target.x, target.y, target.z); if (tb === LEVER || tb === LEVER_ON) { swingHand(); toggleGate(); } }
+      else useTarget();
     }
     if (e.code === "Escape" && dragLook) pause();
   });
@@ -2619,7 +3285,7 @@
   let down = null;
   canvas.addEventListener("contextmenu", e => e.preventDefault());
   canvas.addEventListener("mousedown", e => {
-    if (!playing || isTouch || palOpen) return;
+    if (!playing || isTouch || palOpen || P.dead) return;
     initAudio();
     if (e.button === 1) { e.preventDefault(); pickBlock(); return; }
     if (document.pointerLockElement === canvas) { if (e.button === 0) breakBlock(); else if (e.button === 2) placeBlock(); }
@@ -2722,6 +3388,7 @@
   }
   window.addEventListener("resize", resize); resize();
   let last = performance.now(), hudT = 0, worldReady = false, autoSaveT = 20;
+  const _uw = new THREE.Color();
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000), t = now / 1000; last = now;
@@ -2729,22 +3396,28 @@
     updateGate(dt);
     if (worldReady) {
       updateEnts(dt, t); updateDecay(dt); refillAnimals(dt);
+      if (playing) { updateMonsters(dt); updateHealth(dt); updateSleep(dt); }
       if (playing && (autoSaveT -= dt) <= 0) { autoSaveT = 20; saveNow(); }
     }
     updateParticles(dt);
     atkCd -= dt;
     const third = placeCamera();
-    if (PM) updatePlayerModel(dt, t, third);
-    if (!third && handArm) updateHand(dt);
+    // Tot: die Sicht kippt zur Seite. Getroffen: kurzes Wackeln.
+    if (P.dead && !third) { const k = Math.min(1, P.deadT * 2.5); camera.position.y -= k * 1.2; camera.rotation.z = k * 0.55; }
+    else if (P.shake > 0) { P.shake -= dt; if (!third) camera.rotation.z = Math.sin(P.shake * 40) * P.shake * 0.12; }
+    updateSky(playing ? dt : 0);
+    playerLight.value.lerp(lightAt(P.x, P.y + 1.62, P.z), Math.min(1, dt * 8));
+    if (PM) updatePlayerModel(dt, t, third && sleepT < 0);
+    const hand = !third && handArm && sleepT < 0 && !P.dead;
+    if (hand) updateHand(dt);
     sky.position.copy(camera.position);
-    sun.position.copy(camera.position).addScaledVector(sunDir, 380);
     clouds.position.set(camera.position.x, 122, camera.position.z);
     cloudTex.offset.x = (cloudTex.offset.x + dt * 0.0015) % 1;
     const lx = Math.round(P.x), lz = Math.round(P.z);
     sunLight.target.position.set(lx, 0, lz);
-    sunLight.position.set(lx + sunDir.x * 220, sunDir.y * 220, lz + sunDir.z * 220);
+    sunLight.position.set(lx + lightDir.x * 220, lightDir.y * 220, lz + lightDir.z * 220);
     const under = blockAtF(camera.position.x, camera.position.y, camera.position.z) === WATER;
-    scene.fog.color.copy(under ? UNDERWATER : HORIZON); scene.fog.near = under ? 1 : viewDist * 0.35; scene.fog.far = under ? 20 : viewDist;
+    scene.fog.color.copy(under ? _uw.copy(UNDERWATER).multiplyScalar(0.2 + 0.8 * dayF) : HORIZON); scene.fog.near = under ? 1 : viewDist * 0.35; scene.fog.far = under ? 20 : viewDist;
     tint.hidden = !under;
     if (playing && !palOpen) {
       updateTarget();
@@ -2753,17 +3426,27 @@
     } else outline.visible = false;
     // Hinweise: erst gesprochene Sätze, sonst was man mit dem Angeschauten tun kann
     if (sayT > 0) { sayT -= dt; if (sayT <= 0) hintEl.hidden = true; }
-    else if (playing && !palOpen) {
+    else if (playing && !palOpen && !P.dead && sleepT < 0) {
       let msg = "";
-      const tb = target ? get(target.x, target.y, target.z) : AIR, act = isTouch ? "„Bauen“: " : "E: ";
-      if (tb === LEVER || tb === LEVER_ON) msg = (isTouch ? "Tippe auf „Bauen“, um das Tor zu " : "Rechtsklick oder E, um das Tor zu ") + (gate.open ? "schließen" : "öffnen");
+      const tb = target ? get(target.x, target.y, target.z) : AIR, act = isTouch ? "„Bauen“: " : "E: ", use = isTouch ? "„Bauen“: " : "Rechtsklick oder E: ";
+      if (P.seat && P.seat.t < 6) msg = isTouch ? "Springen oder Joystick: Aufstehen" : "Leertaste oder W A S D: Aufstehen";
+      else if (tb === LEVER || tb === LEVER_ON) msg = (isTouch ? "Tippe auf „Bauen“, um das Tor zu " : "Rechtsklick oder E, um das Tor zu ") + (gate.open ? "schließen" : "öffnen");
       else if (targetEnt && targetEnt === butler) msg = act + (butler.stay ? "James soll dir wieder folgen" : "James soll hier warten");
-      else if (targetEnt && targetEnt.lines) msg = act + "mit " + ({ king: "dem König", guard: "der Wache", kid: "dem Kind" }[targetEnt.kind] || "dem Dorfbewohner") + " reden";
+      else if (targetEnt && targetEnt.lines) msg = act + "mit " + ({ guard: "der Wache", kid: "dem Kind" }[targetEnt.kind] || "dem Dorfbewohner") + " reden";
+      else if (target && !P.seat) {
+        if (bedAt(target.x, target.y, target.z)) msg = use + (isNight() ? "Schlafen bis zum Morgen" : "Hier aufwachen, schlafen geht nur nachts");
+        else { const st = seatAt(target.x, target.y, target.z); if (st) msg = use + (st.throne ? "Auf deinen Thron setzen" : "Hinsetzen"); }
+      }
       hintEl.hidden = !msg; if (msg) hintEl.textContent = msg;
     } else hintEl.hidden = true;
-    if ((hudT -= dt) <= 0) { hudT = 0.2; cullChunks(); posEl.textContent = `X ${Math.floor(P.x)}  Y ${Math.floor(P.y)}  Z ${Math.floor(P.z)}`; }
+    if ((hudT -= dt) <= 0) {
+      hudT = 0.2; cullChunks(); posEl.textContent = `X ${Math.floor(P.x)}  Y ${Math.floor(P.y)}  Z ${Math.floor(P.z)}`;
+      clockEl.textContent = clockText(); clockEl.classList.toggle("night", dayF < 0.3);
+    }
+    if (worldReady) flushWorld();
+    animWater(dt, t);
     renderer.render(scene, camera);
-    if (!third && handArm) { renderer.autoClear = false; renderer.clearDepth(); renderer.render(handScene, handCam); renderer.autoClear = true; }
+    if (hand) { renderer.autoClear = false; renderer.clearDepth(); renderer.render(handScene, handCam); renderer.autoClear = true; }
   }
 
   // ---------- Start ----------
@@ -2771,13 +3454,14 @@
   atlasPix = atlasCanvas.getContext("2d").getImageData(0, 0, T * N, T * N).data;
   const atlas = new THREE.CanvasTexture(atlasCanvas);
   atlas.magFilter = THREE.NearestFilter; atlas.minFilter = THREE.NearestFilter; atlas.generateMipmaps = false;
+  atlasTex = atlas;
   mats = [
-    new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true }),
-    new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true, transparent: true, opacity: 0.74, depthWrite: false }),
-    new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true, alphaTest: 0.5 }),
+    litBlocks(new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true })),
+    litBlocks(new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true, transparent: true, opacity: 0.74, depthWrite: false })),
+    litBlocks(new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true, alphaTest: 0.5 })),
     new THREE.MeshBasicMaterial({ map: atlas, vertexColors: true }),
   ];
-  itemMats = [new THREE.MeshLambertMaterial({ map: atlas }), new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.5, side: THREE.DoubleSide }), new THREE.MeshBasicMaterial({ map: atlas })];
+  itemMats = [litEnt(new THREE.MeshLambertMaterial({ map: atlas }), playerLight), litEnt(new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.5, side: THREE.DoubleSide }), playerLight), new THREE.MeshBasicMaterial({ map: atlas })];
   const save = loadSave();
   if (save && Array.isArray(save.bar) && save.bar.length === HOTBAR.length && save.bar.every(b => PALETTE.includes(b))) HOTBAR.splice(0, HOTBAR.length, ...save.bar);
   buildBar(); buildPalette();
@@ -2806,7 +3490,9 @@
       }
     }
     for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) { let y = H - 1; while (y > 0 && world[idx(x, y, z)] === AIR) y--; topY[x + z * W] = y; }
+    lightAll();
     for (let cz = 0; cz < D / CS; cz++) for (let cx = 0; cx < W / CS; cx++) rebuildChunk(cx, cz);
+    chunkGeo.fill(0); chunkLit.fill(0);
     buildHand(); makePlayerModel();
     toGate();
     if (save && Array.isArray(save.p) && save.p.length === 5 && save.p.every(Number.isFinite)) {
@@ -2815,6 +3501,11 @@
       if (save.fly) { P.fly = true; flyTag.hidden = false; }
     }
     if (save && [0, 1, 2].includes(save.view)) setView(save.view);
+    if (save && Number.isFinite(save.t)) dayT = ((save.t % 1) + 1) % 1;
+    if (save && Number.isFinite(save.hp)) P.hp = Math.max(1, Math.min(20, Math.round(save.hp)));
+    if (save && Array.isArray(save.sp) && save.sp.length === 3 && save.sp.every(Number.isFinite)) P.spawn = save.sp;
+    setMonsters(!(save && save.mon === false));
+    P.fallTop = P.y; updateSky(0); timeBtn.textContent = "Tageszeit: " + timeName(); clockEl.textContent = clockText();
     spawnPeople(); spawnAnimals(); spawnButler(save && save.stay); updateJamesTag();
     worldReady = true;
     playBtn.disabled = false; playBtn.textContent = isTouch ? "Spielen" : "Spielen (Klick)";
