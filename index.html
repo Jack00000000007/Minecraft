@@ -3154,6 +3154,7 @@
       else if (e.kind === "butler") butlerThink(e, dt);
       else if (e.kind === "zombie") zombieThink(e, dt, dp);
       else if (e.kind === "staff") staffThink(e, dt);
+      else if (e.think) e.think(e, dt, dp);   // Version 11: Leute mit eigenem Tagesablauf (Markt, Felder)
       else personThink(e, dt);
       if (e.gone) continue;
       if (!e.sit && !e.sleep) entPhysics(e, dt);
@@ -5605,6 +5606,1191 @@
     fill(cx, gy + 9, cz, cx, gy + 12, cz, BARS); setB(cx, gy + 8, cz, LAMP);
     for (const [dx, dz, bx, bz] of [[-2, 0, -3, 0], [2, 0, 3, 0], [0, 2, 0, 3]]) { setB(cx + dx, gy + 2, cz + dz, DPLANK); setB(cx + bx, gy + 2, cz + bz, DPLANK); setB(cx + bx, gy + 3, cz + bz, DPLANK); }
   }
+  // ==================== Version 11, Teil 2: Marktplatz mit Brunnen (H3) und Felder mit Windmühle (H4) – Anfang ====================
+  // Gebaut in einer eigenen Sitzung auf dem Branch claude/hallo-3zyiof (Kopie von main, Stand 14c177a), während der Bau-Thread pausiert war.
+  // Alles steht zwischen „Anfang“ und „Ende“ dieses Abschnitts. Außerhalb gibt es nur einen kleinen Haken in updateEnts (e.think).
+  // Nummern: Blöcke MF_B bis MF_B + 115, Atlas-Kacheln MF_T bis MF_T + 25. Überschneidet sich das mit den Bereichen der anderen Teile,
+  // genügt es, diese zwei Zahlen zu ändern (alte Spielstände enthalten diese Blöcke nur, wenn Markus sie selbst gesetzt hat).
+  const MF_B = 900, MF_T = 230;
+  const mt = i => MF_T + i;
+
+  // ---------- Kacheln: Pflaster, Markisen, Maibaum, Kisten, neue Pflanzen, Reet, Schindeln, Sackleinen, Mühlstein ----------
+  V11.atlas.push((tile, vary) => {
+    const NONE = [0, 0, 0, 0], dk = (c, k) => c.map(n => n * k);
+    // Kopfsteinpflaster: kleine Steine in versetzten Reihen, jeder Stein etwas anders gefärbt, oben links heller, dazwischen dunkle Fugen
+    const setts = (base, alt, seed) => (x, y) => {
+      const r = y >> 2, xo = x + (r & 1) * 2, s = (xo >> 2) & 3, v = y & 3, u = xo & 3;
+      if (v === 3 || u === 3) return vary([84, 80, 72], 8);
+      const h = hash(s, r, seed), c = h < 0.3 ? alt : h > 0.82 ? base.map(n => n + 16) : base;
+      return vary(v === 0 || u === 0 ? c.map(n => n + 14) : v === 2 && u === 2 ? c.map(n => n - 12) : c, 10);
+    };
+    tile(mt(0), setts([146, 142, 134], [126, 122, 118], 2301));
+    tile(mt(1), setts([216, 200, 162], [196, 176, 138], 2302));
+    // Markisen: rot, blau, grün, gelb mit weißen Streifen. A: Streifen laufen senkrecht (in der Kachel von oben nach unten), B: quer.
+    [[190, 36, 42], [40, 84, 168], [40, 124, 70], [226, 170, 34]].forEach((c, i) => {
+      const cloth = (s, t) => { const w = (s >> 2) & 1, col = w ? [242, 238, 228] : c, e = s & 3; return vary(e === 0 || e === 3 ? dk(col, 0.9) : (t + s) & 1 ? col : dk(col, 0.96), 6); };
+      tile(mt(2 + 2 * i), (x, y) => cloth(x, y));
+      tile(mt(3 + 2 * i), (x, y) => cloth(y, x));
+    });
+    // Maibaum: weiß-blau gewunden
+    tile(mt(10), (x, y) => vary(((x + y) >> 2) & 1 ? [58, 108, 196] : [244, 244, 240], 6));
+    // Runde Dinge dicht an dicht (Äpfel, Kohlköpfe, Kartoffeln): nächster Mittelpunkt in einem Raster mit Versatz
+    const blobs = (g, rad, seed, col, gap) => (x, y) => {
+      const n = 16 / g; let best = 1e9, bx = 0, by = 0, bi = 0;
+      for (let cy = -1; cy <= 1; cy++) for (let cx = -1; cx <= 1; cx++) {
+        const gx = Math.floor(x / g) + cx, gy = Math.floor(y / g) + cy, wx = ((gx % n) + n) % n, wy = ((gy % n) + n) % n;
+        const px = gx * g + g / 2 + (hash(wx, wy, seed) - 0.5) * g * 0.45, py = gy * g + g / 2 + (hash(wy, wx, seed + 1) - 0.5) * g * 0.45;
+        const d = Math.hypot(x + 0.5 - px, y + 0.5 - py);
+        if (d < best) { best = d; bx = x + 0.5 - px; by = y + 0.5 - py; bi = hash(wx, wy, seed + 2); }
+      }
+      if (best > rad) return vary(gap, 8);
+      let c = col(bi, best / rad, x, y);
+      if (bx + by < -rad * 0.7) c = c.map(v => v + 34); else if (best > rad * 0.78 || bx + by > rad * 0.8) c = dk(c, 0.8);
+      return vary(c, 8);
+    };
+    tile(mt(11), blobs(4, 2.2, 2311, i => i < 0.55 ? [196, 30, 32] : i < 0.85 ? [214, 116, 38] : [126, 184, 52], [58, 40, 24]));
+    tile(mt(12), blobs(8, 4.4, 2312, (i, d) => d < 0.25 ? [206, 230, 160] : Math.floor(d * 6) % 2 ? [112, 170, 76] : [148, 198, 102], [44, 66, 32]));
+    tile(mt(13), blobs(4, 2.0, 2313, (i, d, x, y) => hash(x, y, 2314) > 0.9 ? [110, 80, 48] : i < 0.4 ? [184, 144, 90] : i < 0.8 ? [166, 126, 76] : [198, 160, 104], [66, 46, 30]));
+    // Karotten schräg nebeneinander, oben das Grün
+    tile(mt(14), (x, y) => { const d = (x + 16 - y) % 5; if (d < 2) return (x + y) % 8 < 1 ? vary([70, 150, 50], 12) : vary(d ? [238, 130, 34] : [214, 104, 22], 10); return vary([62, 44, 28], 8); });
+    // Fische auf gestoßenem Eis
+    tile(mt(15), (x, y) => {
+      for (const [cx, cy, dir] of [[6, 3, 1], [11, 8, -1], [5, 13, 1], [14, 13.5, -1]]) {
+        const dx = (x + 0.5 - cx) * dir, dy = y + 0.5 - cy;
+        if (dx >= 1.8 && dx < 2.8 && dy > -0.9 && dy < 0.1) return [20, 22, 26];
+        if ((dx / 3.9) ** 2 + (dy / 1.45) ** 2 < 1) return vary(dy < -0.2 ? [86, 108, 128] : dy < 0.5 ? [168, 184, 196] : [214, 220, 224], 8);
+        if (dx < -3.4 && dx > -5.8 && Math.abs(dy) < (-3.4 - dx) * 0.75 + 0.4) return vary([104, 122, 138], 8);
+      }
+      return vary(hash(x, y, 2315) > 0.8 ? [196, 218, 236] : [232, 242, 248], 10);
+    });
+    // Sonnenblume: unten Stängel mit großen Blättern, oben die Blüte
+    tile(mt(16), (x, y) => {
+      if (x === 7 || x === 8) return vary(x === 7 ? [74, 136, 50] : [60, 116, 42], 8);
+      for (const [cx, cy, s] of [[4, 5, -1], [11.5, 10.5, 1]]) { const dx = x + 0.5 - cx, dy = y + 0.5 - cy; if ((dx / 3.6) ** 2 + (dy / 1.7) ** 2 < 1) return vary(Math.abs(dy - dx * 0.2 * s) < 0.4 ? [70, 130, 48] : [96, 164, 60], 10); }
+      return NONE;
+    });
+    tile(mt(17), (x, y) => {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 6, d = Math.hypot(dx, dy);
+      if (d < 2.7) return (x * 3 + y * 5) % 4 === 0 ? [120, 76, 30] : vary([74, 46, 24], 10);
+      if (d < 3.5) return vary([140, 84, 30], 8);
+      if (d < 6.6 && Math.cos(Math.atan2(dy, dx) * 9) > -0.25) return vary(d > 5.6 ? [236, 176, 20] : [252, 206, 34], 10);
+      if (y > 11 && (x === 7 || x === 8)) return vary([66, 124, 44], 8);
+      if (y >= 12 && y <= 13 && x >= 9 && x <= 12) return vary([92, 160, 58], 8);
+      return NONE;
+    });
+    // Lavendel: dünne Stiele, oben lila Ähren
+    tile(mt(18), (x, y) => {
+      const top = 1 + Math.floor(hash(x, 0, 2318) * 4), stem = x % 2 === 0;
+      if (stem && y >= top && y < top + 6) return vary((y + x) % 3 ? [150, 108, 204] : [118, 78, 176], 12);
+      if (stem && y >= top + 6) return vary([108, 140, 100], 10);
+      if (y >= 12 && hash(x, y, 2319) > 0.35) return vary([120, 150, 110], 10);
+      return NONE;
+    });
+    // Raps: grüne Stängel, oben gelbe Blütendolden
+    tile(mt(19), (x, y) => {
+      const cols = [1, 4, 7, 10, 13];
+      for (const c of cols) {
+        const top = 1 + (c * 7) % 4;
+        if (Math.hypot(x - c, (y - top - 1.5) * 1.3) < 2.2 && y < top + 4) return hash(x, y, 2320) > 0.25 ? vary([248, 222, 40], 10) : vary([214, 186, 24], 8);
+        if (x === c && y >= top + 3) return vary([86, 146, 56], 8);
+      }
+      if (y >= 11 && hash(x, y, 2321) > 0.55) return vary([92, 150, 60], 10);
+      return NONE;
+    });
+    // Mais: unten Stängel mit langen Blättern, oben Rispe und Kolben
+    const cornLeaf = (x, y) => {
+      for (const [sx, y0, dir] of [[5, 2, -1], [5, 9, 1], [10, 5, 1], [10, 12, -1]]) {
+        const t = y - y0; if (t < 0 || t > 5) continue;
+        if (Math.abs(x + 0.5 - (sx + 0.5 + dir * (t * 1.3 + 0.8))) < 0.9) return vary([96, 162, 60], 10);
+      }
+      return null;
+    };
+    tile(mt(20), (x, y) => (x === 5 || x === 10) ? vary([118, 158, 64], 8) : cornLeaf(x, y) || NONE);
+    tile(mt(21), (x, y) => {
+      if ((x === 5 || x === 10) && y > 3) return vary([118, 158, 64], 8);
+      if (y <= 3 && (x === 4 || x === 6 || x === 9 || x === 11 || ((x === 5 || x === 10) && y <= 1))) return vary([214, 190, 120], 12);
+      if (x >= 11 && x <= 13 && y >= 6 && y <= 12) return y <= 7 && x === 12 ? vary([244, 210, 64], 8) : vary(x === 12 ? [138, 184, 80] : [112, 164, 64], 8);
+      return y > 8 ? cornLeaf(x, y) || NONE : NONE;
+    });
+    // Reetdach: Halme in Lagen, jede Lage unten im Schatten
+    tile(mt(22), (x, y) => { const b = y & 3, s = hash(x, y >> 2, 2322), c = s < 0.3 ? [150, 120, 64] : s < 0.7 ? [178, 146, 84] : [198, 168, 104]; return vary(b === 3 ? dk(c, 0.7) : b === 0 ? c.map(n => n + 8) : c, 12); });
+    // Holzschindeln: versetzte Reihen, verwittert
+    tile(mt(23), (x, y) => { const r = y >> 2, u = (x + (r & 1) * 2) & 3, v = y & 3; if (u === 0) return vary([62, 50, 42], 6); const c = hash((x + (r & 1) * 2) >> 2 & 3, r, 2323) > 0.5 ? [112, 92, 76] : [96, 80, 68]; return vary(v === 3 ? dk(c, 0.72) : c, 10); });
+    // Sackleinen
+    tile(mt(24), (x, y) => vary((x + y) & 1 ? [200, 174, 126] : [180, 154, 106], 8));
+    // Mühlstein: Mahlrillen, Rand, Loch in der Mitte
+    tile(mt(25), (x, y) => {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+      if (d < 1.4) return [40, 38, 36];
+      if (d > 7.2) return vary([104, 102, 100], 8);
+      return vary(Math.abs(Math.sin(a * 6 + d * 0.5)) < 0.2 ? [118, 116, 112] : [160, 158, 152], 10);
+    });
+  });
+
+  // ---------- Neue Blöcke ----------
+  const PFLASTER = MF_B, PFLASTER_H = MF_B + 1;
+  defBlock(PFLASTER, { name: "Kopfsteinpflaster", tex: [mt(0), mt(0), mt(0)], mat: "stone" });
+  defBlock(PFLASTER_H, { name: "Helles Pflaster", tex: [mt(1), mt(1), mt(1)], mat: "stone" });
+  // Ein geformter Block mit eigenen Quadern je Drehung (für Markisen: die Streifen sollen immer von hinten nach vorn laufen)
+  const rotBox = (q, k) => { const p0 = rot16(q.f[0], q.f[2], k), p1 = rot16(q.t[0], q.t[2], k); return { f: [Math.min(p0[0], p1[0]), q.f[1], Math.min(p0[1], p1[1])], t: [Math.max(p0[0], p1[0]), q.t[1], Math.max(p0[1], p1[1])], tex: q.tex, glow: q.glow }; };
+  function defShape4(id, o, boxesFor) {
+    for (let k = 0; k < 4; k++) { defShape(id + k, Object.assign({}, o, { rot: false, hidden: k > 0 || o.hidden, boxes: boxesFor(k).map(q => rotBox(q, k)) })); ROTB[id + k] = id; }
+  }
+  // Markisen der Marktstände: dünne Stoffbahnen, die je Block um einen Viertelblock nach vorn abfallen.
+  // Stufe s = 0..3: Oberkante hinten bei 16, 12, 8, 4 Sechzehnteln; s = 4: vordere Kante mit Volant und Holzstange.
+  const MARKISE = (c, s) => MF_B + 2 + (c * 5 + s) * 4;
+  ["rot", "blau", "grün", "gelb"].forEach((cn, c) => {
+    const A = mt(2 + 2 * c), B = mt(3 + 2 * c);
+    for (let s = 0; s < 5; s++) defShape4(MARKISE(c, s), { name: "Markise " + cn + (s === 4 ? " (Vorderkante)" : s ? " (Stufe " + (s + 1) + ")" : ""), nonsolid: true, mat: "wool", icon: A, hidden: s !== 0 && s !== 4 }, k => {
+      const t = k & 1 ? [B, B, A] : [A, A, A], T = s === 4 ? 16 : 16 - 4 * s, list = [];
+      for (let i = 0; i < 4; i++) list.push({ f: [0, T - i - 1.5, 4 * i], t: [16, T - i, 4 * i + 4], tex: t });
+      if (s === 4) list.push({ f: [0, 6.5, 15.2], t: [16, 13, 16], tex: A }, { f: [0, 11.4, 14.1], t: [16, 12.4, 15.1], tex: 130 });
+      return list;
+    });
+  });
+  const POST = MF_B + 82, POST_HI = MF_B + 83;
+  defShape(POST, { name: "Marktpfosten", mat: "wood", icon: 129, boxes: [{ f: [6.75, 0, 6.75], t: [9.25, 16, 9.25], tex: [128, 128, 129] }] });
+  defShape(POST_HI, { name: "Marktpfosten (lang)", mat: "wood", icon: 129, hidden: true, boxes: [{ f: [6.75, 0, 6.75], t: [9.25, 28.5, 9.25], tex: [128, 128, 129] }] });
+  // Theke eines Marktstands: Fichtenholz, vorn ein Leintuch
+  const THEKE = MF_B + 84;
+  defShape(THEKE, { name: "Marktstand-Theke", rot: true, mat: "wood", icon: 130, boxes: [
+    { f: [0, 14, 0], t: [16, 16, 16], tex: 130 }, { f: [0.5, 0, 11.5], t: [15.5, 14, 13.2], tex: 130 },
+    { f: [0.5, 0, 1], t: [2, 14, 11.5], tex: 130 }, { f: [14, 0, 1], t: [15.5, 14, 11.5], tex: 130 }, { f: [2, 5, 1.5], t: [14, 6.5, 11.5], tex: 130 },
+    { f: [-0.1, 5.5, 13.2], t: [16.1, 16.2, 13.8], tex: 22 }, { f: [-0.1, 16, 9.5], t: [16.1, 16.3, 13.8], tex: 22 }] });
+  // Kisten mit Waren: Lattenkiste aus Fichte, obendrauf ein Haufen
+  const crateBoxes = top => [
+    { f: [1, 0, 1], t: [15, 10, 15], tex: 130 }, { f: [0.6, 1, 0.6], t: [15.4, 2.2, 15.4], tex: 129 }, { f: [0.6, 7.5, 0.6], t: [15.4, 8.7, 15.4], tex: 129 },
+    { f: [1.4, 10, 1.4], t: [14.6, 11.8, 14.6], tex: top }, { f: [3, 11.8, 3], t: [13, 13.2, 13], tex: top }];
+  const KISTE_APFEL = MF_B + 88, KISTE_KOHL = MF_B + 89, KISTE_KART = MF_B + 90, KISTE_KAROTTE = MF_B + 91, KISTE_FISCH = MF_B + 92;
+  [[KISTE_APFEL, "Kiste mit Äpfeln", 11], [KISTE_KOHL, "Kiste mit Kohl", 12], [KISTE_KART, "Kiste mit Kartoffeln", 13], [KISTE_KAROTTE, "Kiste mit Karotten", 14], [KISTE_FISCH, "Fisch auf Eis", 15]]
+    .forEach(([id, name, t]) => defShape(id, { name, mat: "wood", icon: mt(t), boxes: crateBoxes(mt(t)) }));
+  const MAIBAUM = MF_B + 93, MAST = MF_B + 94, MAST_FUSS = MF_B + 110;
+  defShape(MAIBAUM, { name: "Maibaum", mat: "wood", icon: mt(10), boxes: [{ f: [5, 0, 5], t: [11, 16, 11], tex: [132, 132, mt(10)] }] });
+  defShape(MAST, { name: "Laternenmast", mat: "stone", icon: 24, boxes: [{ f: [6.9, 0, 6.9], t: [9.1, 16, 9.1], tex: 24 }, { f: [6.3, 13.5, 6.3], t: [9.7, 14.5, 9.7], tex: 17 }] });
+  defShape(MAST_FUSS, { name: "Laternenmast mit Fuß", mat: "stone", icon: 24, boxes: [{ f: [5, 0, 5], t: [11, 1.5, 11], tex: 24 }, { f: [5.8, 1.5, 5.8], t: [10.2, 3.5, 10.2], tex: 24 },
+    { f: [6.9, 3.5, 6.9], t: [9.1, 16, 9.1], tex: 24 }, { f: [6.4, 8, 6.4], t: [9.6, 8.8, 9.6], tex: 17 }] });
+  // Neue Pflanzen der Felder (Sonnenblume und Mais sind zwei Blöcke hoch)
+  const KOHL = MF_B + 95, SONNE = MF_B + 96, SONNE_O = MF_B + 97, LAVENDEL = MF_B + 98, RAPS = MF_B + 99, MAIS = MF_B + 100, MAIS_O = MF_B + 101;
+  defShape(KOHL, { name: "Kohlkopf", nonsolid: true, mat: "grass", icon: mt(12), boxes: [{ f: [4, 0, 4], t: [12, 6.5, 12], tex: mt(12) }, { f: [2, 0, 5], t: [14, 2.5, 11], tex: mt(12) }, { f: [5, 0, 2], t: [11, 2.5, 14], tex: mt(12) }] });
+  defBlock(SONNE, { name: "Sonnenblume", tex: [mt(16), mt(16), mt(16)], plant: true, mat: "grass" });
+  defBlock(SONNE_O, { name: "Sonnenblume (Blüte)", tex: [mt(17), mt(17), mt(17)], plant: true, mat: "grass" });
+  defBlock(LAVENDEL, { name: "Lavendel", tex: [mt(18), mt(18), mt(18)], plant: true, mat: "grass" });
+  defBlock(RAPS, { name: "Raps", tex: [mt(19), mt(19), mt(19)], plant: true, mat: "grass" });
+  defBlock(MAIS, { name: "Mais", tex: [mt(20), mt(20), mt(20)], plant: true, mat: "grass" });
+  defBlock(MAIS_O, { name: "Mais (Kolben)", tex: [mt(21), mt(21), mt(21)], plant: true, mat: "grass" });
+  const REET = MF_B + 102, SCHINDEL = MF_B + 103;
+  defBlock(REET, { name: "Reetdach", tex: [mt(22), mt(22), mt(22)], mat: "grass" });
+  defBlock(SCHINDEL, { name: "Holzschindeln", tex: [mt(23), mt(23), mt(23)], mat: "wood" });
+  const MUEHLSTEIN = MF_B + 104, SACK = MF_B + 105, TROG = MF_B + 106;
+  defShape(MUEHLSTEIN, { name: "Mühlstein", mat: "stone", icon: mt(25), boxes: [{ f: [0.5, 0, 0.5], t: [15.5, 5, 15.5], tex: [mt(25), 3, 3] }, { f: [1.5, 5, 1.5], t: [14.5, 9.5, 14.5], tex: [mt(25), 3, 3] },
+    { f: [7, 9.5, 7], t: [9, 13, 9], tex: 69 }, { f: [4, 12, 7.3], t: [12, 13, 8.7], tex: 15 }] });
+  defShape(SACK, { name: "Mehlsack", mat: "wool", icon: mt(24), boxes: [{ f: [3, 0, 3.5], t: [13, 9, 12.5], tex: mt(24) }, { f: [3.8, 9, 4.3], t: [12.2, 10.5, 11.7], tex: mt(24) },
+    { f: [5.5, 10.5, 6], t: [10.5, 12, 10], tex: mt(24) }, { f: [6.5, 12, 7], t: [9.5, 13.5, 9], tex: 20 }, { f: [4.5, 3, 12.5], t: [11.5, 6, 12.6], tex: 22 }] });
+  defShape(TROG, { name: "Wassertrog", mat: "wood", icon: 8, boxes: [{ f: [1, 0, 1], t: [15, 1.5, 15], tex: 130 }, { f: [1, 1.5, 1], t: [15, 10, 2.5], tex: 130 }, { f: [1, 1.5, 13.5], t: [15, 10, 15], tex: 130 },
+    { f: [1, 1.5, 2.5], t: [2.5, 10, 13.5], tex: 130 }, { f: [13.5, 1.5, 2.5], t: [15, 10, 13.5], tex: 130 }, { f: [2.5, 1.5, 2.5], t: [13.5, 8.5, 13.5], tex: 8 }, { f: [0.5, 3, 0.5], t: [15.5, 4, 15.5], tex: 69 }] });
+  // Goldene Brunnenschale: breiter als ein Block (drei Blöcke), mit Wasser darin; steht auf der Säule des Marktbrunnens
+  const GOLDSCHALE = MF_B + 111;
+  defShape(GOLDSCHALE, { name: "Goldene Brunnenschale", mat: "stone", icon: 17, boxes: [
+    { f: [5.5, 0, 5.5], t: [10.5, 3, 10.5], tex: 17 }, { f: [2, 3, 2], t: [14, 5, 14], tex: 17 }, { f: [-4, 5, -4], t: [20, 7, 20], tex: 17 },
+    { f: [-9, 7, -9], t: [25, 9, 25], tex: 17 }, { f: [-9, 9, -9], t: [25, 11, -7.5], tex: 17 }, { f: [-9, 9, 23.5], t: [25, 11, 25], tex: 17 },
+    { f: [-9, 9, -7.5], t: [-7.5, 11, 23.5], tex: 17 }, { f: [23.5, 9, -7.5], t: [25, 11, 23.5], tex: 17 }, { f: [-7.5, 9, -7.5], t: [23.5, 10.2, 23.5], tex: 8 }] });
+  MATOF[PFLASTER] = MATOF[PFLASTER_H] = "stone";
+  for (const b of [SONNE, SONNE_O, LAVENDEL, RAPS, MAIS, MAIS_O, KOHL, REET]) MATOF[b] = "grass";
+
+  // ---------- Der Marktplatz der Neustadt ----------
+  // Kopfsteinpflaster mit hellem Stern, in der Mitte der Marktbrunnen mit zwei Schalen und einer goldenen Krone,
+  // rundherum zwölf Marktstände mit gestreiften Markisen, drei Linden mit Rundbänken, der Maibaum und Laternen.
+  const MB = { x: 96, z: 286 };                                   // Mittelzelle des Marktbrunnens
+  const octD = (dx, dz) => Math.max(Math.abs(dx), Math.abs(dz), (Math.abs(dx) + Math.abs(dz)) / 1.42);
+  const MSTALLS = [], MSEATS = [], MGOODS = [], MLOOK = [];
+  const mGood = (name, x, y, z, ry, s) => MGOODS.push([name, x, y, z, ry || 0, s || 1]);
+  // Die zwölf Stände: Mitte der Theke (x, z), Blickrichtung zur Kundschaft, Farbe der Markise, Ware
+  const STALL_LIST = [
+    [83, 272, 0, 1, 2, "gemuese"], [89, 272, 0, 1, 0, "obst"], [103, 272, 0, 1, 3, "baecker"], [109, 272, 0, 1, 1, "metzger"],
+    [83, 300, 0, -1, 0, "blumen"], [89, 300, 0, -1, 2, "toepfer"], [103, 300, 0, -1, 1, "tuch"], [109, 300, 0, -1, 0, "wein"],
+    [82, 277, 1, 0, 3, "kaese"], [82, 296, 1, 0, 1, "fisch"], [110, 277, -1, 0, 3, "honig"], [110, 296, -1, 0, 2, "gewuerz"],
+  ];
+  // Was an jedem Stand liegt: Blöcke an den Seiten und hinten, Waren auf der Theke (links, Mitte, rechts), Dinge auf dem Boden, Hängendes
+  const STALL_WARE = {
+    gemuese: { side: [KISTE_KAROTTE, KISTE_KOHL, KISTE_KART, PUMPKIN], back: [BARREL, SACK], goods: ["veg_basket", "cabbages", "pumpkins_s"] },
+    obst: { side: [KISTE_APFEL, MELON, KISTE_APFEL, KISTE_APFEL], back: [BARREL, KISTE_APFEL], goods: ["apples_tray", "pears_grapes", "fruit"] },
+    baecker: { side: [SACK, SACK, BARREL, SACK], back: [PANTRY, SACK], goods: ["breads", "pretzels", "cake"] },
+    metzger: { side: [BARREL, BARREL, CHEST, BARREL], back: [BARREL, CHEST], goods: ["ham", "sausages", "roast"], hang: "sausage_hang" },
+    kaese: { side: [BARREL, null, BARREL, null], back: [BARREL, CHEST], goods: ["cheese_wheels", "cheese_cut", "cheese_wheels"], floor: "cheese_stack" },
+    fisch: { side: [KISTE_FISCH, KISTE_FISCH, BARREL, KISTE_FISCH], back: [BARREL, TROG], goods: ["fish_tray", "fish_big", "fish_tray"], hang: "fish_hang" },
+    blumen: { side: [POT_BOX, null, POT_BOX, null], back: [BARREL, POT_BOX], goods: ["flowers_r", "flowers_y", "flowers_b"], floor: "flowers_w", floor2: "flowers_p" },
+    toepfer: { side: [null, null, null, null], back: [CHEST, BARREL], goods: ["jugs", "bowls", "vases"], floor: "vase_big" },
+    tuch: { side: [CHEST, null, CHEST, null], back: [CHEST, BARREL], goods: ["cloth_bolts", "cloth_folded", "cloth_bolts2"], floor: "cloth_stand" },
+    wein: { side: [BARREL, BARREL, BARREL, BARREL], back: [BARREL, BARREL], goods: ["wine_set", "grapes", "wine_set"] },
+    honig: { side: [BARREL, null, BARREL, null], back: [SACK, BARREL], goods: ["honey", "candles", "honey"], floor: "skep" },
+    gewuerz: { side: [null, SACK, null, SACK], back: [CHEST, SACK], goods: ["spices", "teapot_set", "scales"], floor: "spice_sacks" },
+  };
+  function stall11(cx, cz, fx, fz, color, kind) {
+    const F = G0 + 1, ux = fz ? 1 : 0, uz = fz ? 0 : 1, W_ = STALL_WARE[kind];
+    const at = (u, v) => [cx + u * ux - v * fx, cz + u * uz - v * fz];
+    const c3 = (u, v, y) => { const [x, z] = at(u, v); return [x + 0.5, y, z + 0.5]; };
+    // Pfosten: vorn drei Blöcke hoch, hinten mit langer Spitze bis unter die Markise
+    for (const u of [-2, 2]) for (const v of [0, 3]) {
+      const [x, z] = at(u, v);
+      setB(x, F, z, POST); setB(x, F + 1, z, POST); setB(x, F + 2, z, v === 3 ? POST_HI : POST);
+    }
+    for (const u of [-1, 0, 1]) { const [x, z] = at(u, 0); setB(x, F, z, rotId(THEKE, fx, fz)); }
+    for (let u = -2; u <= 2; u++) for (let v = -1; v <= 3; v++) {
+      const [x, z] = at(u, v);
+      if (v >= 0) setB(x, F + 3, z, rotId(MARKISE(color, 3 - v), fx, fz));
+      else setB(x, F + 2, z, rotId(MARKISE(color, 4), fx, fz));
+    }
+    // Seiten (links vorn, links hinten, rechts vorn, rechts hinten) und hinten links und rechts; hinten in der Mitte bleibt der Eingang frei
+    [[-2, 1], [-2, 2], [2, 1], [2, 2]].forEach(([u, v], i) => { const b = W_.side[i]; if (b) { const [x, z] = at(u, v); setB(x, F, z, SHAPE[b] && ROTB[b] !== undefined ? rotId(b, fx, fz) : b); } });
+    [[-1, 3], [1, 3]].forEach(([u, v], i) => { const b = W_.back[i]; if (b) { const [x, z] = at(u, v); setB(x, F, z, b); } });
+    const ry = Math.atan2(fx, fz);
+    W_.goods.forEach((g, i) => mGood(g, ...c3(i - 1, 0, F + 1), ry + (i - 1) * 0.15, 1));
+    if (W_.hang) for (const u of [-1, 1]) mGood(W_.hang, ...c3(u, -1, F + 2.72), ry, 1);
+    if (W_.floor) { mGood(W_.floor, ...c3(-2, 1.5, F), ry, 1); if (!W_.side[1]) mGood(W_.floor2 || W_.floor, ...c3(2, 1.5, F), ry + 0.6, 1); }
+    const s = { kind, fx, fz, ry, sell: [...c3(0, 1, F), ry, "sell"], back: [...c3(0, 2, F), ry + Math.PI, "arrange"], front: [-1, 0, 1].map(u => [...c3(u, -1, F), ry + Math.PI, "shop"]) };
+    MSTALLS.push(s);
+    return s;
+  }
+  // Linde auf dem Markt: gerader Stamm, runde dichte Krone
+  function plantLinden(x, gy, z) {
+    for (let y = 1; y <= 6; y++) setB(x, gy + y, z, LOG);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) setB(x + dx, gy + 5, z + dz, LOG);
+    for (let dy = 4; dy <= 10; dy++) {
+      const r = dy <= 5 ? 2.6 : dy <= 8 ? 3.6 : dy === 9 ? 2.8 : 1.6;
+      for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) {
+        if (dx * dx + dz * dz > r * r + 0.4 || hash(x + dx, z + dz * 7 + dy * 31, 2401) < 0.06) continue;
+        if (get(x + dx, gy + dy, z + dz) === AIR) setB(x + dx, gy + dy, z + dz, LEAVES);
+      }
+    }
+  }
+  // Laterne auf einem eisernen Mast (drei Blöcke hoch, oben leuchtet sie)
+  function lampPost(x, z) { setB(x, G0 + 1, z, MAST_FUSS); setB(x, G0 + 2, z, MAST); setB(x, G0 + 3, z, LANTERN_S); }
+  // Bank mit Blick in Richtung (dx, dz); merkt sich den Sitzplatz für die Kundschaft
+  function benchAt(x, z, dx, dz) {
+    setB(x, G0 + 1, z, rotId(BENCH, dx, dz));
+    MSEATS.push([x + 0.5 + dx * 0.05, G0 + 0.97, z + 0.5 + dz * 0.05, Math.atan2(dx, dz), "sit", [x + dx + 0.5, G0 + 1, z + dz + 0.5]]);
+  }
+  function buildMarket11() {
+    const { x0, x1, z0, z1 } = MARKT, F = G0 + 1;
+    const lane = (x, z) => (x >= 93 && x <= 99) || (z >= 285 && z <= 288);
+    // Pflaster: Randsteine, heller Ring um den Brunnen, helle Strahlen wie ein Stern
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const dx = x - MB.x, dz = z - MB.z, d = octD(dx, dz), edge = x === x0 || x === x1 || z === z0 || z === z1;
+      let b = PFLASTER;
+      if (edge && !lane(x, z)) b = SBRICK;
+      else if (d > 6.8 && d <= 8.4) b = PFLASTER_H;
+      else if (d > 8.4 && (dx === 0 || dz === 0 || Math.abs(dx) === Math.abs(dz))) b = PFLASTER_H;
+      setB(x, G0, z, b);
+      for (let y = F; y <= G0 + 16; y++) { const o = get(x, y, z); if (o && (PLANT[o] || LEAFB[o] || LOGB[o])) setB(x, y, z, AIR); }
+    }
+    buildFountain11();
+    for (const [x, z, fx, fz, c, k] of STALL_LIST) stall11(x, z, fx, fz, c, k);
+    // Bänke um den Brunnen, alle mit Blick aufs Wasser
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { benchAt(MB.x + sx * 4, MB.z + sz * 7, 0, -sz); benchAt(MB.x + sx * 7, MB.z + sz * 4, -sx, 0); }
+    // Drei Linden mit Rundbank und Buchsbäumen, im Nordosten der Maibaum
+    for (const [tx, tz] of [[87, 277], [87, 295], [105, 295]]) {
+      setB(tx, G0, tz, GRASS);
+      plantLinden(tx, G0, tz);
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) benchAt(tx + dx, tz + dz, dx, dz);
+      for (const [dx, dz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) { setB(tx + dx, G0, tz + dz, GRASS); setB(tx + dx, F, tz + dz, POT_BOX); }
+    }
+    buildMaypole11(105, 277);
+    // Laternen: vier am Brunnen, zwei an jeder Einmündung der Straßen, eine in jeder Ecke
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) lampPost(MB.x + sx * 6, MB.z + sz * 6);
+    for (const [x, z] of [[92, 269], [100, 269], [92, 303], [100, 303], [79, 284], [79, 289], [113, 284], [113, 289], [79, 269], [113, 269], [79, 303], [113, 303]]) lampPost(x, z);
+    // Blumenbeete zwischen den Ständen an der Nord- und Südseite
+    for (const bz of [270, 302]) for (const bxx of [86, 106]) {
+      setB(bxx, G0, bz, GRASS); setB(bxx, F, bz, [TULIP, FLOWER_R, FLOWER_Y, FLOWER_B][(bxx + bz) % 4]);
+    }
+    // Plätze zum Schauen und Wasserschöpfen am Brunnenrand (acht Seiten des Achtecks)
+    for (let k = 0; k < 8; k++) {
+      const a = k * Math.PI / 4, px = MB.x + 0.5 + Math.sin(a) * 6.4, pz = MB.z + 0.5 + Math.cos(a) * 6.4;
+      MLOOK.push([px, F, pz, Math.atan2(MB.x + 0.5 - px, MB.z + 0.5 - pz), k % 2 ? "water" : "look"]);
+    }
+    PLACES11.wells.push({ name: "Marktbrunnen", water: [MB.x + 0.5, F, MB.z + 0.5], stand: MLOOK.map(s => s.slice(0, 3)) });
+    PLACES11.sights.push({ name: "Marktbrunnen", x: MB.x + 0.5, z: MB.z + 0.5 }, { name: "Maibaum", x: 105.5, z: 277.5 });
+    for (const s of MSTALLS) PLACES11.work.push({ name: "Marktstand (" + s.kind + ")", spot: s.sell.slice(0, 3), yaw: s.ry, zone: "markt" });
+  }
+  // Der Marktbrunnen: achteckiges Becken aus dunklem Marmor, weiße Stufe, Sockel mit Säule,
+  // eine Schale mit Wasser, darüber eine goldene Schale mit der Krone. Das Wasser sprudelt aus der Krone.
+  function buildFountain11() {
+    const { x: cx, z: cz } = MB, y = G0;
+    for (let dz = -7; dz <= 7; dz++) for (let dx = -7; dx <= 7; dx++) {
+      const d = octD(dx, dz), x = cx + dx, z = cz + dz;
+      if (d <= 4.6) { setB(x, y - 2, z, MARBLE_D); setB(x, y - 1, z, WATER); setB(x, y, z, WATER); setB(x, y + 1, z, WATER); }
+      else if (d <= 5.8) { setB(x, y - 2, z, MARBLE_D); setB(x, y - 1, z, MARBLE_D); setB(x, y, z, MARBLE_D); setB(x, y + 1, z, MARBLE_D); }
+      else if (d <= 7.0) setB(x, y, z, MARBLE);
+    }
+    // Laternen auf den vier schrägen Ecken des Beckenrands
+    for (const [dx, dz] of [[4, 4], [-4, 4], [4, -4], [-4, -4]]) setB(cx + dx, y + 2, cz + dz, LANTERN_S);
+    // Sockel, Säule, untere Schale, Säule, goldene Schale
+    fill(cx - 1, y - 1, cz - 1, cx + 1, y + 1, cz + 1, MARBLE_D);
+    fill(cx - 1, y + 2, cz - 1, cx + 1, y + 2, cz + 1, MARBLE);
+    fill(cx, y + 3, cz, cx, y + 5, cz, PILLAR);
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+      const a = Math.max(Math.abs(dx), Math.abs(dz));
+      if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
+      if (a === 1) { setB(cx + dx, y + 5, cz + dz, MARBLE); setB(cx + dx, y + 6, cz + dz, WATER); }
+      else if (a === 2) setB(cx + dx, y + 6, cz + dz, MARBLE_D);
+    }
+    fill(cx, y + 6, cz, cx, y + 8, cz, PILLAR);
+    setB(cx, y + 9, cz, GOLDSCHALE);
+    mGood("crown", cx + 0.5, y + 9 + 10.2 / 16, cz + 0.5, 0, 2.4);
+  }
+  // Der Maibaum: weiß-blau gewunden, oben ein grüner Wipfel und ein Kranz, an den Seiten die Zunftzeichen
+  function buildMaypole11(x, z) {
+    setB(x, G0, z, SBRICK);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) setB(x + dx, G0, z + dz, PFLASTER_H);
+    fill(x, G0 + 1, z, x, G0 + 18, z, MAIBAUM);
+    for (let dy = 19; dy <= 23; dy++) {
+      const r = dy === 23 ? 0 : dy === 22 ? 1 : dy === 19 ? 1 : 2;
+      for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dz * dz <= r * r + 0.5) setB(x + dx, G0 + dy, z + dz, BIRCH_LEAVES);
+    }
+    setB(x, G0 + 19, z, BIRCH_LOG); setB(x, G0 + 20, z, BIRCH_LOG);
+  }
+  V11.build.push(buildMarket11);
+
+  // ---------- Die Felder mit der Windmühle ----------
+  // Ein bunter Flickenteppich aus Äckern zwischen Feldwegen: Weizen, Sonnenblumen, Lavendel, Raps, Mais, Kürbisse, Kartoffeln,
+  // Karotten, Kohl, Rote Bete, Melonen und ein Obstgarten mit Bienenkörben. Auf einem Hügel die Windmühle mit Umgang,
+  // daneben das Müllerhaus mit Reetdach, ein Ziehbrunnen und ein Geräteschuppen. Rundherum eine Hecke mit Mohn und Kornblumen.
+  const MILL = { x: 115, z: 353, top: G0 + 3 };      // Mitte der Windmühle; der Hügel ist oben flach auf Höhe top
+  const FPLOTS = [];
+  const FSPOTS = { farm: [], mill: [], home: [] };
+  // Äcker: [x0, x1, z0, z1, Frucht, Name]
+  const PLOT_LIST = [
+    [21, 43, 344, 364, "wheat", "Weizenfeld"], [46, 67, 344, 364, "sunflower", "Sonnenblumenfeld"], [70, 92, 344, 364, "lavender", "Lavendelfeld"],
+    [134, 157, 344, 364, "rape", "Rapsfeld"], [160, 183, 344, 364, "corn", "Maisfeld"], [186, 209, 344, 364, "wheat", "Weizenfeld"], [212, 225, 344, 364, "pumpkin", "Kürbisfeld"],
+    [21, 43, 370, 390, "potato", "Kartoffelacker"], [46, 67, 370, 390, "carrot", "Karottenacker"], [70, 92, 370, 390, "cabbage", "Kohlacker"],
+    [100, 123, 370, 390, "beet", "Rübenacker"], [126, 149, 370, 390, "melon", "Melonenfeld"], [152, 175, 370, 390, "stubble", "Stoppelfeld mit Heu"],
+    [178, 201, 370, 390, "wheat", "Weizenfeld"], [204, 235, 370, 390, "orchard", "Obstgarten"],
+  ];
+  const cropAct = { wheat: "scythe", stubble: "fork", sunflower: "pick", lavender: "pick", rape: "hoe", corn: "pick", pumpkin: "pick", potato: "hoe", carrot: "pick", cabbage: "pick", beet: "hoe", melon: "pick", orchard: "reach" };
+  function plantApple(x, gy, z, rnd) {
+    const th = 3 + Math.floor(rnd() * 2);
+    for (let y = 1; y <= th; y++) setB(x, gy + y, z, LOG);
+    for (let dy = th - 1; dy <= th + 2; dy++) {
+      const r = dy === th + 2 ? 1.2 : dy === th - 1 ? 1.8 : 2.6;
+      for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) if (dx * dx + dz * dz <= r * r && get(x + dx, gy + dy, z + dz) === AIR) setB(x + dx, gy + dy, z + dz, APPLE_LEAVES);
+    }
+  }
+  function plot11(p, rnd) {
+    const [x0, x1, z0, z1, crop] = p, y = G0, F = G0 + 1;
+    const chan = z => crop !== "orchard" && crop !== "lavender" && (z - z0) % 10 === 5;   // Bewässerungsgräben alle zehn Reihen
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      if (roadMask[x + z * W] === 1) continue;
+      for (let yy = F; yy <= F + 6; yy++) setB(x, yy, z, AIR);
+      const r = hash(x, z, 2501), row = z - z0;
+      if (chan(z)) { setB(x, y, z, WATER); setB(x, y - 1, z, DIRT); continue; }
+      setB(x, y, z, FARMLAND);
+      switch (crop) {
+        case "wheat": setB(x, F, z, WHEAT); break;
+        case "stubble": setB(x, y, z, r < 0.5 ? FARMLAND : DIRT); if (r > 0.93) setB(x, F, z, TALLGRASS); break;
+        case "potato": if (row % 2 === 0) setB(x, F, z, POTATOES); break;
+        case "carrot": if (row % 2 === 0) setB(x, F, z, CARROTS); break;
+        case "beet": if (row % 2 === 0) setB(x, F, z, BEETS); break;
+        case "cabbage": if (row % 2 === 0 && (x - x0) % 2 === 0) setB(x, F, z, KOHL); else if (row % 2 === 0) setB(x, F, z, r < 0.5 ? KOHL : AIR); break;
+        case "rape": setB(x, F, z, RAPS); break;
+        case "sunflower": if (row % 4 !== 3) { setB(x, F, z, SONNE); setB(x, F + 1, z, SONNE_O); } break;
+        case "corn": if (row % 5 !== 4) { setB(x, F, z, MAIS); setB(x, F + 1, z, MAIS_O); } break;
+        case "lavender": setB(x, y, z, row % 2 ? GRASS : DIRT); if (row % 2 === 0) setB(x, F, z, LAVENDEL); break;
+        case "pumpkin": if (r < 0.14) setB(x, F, z, PUMPKIN); else if (r < 0.5) setB(x, F, z, r < 0.33 ? FERN : TALLGRASS); break;
+        case "melon": if (r < 0.12) setB(x, F, z, MELON); else if (r < 0.45) setB(x, F, z, r < 0.3 ? FERN : TALLGRASS); break;
+        case "orchard": {
+          setB(x, y, z, GRASS);
+          const ax = (x - x0) % 7 === 3, az = (z - z0) % 7 === 3;
+          if (ax && az) plantApple(x, y, z, rnd);
+          else if (r > 0.9) setB(x, F, z, [FLOWER_W, FLOWER_Y, TALLGRASS, FLOWER_B][Math.floor(r * 40) % 4]);
+          else if (r > 0.72) setB(x, F, z, TALLGRASS);
+          break;
+        }
+      }
+    }
+    // Heuballen auf dem Stoppelfeld und am Rand der Weizenfelder
+    if (crop === "stubble") for (let i = 0; i < 9; i++) {
+      const hx = x0 + 3 + Math.floor(rnd() * (x1 - x0 - 6)), hz = z0 + 2 + Math.floor(rnd() * (z1 - z0 - 4));
+      if (chan(hz) || chan(hz + 1)) continue;
+      setB(hx, F, hz, HAY); setB(hx + 1, F, hz, HAY); if (rnd() < 0.5) setB(hx, F + 1, hz, HAY);
+    }
+    // Arbeitsplätze: auf den Beeten zwischen den Gräben, immer mit Blick die Reihe entlang
+    const n = crop === "orchard" ? 10 : 7, spots = [];
+    for (let i = 0; i < n * 3 && spots.length < n; i++) {
+      let sx, sz;
+      if (crop === "orchard") { sx = x0 + 3 + 7 * Math.floor(rnd() * Math.floor((x1 - x0 - 2) / 7)) + (rnd() < 0.5 ? 1 : -1); sz = z0 + 3 + 7 * Math.floor(rnd() * 3); }
+      else { sx = x0 + 2 + Math.floor(rnd() * (x1 - x0 - 3)); sz = z0 + 1 + Math.floor(rnd() * (z1 - z0 - 1)); }
+      if (chan(sz) || get(sx, F, sz) === HAY || get(sx, F, sz) === PUMPKIN || get(sx, F, sz) === MELON || LOGB[get(sx, F, sz)] || roadMask[sx + sz * W] === 1) continue;
+      if (crop === "cabbage" || crop === "sunflower" || crop === "corn") { if (get(sx, F, sz) === KOHL) setB(sx, F, sz, AIR); if (get(sx, F, sz) === SONNE || get(sx, F, sz) === MAIS) { setB(sx, F, sz, AIR); setB(sx, F + 1, sz, AIR); } }
+      spots.push([sx + 0.5, F, sz + 0.5, rnd() < 0.5 ? Math.PI / 2 : -Math.PI / 2, crop === "orchard" && rnd() < 0.3 ? "pick" : cropAct[crop], p]);
+    }
+    p.spots = spots;
+    FSPOTS.farm.push(...spots);
+    PLACES11.fields.push({ x0, x1, z0, z1, crop, name: p[5] });
+  }
+  function buildFields11() {
+    const { x0, x1, z0, z1 } = FELD, F = G0 + 1, rnd = mulberry32(20261102);
+    // Alles eben machen, Pflanzen und Bäume der Wiese weg
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      if (roadMask[x + z * W] === 1) continue;
+      setB(x, G0, z, GRASS);
+      for (let y = F; y <= G0 + 14; y++) setB(x, y, z, AIR);
+    }
+    // Feldwege: quer durch die Mitte, zwischen den Äckern, vom Gutshof herunter und zur Mühle
+    const track = (ax, az, bx, bz) => { for (let z = az; z <= bz; z++) for (let x = ax; x <= bx; x++) if (roadMask[x + z * W] !== 1) setB(x, G0, z, PATH); };
+    track(x0 + 1, 366, x1 - 1, 368);
+    for (const tx of [44, 68]) track(tx, z0 + 1, tx + 1, z1 - 1);
+    for (const tx of [132, 158, 184, 210]) track(tx, z0 + 1, tx + 1, 365);
+    for (const tx of [124, 150, 176, 202]) track(tx, 369, tx + 1, z1 - 1);
+    track(226, z0, 229, 365);
+    // Hecke rundherum, Lücken für die Wege
+    for (let x = x0; x <= x1; x++) for (const z of [z0, z1]) { const k = x + z * W; if (roadMask[k] === 1 || get(x, G0, z) === PATH) continue; setB(x, F, z, HEDGE); if (hash(x, z, 2502) < 0.04) setB(x, F + 1, z, HEDGE); }
+    for (let z = z0; z <= z1; z++) for (const x of [x0, x1]) { if (get(x, G0, z) === PATH) continue; setB(x, F, z, HEDGE); if (hash(x, z, 2503) < 0.04) setB(x, F + 1, z, HEDGE); }
+    for (const p of PLOT_LIST) { const q = p.slice(); FPLOTS.push(q); plot11(q, rnd); }
+    // Feldränder: Mohn, Kornblumen und Kamille zwischen Acker und Weg
+    for (let z = z0 + 1; z < z1; z++) for (let x = x0 + 1; x < x1; x++) {
+      if (get(x, G0, z) !== GRASS || get(x, F, z) !== AIR || roadMask[x + z * W]) continue;
+      if (inRect({ x0: 100, x1: 131, z0: 343, z1: 365 }, x, z) || FPLOTS.some(p => x >= p[0] && x <= p[1] && z >= p[2] && z <= p[3])) continue;
+      const r = hash(x, z, 2504);
+      if (r < 0.22) setB(x, F, z, FLOWER_R); else if (r < 0.34) setB(x, F, z, FLOWER_B); else if (r < 0.42) setB(x, F, z, FLOWER_W); else if (r < 0.7) setB(x, F, z, TALLGRASS);
+    }
+    buildMillYard11(rnd);
+    PLACES11.sights.push({ name: "Windmühle", x: MILL.x + 0.5, z: MILL.z + 0.5 }, { name: "Lavendelfeld", x: 81, z: 354 }, { name: "Sonnenblumenfeld", x: 56, z: 354 });
+    for (const s of FSPOTS.farm) PLACES11.work.push({ name: s[5][5], spot: s.slice(0, 3), yaw: s[3], zone: "felder" });
+  }
+  // Der Mühlenhof: Hügel mit Windmühle, Müllerhaus, Ziehbrunnen mit Trog, Geräteschuppen
+  function buildMillYard11(rnd) {
+    const F = G0 + 1, { x: cx, z: cz, top } = MILL;
+    // Hügel: oben eben (Radius 6), dann sanft abfallend bis Radius 10
+    const mh = (x, z) => { const d = Math.hypot(x - cx, z - cz); return d <= 6 ? 3 : Math.max(0, Math.round(3 * (10.5 - d) / 4.5)); };
+    for (let dz = -11; dz <= 11; dz++) for (let dx = -11; dx <= 11; dx++) {
+      const d = Math.hypot(dx, dz), h = mh(cx + dx, cz + dz);
+      if (h <= 0) continue;
+      const x = cx + dx, z = cz + dz;
+      if (roadMask[x + z * W] === 1) continue;
+      for (let y = G0; y < G0 + h; y++) setB(x, y, z, DIRT);
+      setB(x, G0 + h, z, GRASS); heights[x + z * W] = G0 + h;
+      const r = hash(x, z, 2505);
+      if (d > 6.5 && r < 0.25) setB(x, G0 + h + 1, z, r < 0.08 ? FLOWER_Y : TALLGRASS);
+    }
+    // Weg vom Feldweg hinauf zur Mühlentür (Norden) und hinüber zum Müllerhaus
+    const pathAt = (x, z) => { const h = mh(x, z); setB(x, G0 + h, z, PATH); setB(x, G0 + h + 1, z, AIR); };
+    for (let z = 344; z <= cz - 5; z++) for (let x = cx - 1; x <= cx + 1; x++) pathAt(x, z);
+    for (let x = 99; x <= cx - 2; x++) for (let z = 344; z <= 345; z++) pathAt(x, z);
+    buildWindmill11(cx, cz, top);
+    buildMillHouse11(124, 356);
+    buildDrawWell11(105, 350);
+    buildShed11(101, 357);
+  }
+  // Holländerwindmühle mit Umgang (Galerie): Steinsockel, weiß verputzter achteckiger Turm, der nach oben schmaler wird,
+  // eine Haube aus Holzschindeln. Die Flügel drehen sich im Spiel (eigenes Modell, siehe unten).
+  function buildWindmill11(cx, cz, top) {
+    const y0 = top + 1;                         // Boden innen (begehbar ab y0)
+    const R = h => 4.4 - h * 0.1;               // Außenradius in Höhe h über dem Boden
+    for (let h = -1; h <= 15; h++) {
+      const y = y0 + h, ro = R(Math.max(0, h)), ri = ro - 1.05;
+      for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) {
+        const d = octD(dx, dz), x = cx + dx, z = cz + dz;
+        if (d > ro) continue;
+        if (h === -1) { setB(x, y, z, d > ri ? COBBLE : SPRUCE_PLANKS); continue; }
+        if (d <= ri) { setB(x, y, z, h === 4 ? SPRUCE_PLANKS : AIR); continue; }   // Zwischendecke über dem Mahlraum
+        // unten Bruchstein, bis zum Umgang Backstein, darüber Reet wie bei den alten Holländermühlen
+        let b = h <= 1 ? (hash(x, z * 3 + h, 2506) < 0.3 ? MOSSY_COBBLE : COBBLE) : h < 6 ? BRICK : REET;
+        if (h === 6) b = DPLANK;                                                         // Balkenkranz unter dem Umgang
+        if ((h === 3 || h === 9 || h === 12) && (dx === 0 || dz === 0) && dz !== -Math.round(ro)) b = GLASS;   // kleine Fenster
+        setB(x, y, z, b);
+      }
+    }
+    // Tür nach Norden
+    addDoor(cx, y0, cz - 4, 0, -1, "green");
+    setB(cx, y0 - 1, cz - 5, SPRUCE_PLANKS);
+    // Umgang in Höhe 6: Dielen und Geländer, von Balken gestützt
+    const ug = y0 + 6;
+    for (let dz = -7; dz <= 7; dz++) for (let dx = -7; dx <= 7; dx++) {
+      const d = octD(dx, dz), x = cx + dx, z = cz + dz;
+      if (d <= R(6) || d > 6.9) continue;
+      setB(x, ug, z, SPRUCE_PLANKS);
+      if (d > 5.9) setB(x, ug + 1, z, FENCE);
+    }
+    for (const [dx, dz] of [[6, 0], [-6, 0], [0, 6], [4, 4], [-4, 4], [4, -4], [-4, -4]]) for (let y = y0; y < ug; y++) if (get(cx + dx, y, cz + dz) === AIR) setB(cx + dx, y, cz + dz, SPRUCE_LOG);
+    // Haube: länglich nach vorn (Norden), Schindeln, oben ein Firstbalken, vorn die Welle für die Flügel
+    const hy = y0 + 16;
+    for (let j = 0; j <= 3; j++) for (let dz = -5; dz <= 5; dz++) for (let dx = -4; dx <= 4; dx++) {
+      const rx = 3.6 - j * 1.0, rz = 4.6 - j * 0.5;
+      if (Math.abs(dx) > rx || Math.abs(dz) > rz) continue;
+      setB(cx + dx, hy + j, cz + dz, j === 3 ? DPLANK : SCHINDEL);
+    }
+    fill(cx, hy + 1, cz - 6, cx, hy + 1, cz - 5, SPRUCE_LOG);
+    setB(cx, hy + 1, cz - 7, DPLANK);
+    // Mahlraum: Mühlstein, Säcke, Fässer, Werkbank, eine Hängelaterne
+    setB(cx, y0, cz, MUEHLSTEIN);
+    for (const [dx, dz, b] of [[-2, -1, SACK], [-2, 0, SACK], [-2, 1, SACK], [2, 1, BARREL], [2, 0, SACK], [1, 2, CRAFT], [-1, 2, BARREL], [2, -1, HAY]]) setB(cx + dx, y0, cz + dz, b);
+    setB(cx - 2, y0 + 1, cz, SACK);
+    setB(cx, y0 + 3, cz + 1, LANTERN_H); setB(cx, y0 + 3, cz - 1, LANTERN_H);
+    FSPOTS.mill.push([cx + 0.5, y0, cz - 1.5, 0, "mill"], [cx - 0.9, y0, cz + 1.1, -Math.PI / 2, "arrange"], [cx + 1.5, y0, cz - 2.2, Math.PI / 2, "arrange"]);
+    MILL.hub = [cx + 0.5, hy + 1.5, cz - 7.25];
+    MILL.y0 = y0;
+  }
+  // Müllerhaus: Fachwerk mit weißem Putz auf einem Steinsockel, Reetdach, Tür nach Westen zur Mühle
+  function buildMillHouse11(x0, z0) {
+    const F = G0 + 1, w = 8, d = 8, x1 = x0 + w - 1, z1 = z0 + d - 1;
+    fill(x0, G0, z0, x1, G0, z1, COBBLE);
+    fill(x0 + 1, G0, z0 + 1, x1 - 1, G0, z1 - 1, SPRUCE_PLANKS);
+    for (let y = F; y <= F + 3; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const wall = x === x0 || x === x1 || z === z0 || z === z1;
+      if (!wall) { setB(x, y, z, AIR); continue; }
+      const corner = (x === x0 || x === x1) && (z === z0 || z === z1), beam = y === F + 2 || corner || ((x - x0) % 3 === 0 && (z === z0 || z === z1)) || ((z - z0) % 3 === 0 && (x === x0 || x === x1));
+      setB(x, y, z, y === F ? COBBLE : beam ? DPLANK : PLASTER_W);
+    }
+    // Fenster mit Blumenkästen
+    for (const [x, z, ox, oz] of [[x0 + 2, z0, 0, -1], [x0 + 5, z0, 0, -1], [x0 + 2, z1, 0, 1], [x0 + 5, z1, 0, 1], [x1, z0 + 2, 1, 0], [x1, z0 + 5, 1, 0]]) {
+      setB(x, F + 1, z, GLASS);
+      setB(x + ox, F, z + oz, POT_BOX);
+    }
+    addDoor(x0, F, z0 + 4, -1, 0, "green");
+    setB(x0 - 1, F, z0 + 2, LANTERN_S); setB(x0 - 1, G0, z0 + 2, COBBLE);
+    // Reetdach, First von West nach Ost, mit Überstand
+    for (let i = 0; i <= 5; i++) {
+      const y = F + 4 + i, za = z0 - 1 + i, zb = z1 + 1 - i;
+      if (za > zb) break;
+      for (let x = x0 - 1; x <= x1 + 1; x++) { setB(x, y, za, REET); setB(x, y, zb, REET); if (za === zb || za + 1 === zb) for (let z = za; z <= zb; z++) setB(x, y, z, REET); }
+      for (let z = za + 1; z < zb; z++) { for (const x of [x0, x1]) setB(x, y, z, PLASTER_W); }
+    }
+    fill(x0 - 1, F + 3, z0 - 1, x1 + 1, F + 3, z0 - 1, REET); fill(x0 - 1, F + 3, z1 + 1, x1 + 1, F + 3, z1 + 1, REET);
+    // Schornstein
+    fill(x1 - 2, F + 1, z0 + 1, x1 - 2, F + 9, z0 + 1, BRICK);
+    setB(x1 - 2, F, z0 + 1, OVEN);
+    MILL.smoke = [x1 - 2 + 0.5, F + 10, z0 + 1.5];
+    // Einrichtung: zwei Betten, Tisch mit zwei Stühlen, Truhe, Regal, Teppich, Laterne
+    bed2(x0 + 1, F, z1 - 1, 1, 0, BED_B); bed2(x0 + 1, F, z1 - 2, 1, 0, BED_R);
+    setB(x0 + 5, F, z0 + 4, TABLE_O); setB(x0 + 5, F, z0 + 3, rotId(CHAIR_O, 0, 1)); setB(x0 + 5, F, z0 + 5, rotId(CHAIR_O, 0, -1));
+    setB(x1 - 1, F, z1 - 1, CHEST); setB(x1 - 1, F, z1 - 2, BARREL); fill(x0 + 1, F, z0 + 1, x0 + 1, F + 1, z0 + 1, SHELF);
+    setB(x1 - 1, F, z0 + 1, PANTRY);
+    setB(x0 + 3, F, z0 + 4, CARPET_R); setB(x0 + 3, F, z0 + 5, CARPET_R);
+    setB(x0 + 4, F + 3, z0 + 4, LANTERN_H);
+    MILL.beds = [
+      { stand: [x0 + 3.5, F, z1 - 0.5], feet: [x0 + 2.95, F + 0.56, z1 - 0.5], a: Math.PI / 2 },
+      { stand: [x0 + 3.5, F, z1 - 1.5], feet: [x0 + 2.95, F + 0.56, z1 - 1.5], a: Math.PI / 2 },
+    ];
+    FSPOTS.home.push([x0 + 5.5, F, z0 + 2.4, 0, "arrange"], [x1 - 1.5, F, z1 - 3.5, Math.PI, "arrange"], [x0 - 2.5, F, z0 + 6.5, Math.PI, "water"]);
+    PLACES11.homes.push({ name: "Müllerhaus", door: [x0, F, z0 + 4], beds: MILL.beds.map(b => b.stand), chest: [x1 - 1, F, z1 - 1] });
+    PLACES11.sights.push({ name: "Müllerhaus", x: x0 + 4, z: z0 + 4 });
+  }
+  // Ziehbrunnen: Steinring, Wasser, zwei Pfosten mit Dach und Kurbel; daneben ein Trog
+  function buildDrawWell11(x, z) {
+    const F = G0 + 1;
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      if (dx || dz) { setB(x + dx, F, z + dz, MOSSY_COBBLE); setB(x + dx, G0, z + dz, COBBLE); }
+      else { setB(x, G0 - 3, z, COBBLE); setB(x, G0 - 2, z, WATER); setB(x, G0 - 1, z, WATER); setB(x, G0, z, WATER); }
+    }
+    for (const dx of [-1, 1]) fill(x + dx, F + 1, z, x + dx, F + 2, z, SPRUCE_LOG);
+    fill(x - 1, F + 3, z, x + 1, F + 3, z, SPRUCE_LOG);
+    fill(x - 2, F + 3, z - 1, x + 2, F + 3, z - 1, SCHINDEL); fill(x - 2, F + 3, z + 1, x + 2, F + 3, z + 1, SCHINDEL); fill(x - 2, F + 4, z, x + 2, F + 4, z, SCHINDEL);
+    setB(x - 2, F + 3, z, SPRUCE_PLANKS); setB(x + 2, F + 3, z, SPRUCE_PLANKS);
+    setB(x + 2, F, z, TROG);
+    PLACES11.wells.push({ name: "Ziehbrunnen am Mühlenhof", water: [x + 0.5, F, z + 0.5], stand: [[x + 0.5, F, z - 1.5], [x - 1.5, F, z + 0.5]] });
+    MILL.well = [x + 0.5, F, z - 1.5];
+  }
+  // Offener Geräteschuppen: Rückwand, Dach aus Schindeln, Heu, Werkzeug an der Wand
+  function buildShed11(x0, z0) {
+    const F = G0 + 1;
+    fill(x0, G0, z0, x0 + 5, G0, z0 + 5, SPRUCE_PLANKS);
+    fill(x0, F, z0, x0, F + 2, z0 + 5, SPRUCE_PLANKS);
+    fill(x0, F, z0, x0 + 5, F + 2, z0, SPRUCE_PLANKS); fill(x0, F, z0 + 5, x0 + 5, F + 2, z0 + 5, SPRUCE_PLANKS);
+    for (const z of [z0, z0 + 5]) setB(x0 + 5, F, z, SPRUCE_LOG);
+    for (let x = x0 - 1; x <= x0 + 6; x++) for (let z = z0 - 1; z <= z0 + 6; z++) setB(x, F + 3 + (x <= x0 + 2 ? 1 : 0), z, SCHINDEL);
+    for (const [dx, dz, b] of [[1, 1, HAY], [1, 2, HAY], [2, 1, HAY], [1, 4, BARREL], [2, 4, SACK]]) setB(x0 + dx, F, z0 + dz, b);
+    setB(x0 + 1, F + 1, z0 + 1, HAY);
+    MILL.shed = [x0, z0];
+  }
+  V11.build.push(buildFields11);
+
+  // ---------- Waren und Dinge: kleine Modelle aus Quadern (Maße in Figuren-Pixeln, 1 Block = 17,8) ----------
+  const pnt = (c, a) => (f, x, y, w, h, v) => v(f === "py" ? c.map(n => n + 16) : f === "ny" ? shade(c, 0.7) : c, a === undefined ? 8 : a);
+  const WOODC = [150, 108, 62], DWOOD = [92, 62, 36], ZINC = [172, 178, 186], TERRA = [186, 96, 60], BRASS = [206, 164, 70];
+  const moved = (boxes, dx, dy, dz) => boxes.map(q => Object.assign({}, q, { f: [q.f[0] + dx, q.f[1] + dy, q.f[2] + dz], t: [q.t[0] + dx, q.t[1] + dy, q.t[2] + dz] }));
+  const ball = (x, y, z, r, c, a) => bx([x - r, y, z - r], [x + r, y + 2 * r, z + r], (f, px, py, w, h, v) => v(f === "py" ? c.map(n => n + 26) : f === "ny" ? shade(c, 0.64) : py < h * 0.35 ? c.map(n => n + 10) : c, a === undefined ? 8 : a));
+  const trayB = (w, d, c) => { c = c || WOODC; return [bx([-w, 0, -d], [w, 1, d], pnt(c)), bx([-w, 1, -d], [w, 1.8, -d + 0.6], pnt(c)), bx([-w, 1, d - 0.6], [w, 1.8, d], pnt(c)), bx([-w, 1, -d + 0.6], [-w + 0.6, 1.8, d - 0.6], pnt(c)), bx([w - 0.6, 1, -d + 0.6], [w, 1.8, d - 0.6], pnt(c))]; };
+  const wicker = (w, d, h) => [bx([-w, 0, -d], [w, h, d], (f, x, y, W, H, v) => v(f === "py" ? [96, 66, 34] : ((x >> 1) + (y >> 1)) & 1 ? [188, 140, 78] : [158, 112, 60], 6)), bx([-w - 0.3, h - 0.8, -d - 0.3], [w + 0.3, h, d + 0.3], pnt([172, 126, 68]))];
+  const board = (w, d) => [bx([-w, 0, -d], [w, 0.9, d], (f, x, y, W, H, v) => v(f === "py" ? (y % 5 === 0 ? [150, 108, 64] : [182, 136, 84]) : [140, 98, 56], 6))];
+  // Brezel von oben: zwei Schlaufen und ein Bogen, mit Salzkörnern (der Rest ist durchsichtig)
+  const pretzelTop = (f, x, y, w, h, v) => {
+    if (f !== "py") return f === "ny" ? null : (x + y) % 3 ? null : v([150, 78, 30], 6);
+    const u = (x + 0.5) / w * 2 - 1, q = (y + 0.5) / h * 2 - 1;
+    const ring = (cx, cy, r) => Math.abs(Math.hypot(u - cx, q - cy) - r) < 0.17;
+    if (ring(-0.36, -0.18, 0.4) || ring(0.36, -0.18, 0.4) || (ring(0, -0.15, 0.85) && q > 0.1) || Math.abs(u - q * 0.55) < 0.12 && q > -0.2 && q < 0.6 || Math.abs(u + q * 0.55) < 0.12 && q > -0.2 && q < 0.6)
+      return hash(x, y, 2601) > 0.86 ? [250, 250, 246] : v([166, 90, 34], 10);
+    return null;
+  };
+  const flowerBucket = c => {
+    const B = [bx([-2.8, 0, -2.8], [2.8, 5.4, 2.8], (f, x, y, w, h, v) => v(y === 2 || y === h - 3 ? shade(ZINC, 0.8) : ZINC, 5))];
+    for (let i = 0; i < 11; i++) {
+      const a = i * 2.4, r = i ? 1.2 + (i % 3) * 0.7 : 0, x = Math.cos(a) * r, z = Math.sin(a) * r, y = 8 + (i % 4) * 0.8 - r * 0.4;
+      B.push(bx([x - 0.25, 4.5, z - 0.25], [x + 0.25, y, z + 0.25], pnt([60, 120, 50])));
+      B.push(bx([x - 0.9, y, z - 0.9], [x + 0.9, y + 1.4, z + 0.9], (f, px, py, w, h, v) => f === "py" && px >= 1 && px <= 2 && py >= 1 && py <= 2 ? [240, 200, 60] : v(c, 14)));
+      if (i % 3 === 0) B.push(bx([x - 1.3, y - 2.2, z - 0.2], [x + 1.3, y - 1.8, z + 0.2], pnt([70, 140, 56])));
+    }
+    return B;
+  };
+  const clothRoll = (z, c, pat) => bx([-7, 0, z - 1.6], [7, 3.2, z + 1.6], (f, x, y, w, h, v) => {
+    if (f === "px" || f === "nx") return Math.hypot(x - w / 2 + 0.5, y - h / 2 + 0.5) < 1.2 ? [60, 44, 30] : v((Math.floor(Math.hypot(x - w / 2 + 0.5, y - h / 2 + 0.5)) & 1) ? c : shade(c, 0.82), 4);
+    if (pat === "brokat" && (x + y * 2) % 5 === 0) return v([250, 226, 140], 6);
+    if (pat === "streifen" && (x >> 1) % 3 === 0) return v([244, 240, 230], 4);
+    return v(f === "py" ? c.map(n => n + 14) : c, 5);
+  });
+  const jar = (x, z, c) => [bx([x - 1.3, 0, z - 1.3], [x + 1.3, 3.4, z + 1.3], (f, px, py, w, h, v) => v(py < 1 ? c.map(n => n + 30) : c, 6)),
+    bx([x - 1.5, 3.4, z - 1.5], [x + 1.5, 4, z + 1.5], (f, px, py, w, h, v) => v((px + py) & 1 ? [206, 40, 40] : [244, 240, 232], 4)), bx([x - 1.1, 3.1, z - 1.1], [x + 1.1, 3.4, z + 1.1], pnt([200, 190, 170]))];
+  const MPROPS = {
+    veg_basket: () => [...wicker(6, 4.2, 3.2), ...[-4, -1.6, 0.8].map((x, i) => bx([x, 3.2, -3.4], [x + 1.2, 4.3, 1.4 + i * 0.3], (f, px, py, w, h, v) => v(f === "pz" ? [70, 150, 50] : [238, 128, 32], 8))),
+      ...[-3, -3.6, 4.6].map((x, i) => bx([x - 0.5, 4.3, 1.4 + i * 0.3], [x + 0.5, 5.2, 3.6], pnt([80, 160, 56]))), ball(2.4, 3.2, -1.6, 1.2, [170, 104, 56]), ball(4.3, 3.2, 0.4, 1.1, [160, 96, 50]), ball(2.8, 3.2, 1.8, 1.1, [196, 120, 70]),
+      bx([-5.2, 3.2, 2], [4, 4.4, 3.2], (f, x, y, w, h, v) => v(x < w * 0.45 ? [240, 240, 230] : [90, 160, 60], 6))],
+    cabbages: () => [...[[-3.8, -1.6], [3.6, -1], [0, 2.8]].flatMap(([x, z]) => [bx([x - 3.2, 0, z - 3.2], [x + 3.2, 0.8, z + 3.2], pnt([96, 150, 64])), ball(x, 0.4, z, 2.6, [128, 182, 86])])],
+    pumpkins_s: () => [...[[-3.6, 0, 5.4], [3.4, 1.2, 4.6]].flatMap(([x, z, s]) => [bx([x - s / 2, 0, z - s / 2], [x + s / 2, s * 0.72, z + s / 2], (f, px, py, w, h, v) => v(f === "py" ? [240, 150, 40] : px % 3 === 0 ? [196, 104, 18] : [232, 138, 30], 8)),
+      bx([x - 0.4, s * 0.72, z - 0.4], [x + 0.4, s * 0.72 + 1.2, z + 0.4], pnt([96, 118, 40]))])],
+    apples_tray: () => { const B = trayB(6.5, 5); let i = 0; for (const [n, y, s] of [[4, 1, 2.9], [3, 3.5, 2.9], [2, 6, 2.9]]) for (let a = 0; a < n; a++) for (let b = 0; b < n - 1; b++) B.push(ball((a - (n - 1) / 2) * s, y, (b - (n - 2) / 2) * s, 1.35, (i++ % 3) ? [200, 32, 34] : [140, 190, 52])); return B; },
+    pears_grapes: () => [...trayB(6.5, 5), ...[[-4.2, -2.4], [-2, -2.8], [-4, 0.4], [-1.8, 0.2], [-3.1, 2.6]].flatMap(([x, z]) => [ball(x, 1, z, 1.25, [196, 204, 70]), ball(x, 3.3, z, 0.75, [184, 196, 64])]),
+      ...[[2.8, -1.5, [96, 40, 110]], [3.2, 2.2, [150, 190, 70]]].flatMap(([x, z, c]) => { const q = []; for (let k = 0; k < 7; k++) q.push(ball(x + (k % 3 - 1) * 1.1, 1 + (k > 3 ? 1.4 : 0), z + (Math.floor(k / 3) - 1) * 1.1, 0.7, c, 12)); return q; })],
+    breads: () => [...board(7, 5), ...moved(FOOD.bread(), -3, 0.9, -2), ...moved(FOOD.bread(), -3, 0.9, 1.8), bx([1.2, 0.9, -2.2], [5.8, 3.6, 2.4], (f, x, y, w, h, v) => f === "py" && (x === y || x + y === w - 1) ? [226, 180, 110] : v(f === "ny" ? [140, 90, 36] : [190, 126, 56], 8))],
+    pretzels: () => [...board(7, 5), ...[[-3.4, -2, 0.3], [2.6, -1.4, -0.4], [-0.4, 2.2, 0.1]].map(([x, z, r]) => bx([x - 3.2, 0.9, z - 2.8], [x + 3.2, 1.9, z + 2.8], pretzelTop))],
+    ham: () => [...board(7, 5), bx([-4, 0.9, -2.6], [3.2, 5.2, 2.6], (f, x, y, w, h, v) => v(f === "px" ? ((x + y) % 4 === 0 ? [240, 220, 210] : [196, 86, 80]) : (y === 1 ? [236, 214, 200] : [150, 70, 44]), 8)),
+      bx([3.2, 2, -0.8], [6.2, 3.4, 0.8], pnt([240, 234, 220], 4)), bx([6.2, 1.7, -1.1], [6.9, 3.7, 1.1], pnt([240, 234, 220], 4))],
+    sausages: () => [...board(7, 5), ...[-4, -2.6, -1.2, 0.2, 1.6].map((x, i) => bx([x, 0.9, -3.8 + (i % 2) * 0.6], [x + 1.2, 2.1, 3.4], (f, px, py, w, h, v) => v(py % 6 === 5 ? [230, 220, 200] : [158, 62, 48], 8))),
+      bx([3, 0.9, -3], [6, 2.2, 3], (f, x, y, w, h, v) => v((x * 3 + y * 7) % 5 === 0 ? [240, 220, 210] : [180, 70, 64], 8))],
+    sausage_hang: () => [bx([-8.5, -0.5, -0.4], [8.5, 0.3, 0.4], pnt(DWOOD)), ...[-7, -4.6, -2.2, 0.2, 2.6, 5, 7.2].map((x, i) => bx([x - 0.6, -(5 + (i % 3) * 1.4), -0.6], [x + 0.6, -0.5, 0.6], (f, px, py, w, h, v) => v(py < 1 ? [230, 220, 200] : (py % 5 === 4 ? [120, 44, 34] : [164, 66, 50]), 8)))],
+    fish_hang: () => [bx([-8.5, -0.5, -0.4], [8.5, 0.3, 0.4], pnt(DWOOD)), ...[-6, -2, 2, 6].map((x, i) => bx([x - 1.1, -8 - (i % 2), -0.35], [x + 1.1, -0.8, 0.35], (f, px, py, w, h, v) => v(py > h - 3 ? [110, 120, 130] : py < 1 ? [60, 60, 60] : (px + py) % 4 ? [176, 170, 150] : [140, 132, 112], 8)))],
+    cheese_wheels: () => [bx([-4.4, 0, -4.4], [4.4, 3, 4.4], (f, x, y, w, h, v) => v(f === "py" ? [244, 210, 80] : y === 0 || y === h - 1 ? [214, 150, 40] : [236, 190, 60], 6)),
+      bx([-3.4, 3, -3.4], [3.4, 5.6, 3.4], (f, x, y, w, h, v) => v(f === "py" ? [250, 226, 120] : y === 0 || y === h - 1 ? [220, 164, 50] : [242, 206, 90], 6))],
+    cheese_cut: () => [...board(7, 5), bx([-5.5, 0.9, -3.5], [1.5, 4.2, 3.5], (f, x, y, w, h, v) => v(f === "px" ? (hash(x, y, 2602) > 0.86 ? [200, 160, 60] : [248, 220, 110]) : [230, 180, 60], 6)),
+      ...moved(FOOD.cheese(), 4, 0.9, -1.2), bx([2, 0.9, 2.4], [6.5, 1.3, 3.1], pnt([210, 214, 222], 4))],
+    cheese_stack: () => [0, 1, 2].map(i => bx([-6 + i * 0.5, i * 4.2, -6 + i * 0.3], [6 + i * 0.5, i * 4.2 + 4, 6 + i * 0.3], (f, x, y, w, h, v) => v(f === "py" ? [244, 208, 84] : y === 0 || y === h - 1 ? [206, 142, 40] : [234, 186, 62], 6))),
+    fish_tray: () => [...trayB(6.5, 5, [120, 130, 140]), bx([-6, 1, -4.4], [6, 1.6, 4.4], (f, x, y, w, h, v) => v(hash(x, y, 2603) > 0.7 ? [200, 222, 238] : [236, 244, 250], 6)),
+      ...[-3, 0, 3].map((z, i) => bx([-4.5, 1.6, z - 1.1], [4.5, 2.8, z + 1.1], (f, x, y, w, h, v) => v(f === "py" ? (x > w - 4 ? [60, 80, 96] : [120, 140, 156]) : (i === 1 ? [220, 150, 140] : [196, 206, 214]), 8))),
+      ...[-3, 0, 3].map(z => bx([-6, 1.8, z - 1.2], [-4.5, 2.6, z + 1.2], pnt([110, 126, 140])))],
+    fish_big: () => [...board(7.5, 4), bx([-5.5, 0.9, -2], [5, 3.2, 2], (f, x, y, w, h, v) => v(f === "py" ? [150, 164, 178] : y > h * 0.55 ? [236, 170, 150] : [200, 208, 216], 8)),
+      bx([5, 1.2, -1.4], [7, 2.9, 1.4], (f, x, y, w, h, v) => (f === "pz" || f === "nz") && x === 2 && y === 1 ? [16, 16, 16] : v([170, 180, 190], 6)), bx([-7.5, 1.2, -1.8], [-5.5, 3, 1.8], pnt([140, 150, 160]))],
+    flowers_r: () => flowerBucket([206, 28, 44]), flowers_y: () => flowerBucket([248, 206, 36]), flowers_b: () => flowerBucket([70, 104, 222]),
+    flowers_w: () => flowerBucket([248, 248, 242]), flowers_p: () => flowerBucket([232, 110, 176]),
+    jugs: () => [...[[-4, 0, TERRA], [0.4, 1, [60, 98, 176]], [4.2, -0.6, [120, 150, 90]]].flatMap(([x, z, c]) => [bx([x - 1.8, 0, z - 1.8], [x + 1.8, 4.6, z + 1.8], (f, px, py, w, h, v) => v(py === 3 ? [240, 236, 226] : c, 6)),
+      bx([x - 1.1, 4.6, z - 1.1], [x + 1.1, 6.2, z + 1.1], pnt(c, 6)), bx([x + 1.8, 1.6, z - 0.3], [x + 2.6, 4.6, z + 0.3], pnt(c, 6))])],
+    bowls: () => [...[0, 1, 2].map(i => bx([-3.6 + i * 0.4 - 2, i * 1.1, -3.6 + i * 0.4], [3.6 - i * 0.4 - 2, i * 1.1 + 1.1, 3.6 - i * 0.4], (f, x, y, w, h, v) => v(f === "py" ? [236, 226, 206] : [[206, 120, 70], [70, 110, 170], [230, 220, 200]][i], 6))),
+      ...[0, 1, 2, 3].map(i => bx([2, i * 0.6, -2.4], [6.4, i * 0.6 + 0.6, 2.4], (f, x, y, w, h, v) => v(f === "py" && (x + y) % 3 === 0 ? [60, 90, 170] : [244, 242, 236], 4)))],
+    vases: () => [...[[-2.8, 0, [236, 236, 244]], [3, 0.6, [70, 140, 110]]].flatMap(([x, z, c], i) => [bx([x - 2, 0, z - 2], [x + 2, 7, z + 2], (f, px, py, w, h, v) => v(i === 0 && (px + py * 2) % 4 === 0 ? [40, 70, 170] : c, 6)),
+      bx([x - 1.1, 7, z - 1.1], [x + 1.1, 9.5, z + 1.1], (f, px, py, w, h, v) => v(i === 0 && py % 2 ? [40, 70, 170] : c, 6)), bx([x - 1.5, 9.5, z - 1.5], [x + 1.5, 10.2, z + 1.5], pnt(c, 6))])],
+    vase_big: () => [bx([-3.6, 0, -3.6], [3.6, 11, 3.6], (f, x, y, w, h, v) => v(y === 4 || y === 5 || y === 14 ? [60, 40, 30] : TERRA, 8)), bx([-2.2, 11, -2.2], [2.2, 14, 2.2], pnt(TERRA)),
+      bx([-2.8, 14, -2.8], [2.8, 14.8, 2.8], pnt(TERRA)), bx([-4.6, 8, -0.4], [-3.6, 12.5, 0.4], pnt(TERRA)), bx([3.6, 8, -0.4], [4.6, 12.5, 0.4], pnt(TERRA))],
+    cloth_bolts: () => [clothRoll(-3.4, [110, 30, 120]), clothRoll(0, [196, 28, 46], "streifen"), clothRoll(3.4, [220, 176, 60], "brokat")],
+    cloth_bolts2: () => [clothRoll(-3.4, [36, 66, 156]), clothRoll(0, [36, 116, 70], "brokat"), clothRoll(3.4, [238, 234, 222])],
+    cloth_folded: () => [[196, 28, 46], [36, 66, 156], [240, 236, 226], [110, 30, 120], [36, 116, 70], [220, 176, 60]].map((c, i) => bx([-4.4 + (i % 2) * 0.3, i * 1.1, -3.4], [4.4 + (i % 2) * 0.3, i * 1.1 + 1.1, 3.4], (f, x, y, w, h, v) => v(f === "pz" && y === 0 ? shade(c, 0.8) : c, 5))),
+    cloth_stand: () => [bx([-4.5, 0, -4.5], [4.5, 5, 4.5], (f, x, y, w, h, v) => v(f === "py" ? [70, 50, 30] : ((x >> 1) + y) & 1 ? [150, 104, 58] : [128, 88, 48], 6)),
+      ...[[-2.2, -2.2, [110, 30, 120]], [2.2, -2.2, [196, 28, 46]], [-2.2, 2.2, [36, 66, 156]], [2.2, 2.2, [220, 176, 60]], [0, 0, [240, 236, 226]]].map(([x, z, c], i) => bx([x - 1.3, 3, z - 1.3], [x + 1.3, 15 + i % 3, z + 1.3], (f, px, py, w, h, v) => v(f === "py" ? [70, 50, 30] : (py + px) % 7 === 0 ? c.map(n => n + 30) : c, 5)))],
+    wine_set: () => [...moved(FOOD.wine(), -3.5, 0, -1.5), ...moved(FOOD.wine(), -1.2, 0, 1.5), ...moved(FOOD.goblet(), 2.5, 0, -1.8), ...moved(FOOD.goblet(), 4.5, 0, 1.2),
+      bx([0.6, 0, 1.4], [2.8, 4.2, 3.6], (f, x, y, w, h, v) => v(y < 3 ? [230, 236, 240] : [120, 16, 34], 4))],
+    grapes: () => [...wicker(6, 4, 2.4), ...[[-3, -1, [90, 36, 104]], [0.5, 0.8, [150, 190, 70]], [3.4, -0.8, [110, 40, 120]]].flatMap(([x, z, c]) => { const q = []; for (let k = 0; k < 8; k++) q.push(ball(x + (k % 3 - 1) * 1.1, 2.4 + (k > 5 ? 1.2 : 0), z + (Math.floor(k / 3) % 2 - 0.5) * 1.2, 0.7, c, 12)); return q; })],
+    honey: () => [...board(7, 5), ...jar(-4, -1.8, [226, 150, 26]), ...jar(-0.8, -2, [236, 176, 40]), ...jar(2.4, -1.6, [214, 136, 20]), ...jar(-2.4, 1.8, [230, 164, 34]), ...jar(1.4, 2, [240, 186, 56]),
+      bx([4.2, 0.9, 0.6], [4.8, 1.5, 4.2], pnt([170, 124, 66])), bx([4, 0.9, 3.4], [5, 1.9, 4.6], pnt([200, 150, 80]))],
+    candles: () => [...board(7, 5), ...[[-3.6, -1.6], [0, -1.6], [3.6, -1.6], [-1.8, 2], [1.8, 2]].flatMap(([x, z], i) => [0, 1, 2].map(k => bx([x - 1.2 + k * 0.9, 0.9, z - 0.4], [x - 0.5 + k * 0.9, 7.5 - (i % 2), z + 0.3],
+      (f, px, py, w, h, v) => py === 0 && f !== "ny" ? [40, 30, 24] : (i === 2 && py === 5) ? [206, 40, 40] : v([240, 214, 140], 5))))],
+    skep: () => [bx([-5, 0, -5], [5, 4.5, 5], pnt(WOODC)), ...[[6, 2.2], [5.6, 2], [5, 2], [4, 2], [2.8, 1.6]].reduce((a, [r, h]) => { const y = a.y, first = a.b.length === 0; a.b.push(bx([-r, y, -r], [r, y + h, r], (f, x, yy, w, hh, v) => f === "pz" && first && yy > 1 && x > w / 2 - 2 && x < w / 2 + 1 ? [30, 20, 10] : v(yy % 2 ? [196, 160, 86] : [220, 186, 110], 8))); a.y += h; return a; }, { y: 4.5, b: [] }).b],
+    spice_sacks: () => [...[[-4.4, -1.8, [196, 52, 30]], [0.6, 1.8, [230, 178, 32]], [4.8, -1.4, [110, 136, 58]]].flatMap(([x, z, c]) => [bx([x - 2.6, 0, z - 2.6], [x + 2.6, 7, z + 2.6], (f, px, py, w, h, v) => v(py < 2 ? [214, 188, 138] : (px + py) & 1 ? [200, 174, 126] : [182, 156, 108], 6)),
+      bx([x - 2.2, 7, z - 2.2], [x + 2.2, 7.8, z + 2.2], (f, px, py, w, h, v) => v(c, 16)), bx([x - 1.2, 7.8, z - 1.2], [x + 1.2, 8.5, z + 1.2], pnt(c, 16))])],
+    spices: () => [...board(7, 5), ...[[-4.2, -2, [196, 52, 30]], [-0.6, -2.4, [236, 150, 40]], [3.4, -1.8, [230, 196, 40]], [-2.4, 2, [120, 70, 40]], [1.8, 2.2, [96, 140, 60]]].flatMap(([x, z, c]) => [bx([x - 1.6, 0.9, z - 1.6], [x + 1.6, 2, z + 1.6], pnt(TERRA, 6)), bx([x - 1.2, 2, z - 1.2], [x + 1.2, 2.8, z + 1.2], pnt(c, 14))])],
+    teapot_set: () => [...trayB(6, 4.5, BRASS), bx([-2.6, 1, -2], [1.4, 4.6, 2], pnt(BRASS, 6)), bx([-1.8, 4.6, -1.2], [0.6, 5.3, 1.2], pnt(BRASS, 6)), bx([-0.8, 5.3, -0.4], [-0.4, 6, 0.4], pnt(BRASS, 6)),
+      bx([1.4, 2.4, -0.4], [3.6, 3, 0.4], pnt(BRASS, 6)), bx([-3.6, 2, -0.3], [-2.6, 4.2, 0.3], pnt(BRASS, 6)),
+      ...[[3.8, -2.4], [3.8, 2.2]].map(([x, z]) => bx([x - 0.9, 1, z - 0.9], [x + 0.9, 3.2, z + 0.9], (f, px, py, w, h, v) => v(py < 1 ? [250, 246, 220] : [196, 110, 40], 4)))],
+    scales: () => [bx([-3, 0, -2], [3, 0.8, 2], pnt(DWOOD)), bx([-0.4, 0.8, -0.4], [0.4, 8.5, 0.4], pnt(BRASS, 6)), bx([-5.5, 8.2, -0.3], [5.5, 8.9, 0.3], pnt(BRASS, 6)),
+      ...[-4.8, 4.8].flatMap(x => [bx([x - 0.1, 4.2, -0.1], [x + 0.1, 8.2, 0.1], pnt([90, 80, 60], 2)), bx([x - 2, 3.6, -2], [x + 2, 4.2, 2], pnt(BRASS, 6))]), ball(-4.8, 4.2, 0, 0.9, [196, 52, 30])],
+    // Auf dem Land: Vogelscheuche, Werkzeug, Leiterwagen, Eimer, Gießkanne, Bienenkorb, Maibaumschmuck
+    scarecrow: () => {
+      const plaid = (f, x, y, w, h, v) => v(((x >> 1) + (y >> 1)) % 3 === 0 ? [240, 220, 180] : (x >> 1) % 2 ? [176, 40, 36] : [140, 30, 30], 6);
+      return [bx([-0.6, 0, -0.6], [0.6, 30, 0.6], pnt(DWOOD)), bx([-10, 20, -0.5], [10, 21, 0.5], pnt(DWOOD)),
+        bx([-4, 13, -2.2], [4, 22.5, 2.2], plaid), bx([-9.6, 19.2, -1.6], [-4, 22.2, 1.6], plaid), bx([4, 19.2, -1.6], [9.6, 22.2, 1.6], plaid),
+        ...[-10.6, 9.6].map(x => bx([x, 18.6, -1.2], [x + 1, 21.6, 1.2], pnt([226, 196, 110], 14))), bx([-3.6, 10, -2], [3.6, 13, 2], pnt([226, 196, 110], 14)),
+        bx([-3.2, 23, -3.2], [3.2, 29, 3.2], (f, x, y, w, h, v) => f === "pz" && ((y === 3 && (x === 3 || x === 8)) || (y === 8 && x > 2 && x < 10)) ? [30, 20, 14] : v([220, 196, 150], 8)),
+        bx([-6.5, 28.6, -6.5], [6.5, 29.3, 6.5], pnt([214, 182, 104], 12)), bx([-3.5, 29.3, -3.5], [3.5, 32, 3.5], (f, x, y, w, h, v) => v(f !== "py" && y >= 2 && y <= 3 ? [60, 90, 150] : [214, 182, 104], 12))];
+    },
+    rake: () => [bx([-0.4, 0, -0.4], [0.4, 26, 0.4], pnt(WOODC)), bx([-3.2, 25, -0.5], [3.2, 26, 0.5], pnt(DWOOD)), ...[-2.8, -1.4, 0, 1.4, 2.8].map(x => bx([x - 0.25, 26, -0.25], [x + 0.25, 27.8, 0.25], pnt([110, 110, 116])))],
+    pitchfork: () => [bx([-0.4, 0, -0.4], [0.4, 25, 0.4], pnt(WOODC)), bx([-1.8, 24.6, -0.4], [1.8, 25.4, 0.4], pnt([110, 110, 116])), ...[-1.6, 0, 1.6].map(x => bx([x - 0.25, 25.4, -0.25], [x + 0.25, 30, 0.25], pnt([150, 150, 158])))],
+    hoe_t: () => [bx([-0.4, 0, -0.4], [0.4, 26, 0.4], pnt(WOODC)), bx([-0.5, 24, -0.5], [0.5, 26.4, 3.6], pnt([120, 120, 126]))],
+    scythe_t: () => [bx([-0.45, 0, -0.45], [0.45, 30, 0.45], pnt(WOODC)), bx([-0.4, 14, 0.45], [0.4, 15, 3], pnt(WOODC)), bx([-0.3, 28.4, -0.4], [0.3, 30, 12], (f, x, y, w, h, v) => v(f === "py" ? [240, 240, 246] : [176, 180, 190], 4))],
+    cart: () => {
+      const B = [bx([-6, 6, -11], [6, 7, 11], pnt(WOODC)), bx([-6.4, 7, -11], [-5.6, 12, 11], (f, x, y, w, h, v) => y % 3 === 0 || f !== "px" && f !== "nx" ? v(WOODC, 6) : (x % 4 === 0 ? v(DWOOD, 6) : null)),
+        bx([5.6, 7, -11], [6.4, 12, 11], (f, x, y, w, h, v) => y % 3 === 0 || f !== "px" && f !== "nx" ? v(WOODC, 6) : (x % 4 === 0 ? v(DWOOD, 6) : null)), bx([-0.6, 5.5, 11], [0.6, 6.5, 22], pnt(DWOOD)), bx([-3, 5.5, 21], [3, 6.5, 22], pnt(DWOOD)),
+        bx([-5.4, 7, -10.4], [5.4, 13.5, 10.4], (f, x, y, w, h, v) => v(f === "py" && hash(x, y, 2604) > 0.8 ? [240, 214, 130] : [214, 182, 104], 12))];
+      for (const [x, z] of [[-6.8, -7], [6.8, -7], [-6.8, 7], [6.8, 7]]) B.push(bx([x - 0.6, 0, z - 3.4], [x + 0.6, 6.8, z + 3.4], (f, px, py, w, h, v) => (f === "px" || f === "nx") ? (Math.abs(Math.hypot(px - w / 2 + 0.5, py - h / 2 + 0.5) - 5) < 1.4 || px === Math.floor(w / 2) || py === Math.floor(h / 2) ? v(DWOOD, 6) : null) : v(DWOOD, 6)));
+      return B;
+    },
+    bucket: () => [bx([-2, 0, -2], [2, 4.4, 2], (f, x, y, w, h, v) => v(f === "py" ? [60, 110, 180] : y === 1 || y === h - 2 ? [80, 80, 86] : WOODC, 6)), bx([-2.2, 4.4, -0.2], [2.2, 5.6, 0.2], pnt([80, 80, 86]))],
+    wreath: () => { const B = []; for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6, x = Math.cos(a) * 4.2, z = Math.sin(a) * 4.2; B.push(bx([x - 1.3, -1.2, z - 1.3], [x + 1.3, 1.2, z + 1.3], (f, px, py, w, h, v) => v(hash(px, py, k) > 0.8 ? [240, 60, 60] : [60, 120, 50], 16))); }
+      for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, x = Math.cos(a) * 4.4, z = Math.sin(a) * 4.4; B.push(bx([x - 0.3, -9 + (k % 3), z - 0.3], [x + 0.3, -1, z + 0.3], pnt(k % 2 ? [60, 110, 200] : [244, 244, 240], 4))); }
+      return B; },
+    guild_signs: () => {
+      // Vier Zunftzeichen an eisernen Armen: Brezel (Bäcker), Fisch, Weintraube, Hufeisen (Schmied)
+      const icons = [
+        (u, q) => { const r = (cx, cy, rr) => Math.abs(Math.hypot(u - cx, q - cy) - rr) < 0.1; return r(-0.2, 0.1, 0.24) || r(0.2, 0.1, 0.24) || (r(0, 0.1, 0.5) && q < -0.05); },
+        (u, q) => (u / 0.55) ** 2 + (q / 0.22) ** 2 < 1 || (u > 0.5 && u < 0.8 && Math.abs(q) < (u - 0.5) * 1.2),
+        (u, q) => { for (const [cx, cy] of [[-0.2, 0.3], [0, 0.3], [0.2, 0.3], [-0.1, 0.1], [0.1, 0.1], [0, -0.1], [-0.2, 0.1], [0.2, 0.1]]) if (Math.hypot(u - cx, q - cy) < 0.1) return true; return Math.abs(u) < 0.03 && q > 0.35 && q < 0.5; },
+        (u, q) => { const d = Math.hypot(u, q + 0.05); return d > 0.28 && d < 0.46 && q > -0.3; },
+      ];
+      const B = [];
+      icons.forEach((ic, k) => {
+        const a = k * Math.PI / 2, dirX = Math.sin(a), dirZ = Math.cos(a), cx = dirX * 7.5, cz = dirZ * 7.5, side = Math.abs(dirX) > 0.5;
+        B.push(bx(side ? [Math.min(0, dirX * 11), 5.6, -0.3] : [-0.3, 5.6, Math.min(0, dirZ * 11)], side ? [Math.max(0, dirX * 11), 6.3, 0.3] : [0.3, 6.3, Math.max(0, dirZ * 11)], pnt([50, 50, 56], 4)));
+        B.push(bx(side ? [cx - 3.6, 0, -0.3] : [-0.3, 0, cz - 3.6], side ? [cx + 3.6, 5.6, 0.3] : [0.3, 5.6, cz + 3.6], (f, x, y, w, h, v) => {
+          if (f === "py" || f === "ny") return v([90, 60, 34], 4);
+          const u = (x + 0.5) / w - 0.5, q = 0.5 - (y + 0.5) / h;
+          if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return v([214, 170, 60], 6);
+          return ic(u, q) ? v([230, 186, 60], 8) : v([36, 70, 140], 6);
+        }));
+      });
+      return B;
+    },
+  };
+  for (const k in MPROPS) PROP_DEFS[k] = () => ({ seed: 95, bones: ROOT, boxes: MPROPS[k]() });
+  // Schmuck am Maibaum: zwei Kränze mit Bändern, darunter die Zunftzeichen
+  V11.build.push(() => { mGood("wreath", 105.5, G0 + 17.6, 277.5, 0, 1.3); mGood("wreath", 105.5, G0 + 13, 277.5, 0.4, 1.15); mGood("guild_signs", 105.5, G0 + 8.4, 277.5, 0, 2.2); });
+
+  // ---------- Die Flügel der Windmühle: ein eigenes Modell aus Holz und Segeltuch, das sich dreht ----------
+  function tileBoxGeo(list) {
+    const g = { p: [], n: [], u: [], i: [] };
+    for (const [ax, ay, az, bx_, by, bz, t] of list) for (const f of FACES) {
+      const base = g.p.length / 3;
+      for (const cr of f.c) {
+        g.p.push(cr[0] ? bx_ : ax, cr[1] ? by : ay, cr[2] ? bz : az); g.n.push(f.d[0], f.d[1], f.d[2]);
+        const uv = tileUV(typeof t === "number" ? t : t[f.s], cr[3], cr[4]); g.u.push(uv[0], uv[1]);
+      }
+      g.i.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(g.p, 3));
+    geo.setAttribute("normal", new THREE.Float32BufferAttribute(g.n, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(g.u, 2));
+    geo.setIndex(g.i); geo.computeBoundingSphere();
+    return geo;
+  }
+  let sails = null;
+  function makeSails() {
+    const L = 10, blade = [[-0.19, 0.3, -0.19, 0.19, L, 0.19, 15], [-0.62, 2, -0.06, -0.19, L - 0.4, 0.06, 15], [0.92, 2, -0.07, 1.02, L - 0.3, 0.07, 9], [1.86, 2, -0.07, 1.98, L - 0.3, 0.07, 9],
+      [0.22, 2.1, 0.07, 1.9, L - 0.5, 0.12, 22]];
+    for (let y = 2; y <= L - 0.3; y += 0.62) blade.push([0.19, y, -0.1, 1.98, y + 0.09, -0.02, 9]);
+    const geo = tileBoxGeo(blade), mat = litEnt(new THREE.MeshLambertMaterial({ map: atlasTex }));
+    const g = new THREE.Group();
+    for (let k = 0; k < 4; k++) { const m = new THREE.Mesh(geo, mat); m.rotation.z = k * Math.PI / 2; m.castShadow = true; m.receiveShadow = true; g.add(m); }
+    const hub = new THREE.Mesh(tileBoxGeo([[-0.55, -0.55, -0.35, 0.55, 0.55, 0.3, 15], [-0.25, -0.25, 0.3, 0.25, 0.25, 0.8, 5]]), mat);
+    g.add(hub);
+    g.position.set(MILL.hub[0], MILL.hub[1], MILL.hub[2]);
+    scene.add(g);
+    return { g, mat, lt: 0 };
+  }
+
+  // ---------- Wasserspiele des Marktbrunnens ----------
+  {
+    const cx = MB.x + 0.5, cz = MB.z + 0.5, y = G0;
+    // Aus der Krone in die goldene Schale, von dort in die Marmorschale, dann ins Becken; dazu vier Wasserspeier am Sockel
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; JETS.push({ x: cx + Math.sin(a) * 0.25, y: y + 10.95, z: cz + Math.cos(a) * 0.25, up: 3.6, spread: 0.1, rate: 12, lean: [Math.sin(a) * 0.7, Math.cos(a) * 0.7], sink: y + 9.6, near: [MB.x, MB.z] }); }
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 + 0.39; JETS.push({ x: cx + Math.sin(a) * 1.1, y: y + 9.68, z: cz + Math.cos(a) * 1.1, up: 0.3, spread: 0.2, rate: 10, lean: [Math.sin(a) * 0.5, Math.cos(a) * 0.5], sink: y + 6.85, near: [MB.x, MB.z] }); }
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; JETS.push({ x: cx + Math.sin(a) * 2.5, y: y + 6.95, z: cz + Math.cos(a) * 2.5, up: 0.5, spread: 0.4, rate: 16, lean: [Math.sin(a) * 1.3, Math.cos(a) * 1.3], sink: y + 1.85, near: [MB.x, MB.z] }); }
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; JETS.push({ x: cx + Math.sin(a) * 1.6, y: y + 2.4, z: cz + Math.cos(a) * 1.6, up: 1.6, spread: 0.1, rate: 14, lean: [Math.sin(a) * 1.9, Math.cos(a) * 1.9], sink: y + 1.85, near: [MB.x, MB.z] }); }
+    for (const j of JETS) if (j.acc === undefined) j.acc = 0;
+  }
+
+  // ---------- Die Leute: Händler, Kundschaft, Bauern und die Müllersleute ----------
+  // Jede Figur nach Beschreibung: Kopf (Haut, Haare, Frisur, Augen, Bart), Oberteil mit Weste, Mieder oder Rock, Schürze,
+  // Hose oder langer Rock, Schuhe, Hut und ein Werkzeug in der rechten Hand. Den Beruf erkennt man an der Kleidung.
+  function defPerson(o) {
+    const S = o.skin, HR = o.hair, SH = o.shirt || [240, 238, 232], PA = o.pants || [70, 62, 56], SHOE = o.shoe || [70, 46, 28], ap = o.apron, F_ = o.female;
+    const top = F_ && o.bodice ? o.bodice : o.coat || o.vest || SH, sleeve = o.coat || (F_ ? (o.sleeve || o.blouse || [246, 244, 238]) : SH);
+    const apPaint = (x, y, v) => ap.stripe && x % 3 === 0 ? v(ap.stripe, 4) : ap.check && (((x >> 1) + (y >> 1)) & 1) ? v(ap.check, 4) : v(ap.c, 5);
+    const torso = (f, x, y, w, h, v) => {
+      const cx = Math.abs(x - 7.5);
+      if (f === "pz") {
+        if (ap && ap.bib && y >= 5 && cx < 4.3) return apPaint(x, y, v);
+        if (ap && y >= 18 && cx < 5.6) return apPaint(x, y, v);
+        if (F_ && y <= 5 && cx < 2.6 + y * 0.35) return v(o.blouse || [246, 244, 238], 4);
+        if (F_ && o.bodice) return (x === 7 || x === 8) && y > 6 && y < 17 && y % 3 === 0 ? [240, 230, 200] : v(o.bodice, 7);
+        if (o.coat) { if (cx < 1.8) return y <= 1 ? v(SH, 4) : v(o.vest || SH, 5); if (cx < 2.8 && y % 5 === 2) return [232, 192, 80]; return v(o.coat, 7); }
+        if (o.vest && cx > 1.3 && y < 20) return cx < 2.4 && y % 4 === 2 ? [220, 190, 90] : v(o.vest, 7);
+        if (o.susp && cx > 2.4 && cx < 4 && y < 20) return v(o.susp, 5);
+        if (y <= 1 && cx < 2.6) return v(shade(SH, 0.88), 4);
+      }
+      if (f === "nz") {
+        if (o.susp && Math.abs(cx - 1.2 - y * 0.08) < 0.9 && y < 20) return v(o.susp, 5);
+        if (ap && y === 18) return v(ap.c, 4);
+      }
+      if (o.belt && y >= 20 && y <= 21 && !F_) return v(o.belt, 4);
+      return v(f === "ny" ? shade(top, 0.8) : f === "py" && !o.coat && !(F_ && o.bodice) ? SH : top, 7);
+    };
+    const fore = o.rolled ? (f, x, y, w, h, v) => f === "ny" || y >= 3 ? v(y === 11 ? shade(S, 0.9) : S, 6) : v(sleeve, 6) : forearm(sleeve, o.cuff || shade(sleeve, 0.85), S);
+    const extra = [];
+    const stock = o.stock || [236, 232, 224];
+    if (F_) {
+      const sk = o.skirt || o.bodice || [80, 70, 90];
+      extra.push({ b: "body", f: [-4.7, -o.skirtLen || -8.6, -2.9], t: [4.7, 0.6, 2.9], p: (f, x, y, w, h, v) => {
+        if (ap && f === "pz" && x >= 3 && x <= w - 4 && y < h - 1) return apPaint(x, y, v);
+        if (y >= h - 1) return v(shade(sk, 0.72), 4);
+        return v(y % 6 === 5 ? shade(sk, 0.9) : sk, 6);
+      } });
+    }
+    // Hüte, Tücher, Hauben
+    const H = o.hat, hc = H && H.c;
+    const straw = (f, x, y, w, h, v) => v((x + y) % 3 ? [226, 196, 112] : [196, 164, 84], 8);
+    if (H) switch (H.t) {
+      case "straw":
+        extra.push({ b: "head", f: [-6.6, 7.4, -6.6], t: [6.6, 8.1, 6.6], p: straw }, { b: "head", f: [-4.4, 8.1, -4.4], t: [4.4, 10.6, 4.4], p: (f, x, y, w, h, v) => f !== "py" && y >= 1 && y <= 2 ? v(hc || [150, 60, 40], 4) : straw(f, x, y, w, h, v) });
+        break;
+      case "cap":
+        extra.push({ b: "head", f: [-4.4, 6.8, -4.4], t: [4.4, 9, 4.4], p: (f, x, y, w, h, v) => v(f === "py" && (x + y) % 5 === 0 ? shade(hc, 0.85) : hc, 6) }, { b: "head", f: [-3.6, 6.8, 4.4], t: [3.6, 7.5, 6.8], p: flat(shade(hc, 0.8), 4) });
+        break;
+      case "scarf": case "bonnet": {
+        const bon = H.t === "bonnet", dot = H.dot;
+        const cloth = (x, y, v) => dot && (x + y * 3) % 5 === 0 ? v(dot, 4) : v(hc || [250, 250, 248], 5);
+        extra.push({ b: "head", f: [-4.4, bon ? 4.2 : 2.6, -4.5], t: [4.4, 8.7, 4.2], p: (f, x, y, w, h, v) => {
+          if (f === "ny") return null;
+          if (f === "pz") return y < 3 ? (bon && y === 2 && x % 2 ? [236, 236, 230] : cloth(x, y, v)) : null;
+          if (f === "px" || f === "nx") return front(f, x, w) > 0.72 && y > 2 ? null : cloth(x, y, v);
+          return cloth(x, y, v);
+        } });
+        if (!bon) extra.push({ b: "head", f: [-1.2, 1.4, -5.4], t: [1.2, 3.6, -4.3], p: (f, x, y, w, h, v) => cloth(x, y, v) });
+        break;
+      }
+      case "beret":
+        extra.push({ b: "head", f: [-5, 7.2, -5.2], t: [5, 9.1, 4.6], p: (f, x, y, w, h, v) => v(f === "py" ? hc.map(n => n + 12) : hc, 5) });
+        if (H.feather) extra.push({ b: "head", f: [3.4, 8.6, -2.4], t: [4.1, 14, -1.2], p: (f, x, y, w, h, v) => v(y < 3 ? [250, 250, 250] : H.feather, 5) });
+        break;
+      case "toque":
+        extra.push({ b: "head", f: [-4.3, 7, -4.3], t: [4.3, 13, 4.3], p: (f, x, y, w, h, v) => v(y > 9 && f !== "py" ? [216, 216, 220] : [252, 252, 252], 4) });
+        break;
+      case "turban":
+        extra.push({ b: "head", f: [-4.8, 5.8, -4.8], t: [4.8, 10.8, 4.8], p: (f, x, y, w, h, v) => v((y + (x >> 2)) % 4 === 0 ? shade(hc, 0.8) : hc, 6) },
+          { b: "head", f: [-0.8, 7.3, 4.8], t: [0.8, 9.1, 5.3], p: (f, x, y, w, h, v) => (x === 1 && y === 1) ? [40, 180, 90] : v([232, 190, 70], 6) });
+        break;
+      case "tophat":
+        extra.push({ b: "head", f: [-5.4, 7.4, -5.4], t: [5.4, 8, 5.4], p: flat(hc, 4) }, { b: "head", f: [-3.8, 8, -3.8], t: [3.8, 14.4, 3.8], p: (f, x, y, w, h, v) => v(f !== "py" && y >= h - 3 ? [120, 30, 40] : hc, 4) });
+        break;
+      case "lady":
+        extra.push({ b: "head", f: [-6.4, 7.6, -6.4], t: [6.4, 8.2, 6.4], p: flat(hc, 5) }, { b: "head", f: [-3.8, 8.2, -3.8], t: [3.8, 11, 3.8], p: (f, x, y, w, h, v) => v(f !== "py" && y >= h - 3 ? H.band : hc, 5) });
+        for (const [x, z, c] of [[-3.4, 2.6, [220, 50, 70]], [-1.6, 3.6, [246, 246, 240]], [-3.9, 0.6, [240, 200, 60]]]) extra.push({ b: "head", f: [x - 0.9, 8.2, z - 0.9], t: [x + 0.9, 9.8, z + 0.9], p: flat(c, 10) });
+        break;
+      case "veil":
+        extra.push({ b: "head", f: [-6.6, 7.4, -6.6], t: [6.6, 8.1, 6.6], p: straw }, { b: "head", f: [-4.4, 8.1, -4.4], t: [4.4, 10.4, 4.4], p: straw },
+          { b: "head", f: [-5.6, -1, -5.6], t: [5.6, 7.4, 5.6], skip: ["py", "ny"], p: (f, x, y, w, h, v) => x % 2 === 0 || y % 2 === 0 ? [70, 72, 70, 255] : null });
+        break;
+    }
+    if (o.bun) extra.push({ b: "head", f: [-1.8, 5.8, -5.6], t: [1.8, 9.2, -3.6], p: flat(HR, 12) });
+    else if (!H || H.t === "cap" || H.t === "beret" || H.t === "straw" || H.t === "tophat" || H.t === "lady") extra.push({ b: "head", f: [-4, 4.5, -4], t: [4, 8, 4], i: 0.3, p: hairCap(HR, F_ ? "long" : o.style === "slick" ? "slick" : "part") });
+    // Werkzeug oder Tasche in der rechten Hand (hängt an der Hand, der Stiel zeigt nach oben)
+    const T_ = o.tool, W_ = [150, 108, 62];
+    const stick = (y0, y1) => ({ b: "tool", f: [-0.4, y0, -0.4], t: [0.4, y1, 0.4], p: flat(W_, 8) });
+    if (T_ === "hoe") extra.push(stick(-9, 15), { b: "tool", f: [-0.5, 13.5, -0.5], t: [0.5, 15, 3.6], p: flat([120, 120, 126], 4) });
+    if (T_ === "rake") extra.push(stick(-9, 15), { b: "tool", f: [-3, 14, -0.5], t: [3, 15, 0.5], p: flat([96, 64, 36], 6) });
+    if (T_ === "pitchfork") extra.push(stick(-9, 14), { b: "tool", f: [-1.6, 14, -0.4], t: [1.6, 14.8, 0.4], p: flat([120, 120, 126], 4) }, ...[-1.4, 0, 1.4].map(x => ({ b: "tool", f: [x - 0.25, 14.8, -0.25], t: [x + 0.25, 18.5, 0.25], p: flat([150, 150, 158], 4) })));
+    if (T_ === "scythe") extra.push(stick(-11, 17), { b: "tool", f: [-0.3, 15.8, -0.4], t: [0.3, 17, 11], p: (f, x, y, w, h, v) => v(f === "py" ? [240, 240, 246] : [176, 180, 190], 4) });
+    if (T_ === "cane") extra.push({ b: "tool", f: [-0.35, -11.5, -0.35], t: [0.35, 1, 0.35], p: flat([40, 30, 26], 6) }, { b: "tool", f: [-0.45, 0.4, -0.45], t: [0.45, 1.3, 0.45], p: flat([220, 180, 70], 6) });
+    if (T_ === "basket") extra.push({ b: "tool", f: [-2.4, -5.5, -3], t: [2.4, -1.5, 3], p: (f, x, y, w, h, v) => v(f === "py" ? [196, 60, 50] : ((x >> 1) + (y >> 1)) & 1 ? [188, 140, 78] : [158, 112, 60], 6) },
+      { b: "tool", f: [-0.3, -1.5, -2.4], t: [0.3, 1, 2.4], skip: ["px", "nx"], p: flat([150, 108, 60], 6) });
+    if (T_ === "bag") extra.push({ b: "tool", f: [-1, -4.8, -2.4], t: [1, -1.2, 2.4], p: flat(o.bagc || [120, 60, 40], 6) }, { b: "tool", f: [-0.2, -1.2, -1.2], t: [0.2, 0.4, 1.2], p: flat([200, 170, 80], 4) });
+    if (T_ === "wcan") extra.push({ b: "tool", f: [-1.8, -5.4, -2.4], t: [1.8, -1, 2.2], p: flat([70, 120, 80], 6) }, { b: "tool", f: [-0.4, -3.2, 2.2], t: [0.4, -2.4, 6.2], p: flat([70, 120, 80], 6) },
+      { b: "tool", f: [-0.8, -3.8, 6], t: [0.8, -2, 6.8], p: flat([90, 140, 100], 6) });
+    const bones = [{ n: "tool", p: "foreR", at: [0, -5.5, 0] }];
+    return human({
+      seed: o.seed, bones, extra,
+      head: { skin: S, hair: HR, style: o.style || (F_ ? "long" : "short"), brow: shade(HR, 0.68), iris: o.iris || [84, 62, 40], mouth: F_ ? [196, 96, 104] : [152, 92, 82], cheek: !!F_, beard: o.beard || null, mustache: o.mustache || null },
+      torso,
+      arm: o.coat ? upper(o.coat) : upper(sleeve),
+      fore,
+      thigh: F_ ? flat(stock, 5) : flat(PA, 8),
+      shin: F_ ? shin(stock, SHOE, null, 3) : shin(PA, SHOE, null, o.boots ? 6 : 4),
+    });
+  }
+  // Wer wo arbeitet: Name, Anrede für „mit … reden“, Aussehen, Werkzeug
+  const PEOPLE11 = {
+    gemuese: { name: "Greta", talk: "der Gemüsehändlerin Greta", female: true, skin: [236, 196, 166], hair: [120, 70, 40], iris: [70, 120, 70], bodice: [70, 110, 60], skirt: [60, 70, 110], apron: { c: [236, 232, 220], check: [120, 160, 200] }, hat: { t: "scarf", c: [196, 58, 50] } },
+    obst: { name: "Otto", talk: "dem Obsthändler Otto", skin: [222, 176, 138], hair: [90, 60, 36], mustache: [90, 60, 36], vest: [60, 100, 56], pants: [80, 70, 56], apron: { c: [196, 186, 160] }, hat: { t: "straw" }, rolled: true },
+    baecker: { name: "Anton", talk: "dem Bäcker Anton", skin: [238, 200, 168], hair: [60, 44, 30], mustache: [60, 44, 30], shirt: [248, 248, 244], pants: [232, 230, 222], apron: { c: [252, 252, 250], bib: true }, hat: { t: "toque" }, shoe: [30, 26, 26] },
+    metzger: { name: "Ludwig", talk: "dem Metzger Ludwig", skin: [226, 170, 140], hair: [44, 34, 28], style: "bald", mustache: [44, 34, 28], shirt: [240, 240, 234], pants: [60, 60, 70], apron: { c: [242, 242, 238], stripe: [40, 70, 150], bib: true }, rolled: true, scale: 1.05 },
+    kaese: { name: "Frieda", talk: "der Käsehändlerin Frieda", female: true, skin: [242, 206, 180], hair: [214, 172, 92], iris: [70, 120, 180], bodice: [226, 172, 52], skirt: [120, 62, 42], apron: { c: [250, 248, 240] }, hat: { t: "bonnet" } },
+    fisch: { name: "Hinrich", talk: "dem Fischhändler Hinrich", skin: [214, 168, 134], hair: [150, 150, 156], beard: [150, 150, 156], shirt: [40, 52, 90], pants: [50, 50, 60], apron: { c: [232, 196, 44], bib: true }, hat: { t: "cap", c: [30, 36, 60] }, boots: true, shoe: [30, 30, 34] },
+    blumen: { name: "Rosa", talk: "der Blumenfrau Rosa", female: true, skin: [240, 200, 170], hair: [60, 40, 30], iris: [96, 70, 44], bodice: [206, 76, 116], skirt: [70, 110, 70], apron: { c: [126, 172, 92] }, hat: { t: "scarf", c: [246, 244, 238], dot: [214, 40, 60] } },
+    toepfer: { name: "Konrad", talk: "dem Töpfer Konrad", skin: [206, 156, 118], hair: [70, 50, 34], beard: [70, 50, 34], shirt: [150, 150, 146], pants: [80, 66, 50], apron: { c: [120, 80, 48], bib: true }, hat: { t: "beret", c: [100, 70, 50] }, rolled: true },
+    tuch: { name: "Maximilian", talk: "dem Tuchhändler Maximilian", skin: [236, 196, 166], hair: [40, 30, 24], mustache: [40, 30, 24], coat: [110, 20, 40], vest: [230, 196, 90], pants: [30, 30, 40], shoe: [20, 20, 24], hat: { t: "beret", c: [26, 24, 30], feather: [200, 30, 40] } },
+    wein: { name: "Valentin", talk: "dem Weinhändler Valentin", skin: [220, 170, 136], hair: [110, 70, 40], vest: [110, 26, 40], pants: [60, 56, 50], apron: { c: [40, 80, 50] }, hat: { t: "cap", c: [70, 60, 50] } },
+    honig: { name: "Hanne", talk: "der Imkerin Hanne", female: true, skin: [236, 190, 150], hair: [170, 90, 40], blouse: [250, 238, 190], bodice: [220, 160, 40], skirt: [110, 80, 50], apron: { c: [236, 226, 200] }, hat: { t: "straw", c: [220, 160, 40] } },
+    gewuerz: { name: "Farid", talk: "dem Gewürzhändler Farid", skin: [170, 120, 86], hair: [30, 24, 20], beard: [30, 24, 20], coat: [30, 50, 110], vest: [240, 236, 220], pants: [60, 40, 40], shoe: [120, 60, 30], hat: { t: "turban", c: [150, 30, 40] } },
+    // Kundschaft aus der Neustadt
+    k1: { name: "Frau von Lindenau", female: true, skin: [244, 212, 190], hair: [60, 40, 30], bun: true, bodice: [150, 110, 190], skirt: [150, 110, 190], skirtLen: 11.5, hat: { t: "lady", c: [240, 236, 226], band: [150, 110, 190] }, tool: "basket", shoe: [60, 40, 60] },
+    k2: { name: "Herr Brenner", talk: "Herrn Brenner", skin: [230, 188, 154], hair: [100, 80, 60], mustache: [100, 80, 60], coat: [90, 94, 104], vest: [70, 74, 84], pants: [80, 84, 94], hat: { t: "cap", c: [80, 84, 94] }, tool: "cane", shoe: [30, 26, 26] },
+    k3: { name: "Frau Keller", female: true, skin: [236, 196, 166], hair: [140, 90, 50], bun: true, bodice: [60, 120, 90], skirt: [60, 120, 90], skirtLen: 11.5, tool: "bag", bagc: [120, 60, 40] },
+    k4: { name: "Herr Adler", talk: "Herrn Adler", skin: [214, 166, 130], hair: [50, 40, 34], beard: [50, 40, 34], vest: [130, 90, 50], pants: [70, 60, 50], hat: { t: "tophat", c: [40, 36, 34] }, tool: "cane", shoe: [30, 26, 26] },
+    k5: { name: "Liese", female: true, skin: [240, 204, 176], hair: [200, 150, 80], bodice: [60, 70, 110], skirt: [60, 70, 110], apron: { c: [250, 250, 246], bib: true }, hat: { t: "bonnet" }, tool: "basket", scale: 0.95 },
+    k6: { name: "Frau Sommer", female: true, skin: [222, 172, 136], hair: [40, 30, 26], bodice: [60, 100, 180], skirt: [60, 100, 180], skirtLen: 11.5, hat: { t: "straw", c: [60, 100, 180] }, tool: "basket" },
+    k7: { name: "Herr Wagner", talk: "Herrn Wagner", skin: [238, 200, 170], hair: [160, 160, 164], mustache: [160, 160, 164], coat: [30, 30, 40], vest: [120, 30, 40], pants: [40, 40, 46], hat: { t: "tophat", c: [24, 24, 28] }, tool: "cane", shoe: [20, 20, 24] },
+    k8: { name: "Frau Hofmann", female: true, skin: [236, 200, 176], hair: [196, 196, 200], bun: true, bodice: [130, 30, 50], skirt: [130, 30, 50], skirtLen: 11.5, hat: { t: "lady", c: [60, 30, 40], band: [230, 196, 90] }, tool: "bag", bagc: [40, 30, 30] },
+    // Bauern und Mägde auf den Feldern
+    f1: { name: "Bauer Korbinian", talk: "dem Bauern Korbinian", skin: [214, 160, 120], hair: [110, 70, 40], mustache: [110, 70, 40], shirt: [120, 150, 190], susp: [80, 60, 40], pants: [70, 60, 50], rolled: true, hat: { t: "straw" }, tool: "scythe", boots: true },
+    f2: { name: "Bäuerin Liesl", talk: "der Bäuerin Liesl", female: true, skin: [232, 184, 150], hair: [120, 80, 50], bodice: [150, 60, 50], skirt: [80, 70, 60], apron: { c: [210, 200, 180] }, hat: { t: "scarf", c: [60, 80, 140] }, tool: "hoe" },
+    f3: { name: "Magd Resi", talk: "der Magd Resi", female: true, skin: [240, 200, 170], hair: [200, 140, 60], bodice: [70, 110, 70], skirt: [120, 90, 60], apron: { c: [240, 236, 226] }, hat: { t: "scarf", c: [224, 192, 90] }, tool: "basket", scale: 0.95 },
+    f4: { name: "Knecht Hannes", talk: "dem Knecht Hannes", skin: [226, 176, 140], hair: [150, 100, 50], shirt: [236, 230, 210], susp: [60, 50, 40], pants: [90, 80, 64], rolled: true, hat: { t: "cap", c: [90, 80, 64] }, tool: "pitchfork", boots: true },
+    f5: { name: "Bauer Jakob", talk: "dem Bauern Jakob", skin: [214, 164, 130], hair: [224, 224, 224], beard: [224, 224, 224], shirt: [180, 150, 110], vest: [70, 60, 50], pants: [70, 60, 50], hat: { t: "straw" }, tool: "hoe", boots: true },
+    f6: { name: "Bäuerin Gertrud", talk: "der Bäuerin Gertrud", female: true, skin: [230, 186, 150], hair: [90, 60, 40], bodice: [70, 90, 140], skirt: [60, 60, 70], apron: { c: [200, 190, 160] }, hat: { t: "scarf", c: [180, 60, 60] }, tool: "wcan" },
+    f7: { name: "Imker Florian", talk: "dem Imker Florian", skin: [230, 190, 150], hair: [120, 90, 60], shirt: [238, 234, 222], pants: [206, 200, 186], hat: { t: "veil" }, tool: "bag", bagc: [150, 120, 70] },
+    f8: { name: "Gärtnerin Lotte", talk: "der Gärtnerin Lotte", female: true, skin: [238, 196, 166], hair: [60, 44, 34], bodice: [110, 90, 150], skirt: [90, 80, 70], apron: { c: [120, 150, 90] }, hat: { t: "straw", c: [110, 90, 150] }, tool: "basket" },
+    muller: { name: "Müller Matthias", talk: "dem Müller Matthias", skin: [236, 200, 170], hair: [100, 80, 60], mustache: [100, 80, 60], shirt: [178, 196, 218], pants: [116, 96, 72], apron: { c: [250, 250, 248], bib: true }, hat: { t: "cap", c: [246, 246, 242] }, rolled: true, shoe: [60, 40, 26] },
+    mullerin: { name: "Müllerin Johanna", talk: "der Müllerin Johanna", female: true, skin: [238, 198, 168], hair: [150, 100, 60], bodice: [60, 90, 150], skirt: [60, 90, 150], apron: { c: [250, 250, 246] }, hat: { t: "bonnet" } },
+  };
+  let pseed = 300;
+  for (const k in PEOPLE11) { const o = PEOPLE11[k]; o.seed = pseed++; MODEL_DEFS["p11_" + k] = () => defPerson(o); }
+
+  // Was sie sagen: {M} wird bei der förmlichen Hälfte zu „, Majestät“, {M_} zu „Majestät, “
+  const L11 = {
+    gemuese: { talk: ["Die Karotten sind heute früh erst geerntet worden{M}.", "Ein Kohlkopf für die Schlossküche{M}? Ich lasse ihn gern hinaufbringen.", "{M_}Kürbisse habe ich so groß wie Wagenräder!", "Alles vom Feld hinter der Neustadt, frischer geht es nicht."], call: ["Frisches Gemüse! Karotten, Kohl und Kartoffeln!", "Kürbisse, schöne Kürbisse!"] },
+    obst: { talk: ["Probiert einen Apfel{M}, der ist süß wie Honig.", "Die Birnen kommen aus dem Obstgarten bei den Feldern.", "{M_}Trauben habe ich heute nur die besten.", "Im Herbst gibt es hier Äpfel in zwölf Sorten."], call: ["Äpfel! Birnen! Frische Trauben!", "Knackige Äpfel, zwei für einen Kreuzer!"] },
+    baecker: { talk: ["Die Brezeln sind noch warm{M}.", "Jeden Morgen um vier stehe ich in der Backstube.", "{M_}das Mehl kommt direkt von der Windmühle.", "Für die Tafel im Schloss backe ich gern einen großen Kuchen."], call: ["Frische Brezeln, knusprig und warm!", "Brot! Brötchen! Kuchen!"] },
+    metzger: { talk: ["Der Schinken ist über Buchenholz geräuchert{M}.", "Meine Würste sind die besten im ganzen Königreich.", "{M_}soll ich einen Braten fürs Schloss zurücklegen?", "Ein ordentliches Stück Fleisch macht stark."], call: ["Würste, Schinken, frischer Braten!", "Heute ganz frisch: Bratwürste!"] },
+    kaese: { talk: ["Dieser Käse ist ein ganzes Jahr gereift{M}.", "Probiert ein Stück, der schmeckt nach Wiese und Sonne.", "{M_}zum Wein im Schloss passt der würzige hier am besten.", "Die Milch kommt vom Gutshof gleich nebenan."], call: ["Käse! Milder und würziger Käse!", "Frischer Bergkäse!"] },
+    fisch: { talk: ["Heute früh aus dem Königssee geholt{M}.", "Der Hecht war so groß, dass er fast das Boot umgeworfen hat.", "{M_}Fisch auf Eis bleibt schön frisch.", "Am Bootssteg ist das Wasser ganz klar, da beißen sie am besten."], call: ["Frischer Fisch aus dem Königssee!", "Forellen, Karpfen, Hecht!"] },
+    blumen: { talk: ["Einen Strauß für die Königin{M}?", "Die Rosen duften heute ganz besonders.", "{M_}im Schlossgarten würden meine Tulpen wunderschön aussehen.", "Blumen machen jeden Tag ein bisschen schöner."], call: ["Blumen! Frische Blumen!", "Rosen, Tulpen, Sonnenblumen!"] },
+    toepfer: { talk: ["Jeder Krug ist mit der Hand gedreht{M}.", "Das Blau bekomme ich aus einer ganz besonderen Glasur.", "{M_}für die Schlossküche mache ich gern ein ganzes Geschirr.", "Ton aus dem Seeufer, gebrannt in meinem eigenen Ofen."], call: ["Krüge, Schüsseln, Vasen!", "Schönes Geschirr, handgemacht!"] },
+    tuch: { talk: ["Samt aus fernen Ländern{M}, weich wie eine Wolke.", "Aus dem roten Stoff ließe sich ein prächtiger Königsmantel schneidern.", "{M_}Euer Anzug ist übrigens ausgezeichnet geschnitten.", "Seide, Brokat und feinstes Leinen, alles vom Besten."], call: ["Feine Stoffe! Samt und Seide!", "Brokat mit echtem Goldfaden!"] },
+    wein: { talk: ["Ein guter Tropfen für die Tafel{M}?", "Der Rote hier ist sieben Jahre im Fass gereift.", "{M_}zum Braten empfehle ich diesen hier.", "Die Trauben wachsen an den Hängen im Süden."], call: ["Wein! Roter und weißer Wein!", "Frisch vom Fass!"] },
+    honig: { talk: ["Die Bienen fliegen im Obstgarten und im Lavendel{M}.", "Lavendelhonig ist mein bester.", "{M_}auch die Kerzen im Schloss könnten aus meinem Bienenwachs sein.", "Keine Angst vor den Bienen, die sind ganz friedlich."], call: ["Honig! Lavendelhonig und Blütenhonig!", "Bienenwachskerzen, die duften herrlich!"] },
+    gewuerz: { talk: ["Diese Gewürze haben eine weite Reise hinter sich{M}.", "Zimt, Pfeffer, Safran, riecht nur einmal daran!", "{M_}ein Tee aus meiner Heimat wärmt an kalten Abenden.", "Mit einer Prise hiervon schmeckt jede Suppe wie ein Fest."], call: ["Gewürze aus aller Welt!", "Safran, Zimt und Pfeffer!"] },
+    kunde: { talk: ["Hier auf dem Markt gibt es einfach alles{M}.", "{M_}die Brezeln vom Bäcker Anton müsst Ihr probieren!", "Ich kaufe nur noch hier ein, seit es den großen Markt gibt.", "Der Brunnen mit der goldenen Krone ist wunderschön{M}.", "Am Maibaum wird im Frühling getanzt.", "Wir haben es gut in diesem Königreich{M}."] },
+    bauer: { talk: ["Die Ernte wird dieses Jahr gut{M}.", "Seit dem frühen Morgen sind wir auf dem Feld.", "{M_}der Weizen geht zur Windmühle und wird dort zu Mehl.", "Um sechs Uhr abends ist Feierabend, dann geht es heim.", "Die Hecke hält den Wind von den Feldern ab.", "Nachts kommen hier draußen manchmal Zombies, darum gehen wir rechtzeitig heim."] },
+    imker: { talk: ["Die Bienen lieben den Lavendel und die Apfelblüten{M}.", "Mit dem Schleier stechen sie mich nicht.", "{M_}der Honig kommt zu Hanne auf den Markt.", "Hört Ihr das Summen? Die Bienen sind fleißig."] },
+    muller: { talk: ["Das Korn wird hier zwischen den Mühlsteinen zu Mehl gemahlen{M}.", "Wenn der Wind gut steht, drehen sich die Flügel den ganzen Tag.", "{M_}vom Umgang oben sieht man bis zur Großen Mauer.", "Das Mehl geht zum Bäcker Anton auf den Markt."], night: ["Zzz …", "Hm? Majestät … so spät noch unterwegs?"] },
+    mullerin: { talk: ["Möchtet Ihr ein Stück Brot mit frischer Butter{M}?", "Unser Häuschen hat ein echtes Reetdach, da ist es im Sommer schön kühl.", "{M_}das Wasser aus dem Ziehbrunnen ist ganz klar.", "Mein Mann ist schon seit dem Morgengrauen in der Mühle."], night: ["Zzz …", "Oh! Guten Abend … ich habe schon geschlafen."] },
+  };
+  const fmt11 = (s, formal) => { let t = s.replace("{M}", formal ? ", Majestät" : "").replace("{M_}", formal ? "Majestät, " : ""); return t.charAt(0).toUpperCase() + t.slice(1); };
+  const lines11 = (key, formal) => L11[key].talk.map(s => fmt11(s, formal));
+
+  // ---------- Tagesablauf ----------
+  // Morgens kommen sie über die Straße herein, tagsüber arbeiten sie an ihrem Platz, abends gehen sie heim.
+  // „Heim“ heißt bis Version 14: Sie gehen die Straße hinaus und sind weg, sobald der König sie nicht mehr sieht.
+  // Morgens kommen sie nur herein, wenn der König gerade nicht an der Straße steht. Nichts taucht vor seinen Augen auf.
+  // Die Müllersleute schlafen nachts in ihren Betten im Müllerhaus.
+  const WORKERS = [], MOCC = new Set();
+  const hour11 = () => dayT * 24;
+  const inHours = (a, b) => { const h = hour11(); return a < b ? h >= a && h < b : h >= a || h < b; };
+  const spotKey = s => s[0].toFixed(1) + "," + s[2].toFixed(1);
+  // Straßen hinaus: Ende der Straße und Einmündung in den Markt (oder in die Felder); auf dieser Linie kommen sie morgens herein
+  const MEXITS = [[96.5, G0 + 1, 249.5, 96.5, 267.5], [33.5, G0 + 1, 286.5, 77.5, 286.5], [203.5, G0 + 1, 286.5, 115.5, 286.5], [96.5, G0 + 1, 331.5, 96.5, 305.5]];
+  const FEXITS = [[96.5, G0 + 1, 337.5, 96.5, 343.5], [227.5, G0 + 1, 312.5, 227.5, 342.5]];
+  const ACT_LEAN = { arrange: 0.3, hoe: 0.28, pick: 0.8, water: 0.45, scythe: 0.2, fork: 0.25, reach: -0.05, shop: 0.12, mill: 0.2 };
+  function wPlace(e, g) { e.x = g[0]; e.y = g[1]; e.z = g[2]; e.vx = e.vy = e.vz = 0; e.dvx = e.dvz = 0; e.path = null; }
+  function wFree(e) { if (e.held) { MOCC.delete(e.held); e.held = null; } }
+  function wPick(e) {
+    wFree(e);
+    const list = e.pickFrom();
+    for (let i = 0; i < 12; i++) { const s = pick(list), k = spotKey(s); if (!MOCC.has(k)) { MOCC.add(k); e.held = k; return s; } }
+    return e.home || list[0];
+  }
+  function wStand(e) {
+    if (!e.sit) return;
+    e.sit = false; e.pose = "none";
+    if (e.spot && e.spot[5]) wPlace(e, e.spot[5]);
+  }
+  function wArrive(e) {
+    e.path = null; e.dvx = e.dvz = 0;
+    // Fort: unsichtbar unter dem eigenen Arbeitsplatz warten, damit sie morgens mitdenken, sobald der König in der Nähe ist
+    if (e.state === "leave") { wFree(e); e.state = "away"; e.sleep = true; e.act = null; e.lean = 0; e.x = e.anchor[0]; e.z = e.anchor[2]; e.y = 2; e.mesh.visible = false; return; }
+    if (e.state === "toBed") { wPlace(e, e.bed.feet); e.sleep = true; e.state = "bed"; e.act = null; e.lean = 0; e.lines = e.nightLines || e.lines; return; }
+    const s = e.spot;
+    e.state = "work"; e.act = s[4]; e.timer = e.stay ? e.stay() : 10 + Math.random() * 20; e.yawT = s[3];
+    if (s[4] === "sit") { wPlace(e, s); e.sit = true; e.pose = "sit"; e.yaw = e.yawT; }
+    e.lean = ACT_LEAN[s[4]] || 0;
+  }
+  function workerThink(e, dt, dp) {
+    const on = inHours(e.from, e.to);
+    if (e.state === "away") {
+      e.dvx = e.dvz = 0; e.mesh.visible = false;
+      if (!on || (e.waitT = (e.waitT || 0) - dt) > 0) return;
+      e.waitT = 1 + Math.random();
+      // Ist der König weit weg, sind sie einfach schon da. Sonst kommen sie die Straße herein, an einer Stelle,
+      // die er nicht sieht (mehr als 38 Blöcke weg), aber nah genug, dass sie sich schon bewegen (höchstens 80 Blöcke).
+      const s = wPick(e), far = (x, z) => Math.hypot(P.x - x, P.z - z);
+      if (far(s[0], s[2]) > 60) { e.sleep = false; e.spot = s; wPlace(e, s); e.state = "go"; wArrive(e); return; }
+      let q = null;
+      for (let k = 0; k <= 20; k++) {
+        const t = k / 20, x = e.exit[0] + (e.exit[3] - e.exit[0]) * t, z = e.exit[2] + (e.exit[4] - e.exit[2]) * t, d = far(x, z);
+        if (d <= 80 && d > 38) { q = [x, e.exit[1], z]; break; }
+      }
+      if (!q) { wFree(e); return; }
+      e.sleep = false; wPlace(e, q); e.spot = s; e.state = "go"; e.retryT = Math.random() * 2;
+      return;
+    }
+    if (e.state === "bed") {
+      e.dvx = e.dvz = 0;
+      if (e.talkT > 0) e.talkT -= dt;
+      if (on) { e.sleep = false; e.mesh.rotation.order = "XYZ"; e.mesh.rotation.x = 0; wPlace(e, e.bed.stand); e.lines = e.dayLines; e.spot = wPick(e); e.state = "go"; }
+      return;
+    }
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; e.act = e.sit ? "sit" : null; lookAt(e, P.x, P.y + 1.62, P.z, !e.sit); return; }
+    if (!on && e.state !== "leave" && e.state !== "toBed") { wStand(e); wFree(e); e.state = e.bed ? "toBed" : "leave"; e.path = null; e.act = null; e.lean = 0; e.pose = "none"; }
+    if (e.state === "work") {
+      e.dvx = e.dvz = 0; e.yawT = e.spot[3]; e.act = e.spot[4];
+      if (dp < 6 && Math.abs(P.y - e.y) < 3) lookAt(e, P.x, P.y + 1.62, P.z); else { e.headYawT = 0; e.headPitchT = e.act === "reach" ? -0.5 : e.act === "shop" || e.act === "pick" || e.act === "hoe" ? 0.45 : 0.1; }
+      // Händler rufen ihre Waren aus, wenn der König vorbeikommt
+      if (e.calls && e.act === "sell" && dp < 11 && (e.callT -= dt) <= 0) { e.callT = 24 + Math.random() * 30; if (sayT <= 0 && P.seat === null) { say(e.name, pick(e.calls)); e.shoutT = 2.4; } }
+      if ((e.timer -= dt) <= 0) { wStand(e); e.spot = wPick(e); e.state = "go"; e.path = null; e.act = null; e.lean = 0; }
+      return;
+    }
+    // Unterwegs: zum Platz (go), zur Straße hinaus (leave) oder ins Bett (toBed)
+    const g = e.state === "leave" ? e.exit : e.state === "toBed" ? e.bed.stand : (e.spot[5] || e.spot);
+    if (e.state === "leave" && dp > 50) { wArrive(e); return; }
+    if (!e.path) {
+      e.dvx = e.dvz = 0;
+      if ((e.retryT = (e.retryT || 0) - dt) > 0 || pathQuota <= 0) return;
+      pathQuota--;
+      if (dp > 34 && Math.hypot(P.x - g[0], P.z - g[2]) > 34) { wPlace(e, g); wArrive(e); return; }
+      const path = findPath(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z), Math.floor(g[0]), Math.floor(g[1] + 0.05), Math.floor(g[2]), 0, 16000);
+      if (path && path.found) { e.path = path; e.pi = 0; e.giveUp = 90; e.fails = 0; }
+      else if ((e.fails = (e.fails || 0) + 1) >= 3) { e.fails = 0; if (dp > 20) { wPlace(e, g); wArrive(e); } else if (e.state === "go") { e.spot = wPick(e); e.retryT = 2; } else e.retryT = 4; }
+      else e.retryT = 1.5;
+      return;
+    }
+    e.giveUp -= dt;
+    if (followPath(e, e.speed)) { if (e.state === "go" && Math.hypot(e.x - g[0], e.z - g[2]) < 1.2) { e.x += (g[0] - e.x) * 0.5; e.z += (g[2] - e.z) * 0.5; } wArrive(e); }
+    else if (e.giveUp <= 0) { if (dp > 20) { wPlace(e, g); wArrive(e); } else { e.path = null; e.giveUp = 30; } }
+    lookAhead(e);
+  }
+  // Bewegungen bei der Arbeit (nach der normalen Animation): hacken, mähen, pflücken, gießen, verkaufen, ausrufen, Wasser schöpfen
+  function workerPoses(dt, t) {
+    for (const e of WORKERS) {
+      if (e.gone || !e.mesh.visible) continue;
+      const B = e.B;
+      if (e.sleep && e.bed && e.state === "bed") { e.mesh.rotation.order = "YXZ"; e.mesh.rotation.set(-Math.PI / 2, e.bed.a, 0); e.mesh.position.set(e.x, e.y, e.z); continue; }
+      if (e.shoutT > 0) e.shoutT -= dt;
+      const a = e.talkT > 0 ? null : e.act, k = t + e.phase0;
+      let aR = null, aL = null, fR = 0, fL = 0, zR = -0.06, zL = 0.06, tool = 0;
+      switch (a) {
+        case "sell": aR = -0.42 + Math.sin(k * 0.9) * 0.05; aL = -0.42; fR = -1.05; fL = -1.05; if (Math.sin(k * 0.37) > 0.8) { aR = -0.9; fR = -0.5 + Math.sin(k * 4) * 0.2; } break;
+        case "arrange": aR = -0.9 + Math.sin(k * 2.6) * 0.3; fR = -0.6; aL = -0.7 + Math.cos(k * 2.1) * 0.2; fL = -0.5; break;
+        case "shop": aR = -0.15; fR = -0.35; aL = -0.35; fL = -1.1; if (Math.sin(k * 0.5) > 0.7) { aL = -1.0; fL = -0.4; } break;
+        case "look": aR = 0.3; aL = 0.3; fR = -1.3; fL = -1.3; zR = 0.1; zL = -0.1; break;
+        case "water": aR = -1.25 + Math.sin(k * 2) * 0.15; fR = -0.25; aL = -0.5; fL = -0.4; break;
+        case "hoe": { const s = Math.sin(k * 2.4); aR = aL = -1.2 + s * 0.75; fR = fL = -0.45; zR = -0.18; zL = 0.18; tool = 1; break; }
+        case "fork": { const s = Math.sin(k * 1.8); aR = -1.0 + s * 0.6; aL = -0.8 + s * 0.6; fR = fL = -0.5; zR = -0.2; zL = 0.3; tool = 1; B.body.rotation.y = s * 0.3; break; }
+        case "scythe": { const s = Math.sin(k * 1.7); aR = -0.95; aL = -1.05; fR = -0.3; fL = -0.7; zR = -0.1; zL = 0.35; tool = 2; B.body.rotation.y = s * 0.55; break; }
+        case "pick": aR = -1.35 + Math.sin(k * 2.2) * 0.3; aL = -1.35 + Math.cos(k * 2.2) * 0.3; fR = -0.25; fL = -0.25; zR = -0.1; zL = 0.1; break;
+        case "reach": aR = -2.7 + Math.sin(k * 1.6) * 0.2; fR = -0.2; aL = -0.3; fL = -0.4; break;
+        case "mill": aR = aL = -0.95 + Math.sin(k * 1.4) * 0.12; fR = fL = -0.7; zR = -0.15; zL = 0.15; break;
+      }
+      if (e.shoutT > 0 && a === "sell") { aL = -2.5 + Math.sin(k * 6) * 0.15; fL = -0.4; zL = 0.25; }
+      if (aR !== null) { B.armR.rotation.set(aR, 0, zR); B.foreR.rotation.set(fR, 0, 0); }
+      if (aL !== null) { B.armL.rotation.set(aL, 0, zL); B.foreL.rotation.set(fL, 0, 0); }
+      // Werkzeug: beim Hacken zeigt der Stiel nach vorn, bei der Sense quer
+      if (B.tool) B.tool.rotation.set(tool === 1 ? 1.2 : tool === 2 ? 1.5 : 0, 0, tool === 2 ? 0.5 : 0);
+      // Gießkanne: es tropft
+      if (a === "water" && e.tool === "wcan" && Math.random() < dt * 14) emit(e.x + Math.sin(e.yaw) * 0.9, e.y + 0.55, e.z + Math.cos(e.yaw) * 0.9, 1, () => [150, 190, 240], 0.07, 0.4, 6);
+    }
+  }
+  // ---------- Leute anlegen ----------
+  // Jeder nimmt eine etwas andere Stelle der Straße, damit morgens nicht alle am selben Fleck hereinkommen
+  const spreadExit = (x, i) => { const s = ((i * 7) % 5 - 2) * 0.9; return Math.abs(x[0] - x[3]) < 1 ? [x[0] + s, x[1], x[2], x[3] + s, x[4]] : [x[0], x[1], x[2] + s * 0.7, x[3], x[4] + s * 0.7]; };
+  function spawnWorker(key, role, at, o) {
+    const P_ = PEOPLE11[key], formal = !!o.formal;
+    if (o.exit) o.exit = spreadExit(o.exit, WORKERS.length);
+    const e = spawnEnt("villager", "p11_" + key, at[0], at[1], at[2], Object.assign({
+      think: workerThink, speed: 1.55, state: "work", timer: 1, name: P_.name, formal,
+      yaw: at[3] || 0, scale: P_.scale || 1, tool: P_.tool, noJump: false, callT: 5 + Math.random() * 20,
+    }, o));
+    e.talkName = P_.talk || P_.name;
+    e.dayLines = e.lines;
+    e.spot = at; e.anchor = at; if (e.held === undefined) e.held = null;
+    WORKERS.push(e);
+    return e;
+  }
+  let smokeT = 0, beeT = 0, creakT = 0;
+  function spawnPeople11() {
+    // Händler: jeder an seinem Stand, ab und zu räumt er hinten die Kisten
+    MSTALLS.forEach((s, i) => {
+      const L = L11[s.kind], formal = i % 2 === 0, spots = [s.sell, s.sell, s.sell, s.back];
+      const e = spawnWorker(s.kind, "händler", s.sell, { formal, lines: lines11(s.kind, formal), calls: L.call, from: 7 + (i % 3) * 0.25, to: 19 + (i % 4) * 0.2, exit: MEXITS[i % 4],
+        pickFrom: () => spots, stay: () => 25 + Math.random() * 50, state: "work" });
+      e.spot = s.sell; e.act = "sell";
+    });
+    // Kundschaft: kauft an den Ständen ein, schaut in den Brunnen, schöpft Wasser, sitzt auf den Bänken
+    const shopSpots = [].concat(...MSTALLS.map(s => s.front)), seats = MSEATS;
+    const pickShop = () => { const r = Math.random(); return r < 0.55 ? shopSpots : r < 0.72 ? MLOOK : seats; };
+    ["k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8"].forEach((k, i) => {
+      const formal = i % 2 === 1, s0 = shopSpots[(i * 5) % shopSpots.length];
+      const e = spawnWorker(k, "kunde", s0, { formal, lines: lines11("kunde", formal), from: 8 + (i % 4) * 0.4, to: 18 + (i % 3) * 0.5, exit: MEXITS[(i + 1) % 4], pickFrom: pickShop,
+        stay: () => 8 + Math.random() * 22, speed: 1.35 + (i % 3) * 0.1 });
+      MOCC.add(spotKey(s0)); e.held = spotKey(s0); e.spot = s0;
+    });
+    // Bauern: jeder auf seinem Acker, ab und zu an einer anderen Stelle
+    const byCrop = c => FPLOTS.filter(p => p[4] === c || (Array.isArray(c) && c.includes(p[4])));
+    const fieldOf = [["f1", ["wheat", "stubble"]], ["f2", ["potato", "beet", "rape"]], ["f3", ["carrot", "cabbage", "pumpkin", "melon"]], ["f4", ["stubble", "wheat"]],
+      ["f5", ["potato", "beet", "cabbage"]], ["f6", ["lavender", "sunflower", "cabbage"]], ["f7", ["orchard"]], ["f8", ["sunflower", "lavender", "corn"]]];
+    fieldOf.forEach(([k, crops], i) => {
+      const plots = byCrop(crops), spots = [].concat(...plots.map(p => p.spots)), s0 = spots[(i * 3) % spots.length];
+      const formal = i % 2 === 0, key = k === "f7" ? "imker" : "bauer";
+      const e = spawnWorker(k, "bauer", s0, { formal, lines: lines11(key, formal), from: 6.5 + (i % 3) * 0.2, to: 18 - (i % 2) * 0.3, exit: FEXITS[i % 2], pickFrom: () => spots,
+        stay: () => 20 + Math.random() * 40, speed: 1.45 });
+      MOCC.add(spotKey(s0)); e.held = spotKey(s0); e.spot = s0;
+    });
+    // Die Müllersleute: tagsüber in der Mühle und am Haus, nachts im Bett
+    const millSpots = FSPOTS.mill.concat([[MILL.well[0], MILL.well[1], MILL.well[2], 0, "water"]]);
+    const homeSpots = FSPOTS.home.concat([[MILL.well[0] - 1.5, MILL.well[1], MILL.well[2] + 0.5, Math.PI / 2, "water"]]);
+    spawnWorker("muller", "müller", millSpots[0], { formal: true, lines: lines11("muller", true), nightLines: L11.muller.night, from: 6, to: 21, bed: MILL.beds[0], pickFrom: () => millSpots, stay: () => 20 + Math.random() * 30, exit: FEXITS[0] });
+    spawnWorker("mullerin", "müllerin", homeSpots[0], { formal: false, lines: lines11("mullerin", false), nightLines: L11.mullerin.night, from: 6.5, to: 21.5, bed: MILL.beds[1], pickFrom: () => homeSpots, stay: () => 15 + Math.random() * 30, exit: FEXITS[0] });
+    // Wer beim Laden schon Feierabend hat, ist gleich fort oder liegt im Bett
+    for (const e of WORKERS) {
+      if (inHours(e.from, e.to)) { wArrive(e); continue; }
+      wFree(e);
+      if (e.bed) { e.state = "toBed"; wArrive(e); } else { e.state = "leave"; wArrive(e); }
+    }
+    // Waren, Werkzeug und Schmuck: gleiche Dinge werden zu einem Modell zusammengefügt
+    const byName = {};
+    for (const [n, x, y, z, ry, s] of MGOODS) (byName[n] = byName[n] || []).push([x, y, z, ry, s]);
+    for (const n in byName) addProps(n, byName[n], { noShadow: /flowers|jugs|bowls|spices|honey|candles/.test(n) });
+    sails = makeSails();
+  }
+  V11.spawn.push(spawnPeople11);
+  // ---------- Jedes Bild: Flügel drehen, Rauch aus dem Schornstein, Bienen am Bienenkorb, Posen der Leute ----------
+  V11.update.push((dt, t) => {
+    workerPoses(dt, t);
+    if (sails) {
+      const d = Math.hypot(P.x - MILL.hub[0], P.z - MILL.hub[2]);
+      sails.g.visible = d < viewDist + 20;
+      if (sails.g.visible) {
+        sails.g.rotation.z -= dt * 0.55;
+        if ((sails.lt -= dt) <= 0) { sails.lt = 2; const l = lightAt(MILL.hub[0], MILL.hub[1], MILL.hub[2] - 1); sails.mat.userData.uLight.value.set(l.x, l.y); }
+        if (d < 26 && (creakT -= dt) <= 0) { creakT = 2.8 + Math.random() * 1.5; noiseHit(220 + Math.random() * 40, 6, 0.35, 0.02 * (1 - d / 26)); }
+      }
+      if (d < 70 && (smokeT -= dt) <= 0 && inHours(6, 21)) { smokeT = 0.35; emit(MILL.smoke[0], MILL.smoke[1], MILL.smoke[2], 1, () => { const g = 150 + Math.random() * 40; return [g, g, g]; }, 0.28, 0.35, -0.9); }
+    }
+    // Bienen: kleine Punkte, die um die Bienenkörbe schwirren (nur tagsüber und aus der Nähe)
+    if ((beeT -= dt) <= 0) {
+      beeT = 0.12;
+      if (inHours(8, 19)) for (const [n, x, y, z] of MGOODS) if (n === "skep" && Math.abs(P.x - x) < 14 && Math.abs(P.z - z) < 14) emit(x + (Math.random() - 0.5) * 1.6, y + 0.6 + Math.random() * 0.8, z + (Math.random() - 0.5) * 1.6, 1, () => Math.random() < 0.5 ? [30, 26, 16] : [240, 196, 40], 0.06, 0.9, -0.01);
+    }
+  });
+  // Bienenkörbe im Obstgarten, Vogelscheuchen auf den Feldern, Werkzeug im Schuppen, Leiterwagen, Eimer am Brunnen
+  V11.build.push(() => {
+    const F = G0 + 1;
+    for (const p of FPLOTS) {
+      if (p[4] === "orchard") for (const [dx, dz] of [[7, 0], [14, 0], [21, 7]]) { const x = p[0] + dx, z = p[2] + dz; if (get(x, F, z) !== AIR && !PLANT[get(x, F, z)]) continue; setB(x, F, z, AIR); mGood("skep", x + 0.5, F, z + 0.5, 0.3 * dx); }
+      if (["wheat", "rape", "carrot", "stubble", "corn", "sunflower"].includes(p[4]) && (p[0] * 7 + p[2]) % 3 !== 1) {
+        const x = Math.floor((p[0] + p[1]) / 2) + 2, z = p[2] + (p[4] === "stubble" ? 8 : 12);
+        if (get(x, G0, z) === WATER) continue;
+        setB(x, F, z, AIR); setB(x, F + 1, z, AIR); mGood("scarecrow", x + 0.5, F, z + 0.5, 0.4 + (p[0] % 5) * 0.3, 1.05);
+      }
+    }
+    const [sx, sz] = MILL.shed;
+    mGood("rake", sx + 0.35, F, sz + 3.2, Math.PI / 2 + 0.1); mGood("pitchfork", sx + 0.35, F, sz + 3.8, Math.PI / 2 - 0.12); mGood("hoe_t", sx + 0.35, F, sz + 2.6, Math.PI / 2); mGood("scythe_t", sx + 0.4, F, sz + 4.4, Math.PI / 2);
+    mGood("cart", sx + 7.5, F, sz + 2.5, 0.2); mGood("cart", 160.5, F, 367.5, Math.PI / 2 + 0.1);
+    mGood("bucket", MILL.well[0] + 1.3, F + 1, MILL.well[2] + 1.6); mGood("bucket", MILL.well[0] + 2.4, F, MILL.well[2] + 0.2, 0.7);
+  });
+  // ---------- Namen: Mühle und Müllerhaus; die Untertitel der Gebiete ----------
+  AREAS.push(
+    ["Das Müllerhaus", "hier wohnen Matthias und Johanna", 124, 131, G0, G0 + 8, 356, 363],
+    ["Die Windmühle", "hier mahlt der Müller das Korn", 105, 125, G0, G0 + 26, 343, 363],
+  );
+  V11.build.push(() => {
+    for (const a of AREAS) {
+      if (a[0] === "Der Marktplatz") a[1] = "zwölf Stände, der Kronenbrunnen und der Maibaum";
+      if (a[0] === "Die Felder") a[1] = "Weizen, Sonnenblumen, Lavendel und die Windmühle";
+    }
+  });
+  // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.
   // Der Bootssteg liegt erst nach dem Bau der Welt fest
