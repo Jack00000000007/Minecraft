@@ -2,6 +2,15 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Neu in Version 11, Teil 1: das große Land
+
+- Das Land ist jetzt dreimal so groß. Die Große Mauer steht weiter draußen, Schloss und Dorf sind genau wie vorher, und dein alter Spielstand läuft weiter.
+- Östlich vom Schloss liegt der Königssee mit einem Bootssteg und einem Pavillon auf der Insel, rundherum der Königswald mit Birken, Fichten und alten Eichen.
+- Neue Straßen und Wege führen vom Dorf in die neuen Gebiete: die Oststadt, die Neustadt mit dem Marktplatz, den Gutshof und die Felder. Dort sind jetzt noch Bauplätze. In Teil 2 kommen die Häuser mit voller Einrichtung, der Markt mit Brunnen, der Gutshof mit Pferdestall und Pferden und die Felder mit Windmühle.
+- Neue Möbel im Blockmenü (B): Stühle und Gartenbänke, auf die du dich setzen kannst, Tische, Laternen, Hocker, Buchsbäume im Topf und Betten mit Holzrahmen, in denen du schlafen kannst. Stühle, Bänke und Betten drehen sich beim Bauen zu dir.
+- Neue Blöcke: Fichten- und Birkenholz, bemooster Bruchstein, Feldweg, Ackerboden, Holzzaun, Putz in vier Farben, rote Dachziegel, Kupferdach, Kürbis, Melone, Karotten, Kartoffeln, Rote Bete, Farn, Schilf und Pilze.
+- Die Karte im Arbeitszimmer zeigt das ganze neue Land mit allen Namen, und das Gemälde „Der König auf der Großen Mauer“ ist neu gemalt. Betrittst du ein neues Gebiet, steht oben kurz sein Name.
+
 ## Neu in Version 10
 
 - Vom Schlosstor gehst du durch den Vorsaal geradeaus in den Thronsaal. Im Vorsaal hängen acht große Ölgemälde von dir: deine Krönung, wie du dein Schloss baust, wie du mit James Holz hackst, die Nacht der Zombies, dein Kampf gegen den Drachen, du auf der Großen Mauer, du mit deinem Volk und deine Heimkehr ins Schloss. Das riesige geschnitzte Tor zum Thronsaal öffnet sich von selbst, wenn du davor stehst.

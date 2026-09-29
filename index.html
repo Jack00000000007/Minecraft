@@ -168,7 +168,7 @@
 <div id="menu">
   <div class="card">
     <h1>Blockwelt</h1>
-    <p id="menuText">Du bist der König dieses Landes, auch wenn du lieber Anzug trägst als Krone. Dein Butler James begleitet dich überallhin. Vor dir steht dein Schloss: Durch den Vorsaal mit acht Gemälden von dir und das große geschnitzte Tor kommst du in den Thronsaal, und der Thron gehört dir. Köche und Dienerinnen arbeiten im Schloss, es gibt eine Schatzkammer, einen Speisesaal, ein Bad und hinten einen Garten. Hinter dir liegt das Dorf, auf den Wiesen leben Kühe, Schafe, Schweine und Hühner. Nachts steigen draußen Zombies aus der Erde, im Schloss und im Dorf bist du sicher. Zieh den Hebel oder drück Strg + G, dann senkt sich die Zugbrücke.</p>
+    <p id="menuText">Du bist der König dieses Landes, auch wenn du lieber Anzug trägst als Krone. Dein Butler James begleitet dich überallhin. Vor dir steht dein Schloss: Durch den Vorsaal mit acht Gemälden von dir und das große geschnitzte Tor kommst du in den Thronsaal, und der Thron gehört dir. Köche und Dienerinnen arbeiten im Schloss, es gibt eine Schatzkammer, einen Speisesaal, ein Bad und hinten einen Garten. Hinter dir liegt das Dorf, auf den Wiesen leben Kühe, Schafe, Schweine und Hühner. Das Land ist jetzt dreimal so groß: Östlich vom Schloss liegt der Königssee mit Bootssteg und einem Pavillon auf der Insel, rundherum der Königswald. Hinter dem Dorf entstehen gerade die Oststadt, die Neustadt mit dem Marktplatz, der Gutshof mit den Pferden und die Felder. Nachts steigen draußen Zombies aus der Erde, im Schloss und im Dorf bist du sicher. Zieh den Hebel oder drück Strg + G, dann senkt sich die Zugbrücke.</p>
     <button id="play" disabled>Welt wird erzeugt …</button>
     <button id="quality">Grafik: Auto</button>
     <div class="timebox">
@@ -211,7 +211,9 @@
 <script>
 (() => {
   // ---------- Welt-Parameter ----------
-  const W = 192, D = 256, H = 128, CS = 16, SEA = 22;
+  // Version 11: die Welt ist rund dreimal so groß. Der alte Teil (x < 192, z < 256) bleibt genau wie in Version 10.
+  const W = 336, D = 448, H = 128, CS = 16, SEA = 22, OLD_W = 192, OLD_D = 256;
+  const NB = 1024;   // Platz für bis zu 1024 Blockarten (die Welt speichert 16 Bit pro Block)
   const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, SAND = 4, LOG = 5, LEAVES = 6, WATER = 7, PLANKS = 8, COBBLE = 9, SNOW = 10, BRICK = 11,
     SBRICK = 12, DPLANK = 13, RWOOL = 14, GOLD = 15, GLASS = 16, SHELF = 17, QUARTZ = 18, LAMP = 19, WWOOL = 20, BWOOL = 21, SLATE = 22, LEVER = 23, LEVER_ON = 24, BARS = 25, WHEAT = 26, HEDGE = 27;
   const NAMES = { 1: "Gras", 2: "Erde", 3: "Stein", 4: "Sand", 5: "Holzstamm", 6: "Laub", 8: "Bretter", 9: "Bruchstein", 10: "Schnee", 11: "Ziegel",
@@ -241,6 +243,21 @@
   // Türen der Dorfhäuser: unsichtbare Blöcke (geschlossen fest, offen begehbar), das Türblatt ist ein eigenes Modell
   const DOOR = 120, DOOR_O = 121;
   NAMES[DOOR] = NAMES[DOOR_O] = "Tür";
+  // Neue Blöcke (Version 11): Block-IDs ab 256, eigene Atlas-Kacheln ab 120
+  const FENCE = 256, FARMLAND = 257, CARROTS = 258, POTATOES = 259, BEETS = 260, PUMPKIN = 261, MELON = 262,
+    SPRUCE_LOG = 263, SPRUCE_PLANKS = 264, SPRUCE_LEAVES = 265, BIRCH_LOG = 266, BIRCH_PLANKS = 267, BIRCH_LEAVES = 268,
+    PATH = 269, TALLGRASS = 270, FERN = 271, MOSSY_COBBLE = 272, PLASTER_W = 273, PLASTER_Y = 274, PLASTER_R = 275, PLASTER_B = 276,
+    ROOF_RED = 277, ROOF_GREEN = 278, REEDS = 279, MUSHROOM_R = 280, MUSHROOM_B = 281, GATE = 282, GATE_O = 283;
+  Object.assign(NAMES, { [FENCE]: "Holzzaun", [FARMLAND]: "Ackerboden", [CARROTS]: "Karotten", [POTATOES]: "Kartoffeln", [BEETS]: "Rote Bete",
+    [PUMPKIN]: "Kürbis", [MELON]: "Melone", [SPRUCE_LOG]: "Fichtenstamm", [SPRUCE_PLANKS]: "Fichtenbretter", [SPRUCE_LEAVES]: "Fichtenzweige",
+    [BIRCH_LOG]: "Birkenstamm", [BIRCH_PLANKS]: "Birkenbretter", [BIRCH_LEAVES]: "Birkenlaub", [PATH]: "Feldweg", [TALLGRASS]: "Hohes Gras", [FERN]: "Farn",
+    [MOSSY_COBBLE]: "Bemooster Bruchstein", [PLASTER_W]: "Weißer Putz", [PLASTER_Y]: "Gelber Putz", [PLASTER_R]: "Rosa Putz", [PLASTER_B]: "Blauer Putz",
+    [ROOF_RED]: "Rote Dachziegel", [ROOF_GREEN]: "Kupferdach", [REEDS]: "Schilf", [MUSHROOM_R]: "Fliegenpilz", [MUSHROOM_B]: "Steinpilz", [GATE]: "Zauntor", [GATE_O]: "Zauntor" });
+  Object.assign(TEX, { [FENCE]: [9, 9, 9], [FARMLAND]: [120, 2, 2], [CARROTS]: [121, 121, 121], [POTATOES]: [122, 122, 122], [BEETS]: [123, 123, 123],
+    [PUMPKIN]: [124, 124, 125], [MELON]: [126, 126, 127], [SPRUCE_LOG]: [128, 128, 129], [SPRUCE_PLANKS]: [130, 130, 130], [SPRUCE_LEAVES]: [131, 131, 131],
+    [BIRCH_LOG]: [132, 132, 133], [BIRCH_PLANKS]: [134, 134, 134], [BIRCH_LEAVES]: [135, 135, 135], [PATH]: [136, 2, 2], [TALLGRASS]: [137, 137, 137], [FERN]: [138, 138, 138],
+    [MOSSY_COBBLE]: [139, 139, 139], [PLASTER_W]: [140, 140, 140], [PLASTER_Y]: [141, 141, 141], [PLASTER_R]: [142, 142, 142], [PLASTER_B]: [143, 143, 143],
+    [ROOF_RED]: [144, 144, 144], [ROOF_GREEN]: [145, 145, 145], [REEDS]: [146, 146, 146], [MUSHROOM_R]: [147, 147, 147], [MUSHROOM_B]: [148, 148, 148], [GATE]: [9, 9, 9], [GATE_O]: [9, 9, 9] });
   // Große Gemälde in eigener, feiner Textur (64 Pixel pro Block): Block-ID 128 und mehr, Kachel im Gemälde-Atlas = ID - 128
   const ART = {
     crown: { base: 128, w: 4, h: 3, title: "Die Krönung des Königs" },
@@ -258,19 +275,21 @@
   for (const k in ART) { const a = ART[k]; a.key = k; for (let i = 0; i < a.w * a.h; i++) { TEX[a.base + i] = [15, 15, 15]; NAMES[a.base + i] = "Gemälde"; ART_OF[a.base + i] = a; } }
   const isArt = b => b >= 128 && !!ART_OF[b];
   // Kreuzförmige Pflanzen, durchsichtige und nicht feste Blöcke, Lichtquellen
-  const PLANT = new Uint8Array(256), CLEAR = new Uint8Array(256), NONSOLID = new Uint8Array(256);
-  for (const b of [FLOWER_R, FLOWER_Y, FLOWER_B, FLOWER_W, TULIP, CANDLE]) PLANT[b] = 1;
-  for (const b of [AIR, WATER, GLASS, BARS, WHEAT, SGLASS, DOOR, DOOR_O]) CLEAR[b] = 1;
-  for (const b of [AIR, WATER, WHEAT, DOOR_O]) NONSOLID[b] = 1;
-  for (let b = 0; b < 256; b++) if (PLANT[b]) CLEAR[b] = NONSOLID[b] = 1;
+  const PLANT = new Uint8Array(NB), CLEAR = new Uint8Array(NB), NONSOLID = new Uint8Array(NB);
+  for (const b of [FLOWER_R, FLOWER_Y, FLOWER_B, FLOWER_W, TULIP, CANDLE, CARROTS, POTATOES, BEETS, TALLGRASS, FERN, REEDS, MUSHROOM_R, MUSHROOM_B]) PLANT[b] = 1;
+  for (const b of [AIR, WATER, GLASS, BARS, WHEAT, SGLASS, DOOR, DOOR_O, FENCE, GATE, GATE_O]) CLEAR[b] = 1;
+  for (const b of [AIR, WATER, WHEAT, DOOR_O, GATE_O]) NONSOLID[b] = 1;
+  for (let b = 0; b < NB; b++) if (PLANT[b]) CLEAR[b] = NONSOLID[b] = 1;
   const HOTBAR = [GRASS, SBRICK, QUARTZ, DPLANK, GLASS, GOLD, RWOOL, LAMP, SHELF];
 
-  const world = new Uint8Array(W * H * D);
+  const world = new Uint16Array(W * H * D);
   const topY = new Int16Array(W * D);
   const idx = (x, y, z) => x + z * W + y * W * D;
   const get = (x, y, z) => (x < 0 || z < 0 || x >= W || z >= D || y < 0 || y >= H) ? AIR : world[idx(x, y, z)];
   const opaque = b => !CLEAR[b];
   const solid = b => !NONSOLID[b];
+  // Zäune und Zauntore sind zum Drüberspringen zu hoch (wie in Minecraft anderthalb Blöcke)
+  const TALL = new Uint8Array(NB); TALL[FENCE] = TALL[GATE] = 1;
 
   function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function hash(x, z, s) { let h = (Math.imul(x, 374761393) + Math.imul(z, 668265263) + Math.imul(s, 982451653)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
@@ -301,36 +320,70 @@
       }
     }
   }
+  // ---------- Version 11: das neue Land rund um Schloss und Dorf ----------
+  // Rechtecke jeweils einschließlich. In den flachen Gebieten liegt der Boden wie beim Schloss auf Höhe G0.
+  const EAST = { x0: 158, x1: 206, z0: 158, z1: 242 };   // Oststadt neben dem alten Dorf
+  const NEU = { x0: 30, x1: 206, z0: 246, z1: 334 };     // Neustadt
+  const MARKT = { x0: 78, x1: 114, z0: 268, z1: 304 };   // Marktplatz der Neustadt, Brunnen in der Mitte
+  const GUT = { x0: 214, x1: 318, z0: 160, z1: 300 };    // Gutshof: Pferdestall, Reitplatz, Scheune, Weiden
+  const FELD = { x0: 20, x1: 236, z0: 342, z1: 392 };    // Felder mit Windmühle
+  const WALD = { x0: 168, x1: 322, z0: 13, z1: 156 };    // Königswald mit dem See
+  const LAKE = { cx: 240, cz: 78, rx: 36, rz: 44 };      // der Königssee
+  const ISLE = { x: 253, z: 58 };                        // Insel mit Pavillon im See
+  const FLAT11 = [EAST, NEU, GUT, FELD];
+  const rectDist = (r, x, z) => Math.max(r.x0 - x, x - r.x1, r.z0 - z, z - r.z1, 0);
+  const inRect = (r, x, z, m) => { m = m || 0; return x >= r.x0 - m && x <= r.x1 + m && z >= r.z0 - m && z <= r.z1 + m; };
+  // Abstand vom Seeufer: unter 1 ist Wasser, bis 1,4 flaches Ufer
+  const lakeR = (x, z) => Math.hypot((x - LAKE.cx) / LAKE.rx, (z - LAKE.cz) / LAKE.rz) * (0.8 + 0.26 * fbm(x / 26, z / 26, 93) + 0.18 * fbm(x / 11, z / 11, 94));
+  const natH = (x, z) => 12 + fbm(x / 64, z / 64, 11) * 24 + Math.pow(Math.max(0, fbm(x / 140, z / 140, 71) - 0.45), 1.4) * 80;
+  // Höhe wie in Version 10 (nur für die gleiche Baumverteilung im alten Teil der Welt)
+  function oldH(x, z) {
+    const d = Math.max(Math.abs(x - C), Math.abs(z - C));
+    const t = Math.min(Math.max(0, Math.min(1, (d - 64) / 22)), Math.min(1, rectDist(VIL, x, z) / 18));
+    return Math.min(H - 60, Math.floor(G0 + (natH(x, z) - G0) * t));
+  }
+  function newH(x, z) {
+    const d = Math.max(Math.abs(x - C), Math.abs(z - C));
+    let t = Math.min(Math.max(0, Math.min(1, (d - 64) / 22)), Math.min(1, rectDist(VIL, x, z) / 18));
+    for (const r of FLAT11) t = Math.min(t, Math.min(1, rectDist(r, x, z) / 18));
+    let h = G0 + (natH(x, z) - G0) * t;
+    const lr = lakeR(x, z);
+    if (lr < 1.4) h = Math.min(h, lr < 1 ? SEA - 1 - (1 - lr * lr) * 8 : SEA + 1 + (lr - 1) / 0.4 * Math.max(0, h - SEA - 1));
+    // Die Insel steigt aus dem See
+    const di = Math.hypot(x - ISLE.x, z - ISLE.z) * (0.9 + 0.2 * noise(x / 4, z / 4, 96));
+    if (di < 13) h = Math.max(h, di < 8 ? SEA + 2 : di < 9.5 ? SEA + 1 : SEA - 1 - (di - 9.5) * 2);
+    return Math.min(H - 60, Math.floor(h));
+  }
   function generate() {
     const rnd = mulberry32(20260928);
     for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
-      const n = fbm(x / 64, z / 64, 11), m = fbm(x / 140, z / 140, 71);
-      let h = 12 + n * 24 + Math.pow(Math.max(0, m - 0.45), 1.4) * 80;
-      const d = Math.max(Math.abs(x - C), Math.abs(z - C));
-      const dv = Math.max(VIL.x0 - x, x - VIL.x1, VIL.z0 - z, z - VIL.z1, 0);
-      const t = Math.min(Math.max(0, Math.min(1, (d - 64) / 22)), Math.min(1, dv / 18));
-      h = G0 + (h - G0) * t;
-      h = Math.min(H - 60, Math.floor(h));
+      const h = newH(x, z), lr = x >= OLD_W - 12 ? lakeR(x, z) : 9, lake = h < SEA - 2 && lr < 1 && hash(x, z, 95) > 0.55;
+      // Am Seeufer wächst stellenweise Gras bis ans Wasser
+      const shoreGrass = h === SEA + 1 && lr > 1.03 && lr < 1.5 && fbm(x / 9, z / 9, 97) > 0.52;
       heights[x + z * W] = h;
       for (let y = 0; y <= h; y++) {
         let b = STONE;
-        if (y === h) b = h <= SEA + 1 ? SAND : (h > 40 ? SNOW : GRASS);
+        if (y === h) b = lake ? GRAVEL : shoreGrass ? GRASS : h <= SEA + 1 ? SAND : (h > 40 ? SNOW : GRASS);
         else if (y > h - 4) b = h <= SEA + 1 ? SAND : (h > 43 ? STONE : DIRT);
         world[idx(x, y, z)] = b;
       }
       for (let y = h + 1; y <= SEA; y++) world[idx(x, y, z)] = WATER;
     }
-    for (let z = 3; z < D - 3; z++) for (let x = 3; x < W - 3; x++) {
-      const h = heights[x + z * W];
+    markRoads11();
+    // Bäume im alten Teil: dieselbe Zufallsfolge wie in Version 10, damit Schloss und Dorf danach genau gleich entstehen
+    for (let z = 3; z < OLD_D - 3; z++) for (let x = 3; x < OLD_W - 3; x++) {
       if (Math.max(Math.abs(x - C), Math.abs(z - C)) < 66) continue;
       if (Math.abs(x - C) < 10 && z > C) continue; // freie Sicht vom Weg aufs Tor
       if (x >= VIL.x0 - 4 && x <= VIL.x1 + 4 && z >= VIL.z0 - 4 && z <= VIL.z1 + 4) continue;
-      if (world[idx(x, h, z)] !== GRASS || h > 38 || rnd() > 0.016) continue;
-      plantTree(x, h, z, rnd);
+      const h = oldH(x, z);
+      if (h <= SEA + 1 || h > 38 || rnd() > 0.016) continue;
+      if (heights[x + z * W] === h && treeOk11(x, z)) plantTree(x, h, z, rnd);
+      else for (let k = 0; k < 9; k++) rnd();   // so viele Zufallszahlen braucht ein Baum
     }
     buildCastle(rnd);
     buildCastle10(rnd);
     buildVillage(rnd);
+    buildLand11();
     buildGreatWall();
   }
 
@@ -953,6 +1006,117 @@
     });
     tile(118, (x, y) => { if (y === 2 || y === 13) return GLD; if (y === 3 || y === 14) return GLDD; const w = 7.5 + 2.3 * Math.sin(x * Math.PI / 4); if (Math.abs(y - w) < 0.9) return y < w ? GLDL : GLD; return vary(y < 2 || y > 14 ? OAKD : [60, 36, 18], 6); });
     tile(119, (x, y) => vary(x % 4 === 0 ? [198, 194, 188] : x % 4 === 1 ? [250, 248, 242] : [232, 228, 222], 5));
+
+    // ---------- Version 11: Felder, Wald, Häuser (Kacheln 120 bis 148) ----------
+    const NONE = [0, 0, 0, 0];
+    // Ackerboden: feuchte dunkle Erde in Furchen
+    tile(120, (x, y) => { const f = y & 3; if (f === 0) return vary([58, 38, 22], 8); if (f === 1) return vary([104, 72, 46], 12); return vary(rnd() < 0.12 ? [66, 44, 26] : [86, 58, 36], 14); });
+    // Karotten: gefiederte Blätter, unten schauen die orangen Rüben heraus
+    tile(121, (x, y) => {
+      for (const c of [2, 6, 10, 13]) {
+        const dx = x - c;
+        if (y >= 12 && y <= 14 && Math.abs(dx) <= (y === 12 ? 1 : 0)) return y === 12 ? [240, 136, 34] : [212, 108, 24];
+        if (y < 12 && y >= 3 + (c % 3)) { const s = ((y + c) % 3) - 1; if (dx === 0 || (dx === s && y % 2 === 0)) return vary(dx === 0 ? [66, 142, 46] : [104, 184, 66], 14); }
+      }
+      return NONE;
+    });
+    // Kartoffeln: buschige Blätter mit hellen Blüten
+    tile(122, (x, y) => {
+      for (const [cx, cy, r] of [[3.5, 8.5, 3.2], [8, 6.5, 3.6], [12.5, 9, 3]]) {
+        const d = Math.hypot(x - cx, (y - cy) * 1.2);
+        if (d < r) { if (hash(x, y, 1221) > 0.88 && y < cy) return [236, 226, 250]; return vary(d < r - 1.2 ? [76, 154, 54] : [52, 116, 40], 12); }
+      }
+      if (y >= 11 && y <= 13 && (x === 3 || x === 8 || x === 12)) return vary([60, 124, 42], 8);
+      if (y >= 14 && x >= 6 && x <= 9) return vary([184, 146, 90], 10);
+      return NONE;
+    });
+    // Rote Bete: dunkelgrüne Blätter mit roten Adern, unten die rote Knolle
+    tile(123, (x, y) => {
+      for (const [cx, top] of [[3, 4], [8, 2], [12, 5]]) {
+        const dx = x - cx;
+        if (y >= 12 && y <= 14 && Math.abs(dx) <= (y === 14 ? 0 : 1)) return vary(y === 12 ? [204, 44, 76] : [150, 22, 52], 8);
+        if (y >= top && y < 12) { const w = Math.round(2.4 * Math.sin((y - top + 0.5) / (12 - top) * Math.PI)); if (Math.abs(dx) <= w) return dx === 0 ? [176, 30, 60] : vary([46, 112, 46], 12); }
+      }
+      return NONE;
+    });
+    // Kürbis oben (Stiel und Rippen) und an der Seite
+    tile(124, (x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 1.6) return vary([96, 118, 40], 10); const a = Math.atan2(y - 7.5, x - 7.5); return vary(Math.abs(Math.sin(a * 4)) < 0.2 ? [196, 104, 18] : [230, 140, 30], 10); });
+    tile(125, (x, y) => { const r = x & 3; if (y === 0 || y === 15) return vary([200, 108, 20], 8); return vary(r === 0 ? [194, 100, 16] : r === 2 ? [246, 158, 44] : [228, 136, 28], 10); });
+    // Melone oben und an der Seite: dunkle Streifen auf Grün
+    tile(126, (x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 1.3) return [130, 110, 50]; return vary((Math.floor(Math.atan2(y - 7.5, x - 7.5) * 3) & 1) ? [70, 140, 40] : [120, 178, 58], 10); });
+    tile(127, (x, y) => { const s = (x + (y >> 2)) % 5; return vary(s === 0 || s === 1 ? [52, 110, 30] : [118, 176, 56], 12); });
+    // Fichte: Stamm oben und Rinde, Bretter, Nadeln
+    tile(128, (x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); if (d > 6.8) return vary([58, 40, 24], 10); return vary(Math.floor(d) % 2 ? [128, 94, 56] : [104, 74, 42], 10); });
+    tile(129, (x, y) => { const g = (x * 5 + (y >> 2) * 3) % 7; return vary(g === 0 ? [40, 26, 14] : x % 3 === 1 ? [74, 50, 28] : [60, 40, 22], 12); });
+    tile(130, (x, y) => { const row = Math.floor(y / 4); if (y % 4 === 3 || x === (row * 5 + 9) % 16) return vary([62, 42, 22], 8); return vary([112, 80, 46], 14); });
+    tile(131, () => rnd() < 0.22 ? vary([24, 52, 34], 10) : vary([44, 88, 56], 26));
+    // Birke: heller Stamm oben, weiße Rinde mit schwarzen Flecken, helle Bretter, hellgrünes Laub
+    tile(132, (x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); if (d > 6.8) return vary([226, 222, 210], 8); return vary(Math.floor(d) % 2 ? [214, 194, 138] : [196, 174, 118], 10); });
+    const birchMark = Array.from({ length: 16 }, (_, y) => y % 5 === 2 ? Math.floor(rnd() * 12) : -9);
+    tile(133, (x, y) => { const m = birchMark[y]; if (m >= 0 && x >= m && x < m + 3 + (y & 1)) return vary([40, 38, 34], 10); if (rnd() < 0.04) return vary([90, 86, 80], 10); return vary([232, 230, 222], 10); });
+    tile(134, (x, y) => { const row = Math.floor(y / 4); if (y % 4 === 3 || x === (row * 7 + 2) % 16) return vary([170, 146, 96], 8); return vary([222, 200, 146], 12); });
+    tile(135, () => rnd() < 0.18 ? vary([80, 124, 40], 12) : vary([122, 170, 64], 30));
+    // Feldweg: festgetretene Erde mit Steinchen
+    tile(136, () => { const r = rnd(); return r < 0.06 ? vary([150, 146, 140], 12) : r < 0.2 ? vary([128, 98, 62], 10) : vary([150, 118, 76], 16); });
+    // Hohes Gras und Farn (gekreuzt, durchsichtig): erst in ein kleines Raster malen, dann als Kachel übernehmen
+    const raster = () => Array.from({ length: 16 }, () => new Array(16).fill(null));
+    const grassR = raster();
+    for (let k = 0; k < 13; k++) {
+      const bx = 1 + rnd() * 14, top = 1 + Math.floor(rnd() * 7), lean = (rnd() - 0.5) * 0.7;
+      for (let y = 15; y >= top; y--) {
+        const x = Math.round(bx + (15 - y) * lean * (15 - y) / 14);
+        if (x >= 0 && x < 16) grassR[y][x] = y < top + 2 ? [128, 192, 74] : y > 12 ? [70, 132, 44] : [96, 162, 56];
+      }
+    }
+    tile(137, (x, y) => grassR[y][x] ? vary(grassR[y][x], 12) : NONE);
+    const fernR = raster();
+    for (const a of [-1.05, -0.5, 0.05, 0.6, 1.1]) {
+      for (let t = 0; t <= 1; t += 0.02) {
+        const bend = a * 0.9 * t * t, sx = 8 + Math.sin(a + bend) * t * 9, sy = 15.5 - Math.cos(a + bend) * t * 13;
+        const X = Math.floor(sx), Y = Math.floor(sy);
+        if (X >= 0 && X < 16 && Y >= 0 && Y < 16) fernR[Y][X] = [52, 112, 42];
+        if (t > 0.15 && Math.round(t * 50) % 4 === 0) {
+          const len = (1 - t) * 3.4 + 0.6, nx = Math.cos(a + bend), ny = Math.sin(a + bend);
+          for (const sd of [-1, 1]) for (let l = 1; l <= len; l++) {
+            const lx = Math.floor(sx + nx * l * sd), ly = Math.floor(sy + ny * l * sd - l * 0.35);
+            if (lx >= 0 && lx < 16 && ly >= 0 && ly < 16 && !fernR[ly][lx]) fernR[ly][lx] = l > len - 1 ? [110, 178, 70] : [78, 150, 56];
+          }
+        }
+      }
+    }
+    tile(138, (x, y) => fernR[y][x] ? vary(fernR[y][x], 10) : NONE);
+    // Bemooster Bruchstein
+    tile(139, (x, y) => {
+      let d1 = 1e9, d2 = 1e9;
+      for (let i = 0; i < pts.length; i++) for (let ox = -16; ox <= 16; ox += 16) for (let oy = -16; oy <= 16; oy += 16) {
+        const d = Math.hypot(x + .5 - pts[i][0] - ox, y + .5 - pts[i][1] - oy);
+        if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
+      }
+      if (noise(x / 3.5, y / 3.5, 139) > 0.56) return vary([74, 120, 52], 18);
+      if (d2 - d1 < 1.1) return vary([74, 76, 72], 10);
+      return vary([128, 130, 126], 16);
+    });
+    // Putz in vier Farben: glatt, mit feiner Körnung
+    [[236, 232, 220], [240, 208, 124], [234, 172, 164], [154, 188, 216]].forEach((c, i) => tile(140 + i, (x, y) => vary(hash(x, y, 1400 + i) > 0.93 ? c.map(v => v - 16) : c, 7)));
+    // Rote Dachziegel in Reihen, Kupferdach mit grüner Patina
+    tile(144, (x, y) => { const row = y >> 2, off = row & 1 ? 2 : 0, u = (x + off) & 3, v = y & 3; if (v === 3) return vary([112, 44, 30], 8); if (u === 0) return vary([150, 60, 40], 8); return vary(v === 0 ? [214, 104, 70] : [188, 82, 54], 10); });
+    tile(145, (x, y) => { if (x % 8 === 0) return vary([70, 128, 110], 8); const n = noise(x / 4, y / 4, 145); return vary(n > 0.6 ? [118, 190, 164] : n < 0.3 ? [150, 130, 70] : [96, 164, 140], 12); });
+    // Schilf mit braunen Kolben
+    tile(146, (x, y) => {
+      for (const [cx, top] of [[3, 1], [7, 3], [11, 0], [14, 4]]) {
+        if (x === cx && y >= top && y <= top + 3) return vary([108, 70, 36], 10);
+        if (x === cx && y > top + 3) return vary([96, 150, 64], 12);
+        if (Math.abs(x - cx - 1) === 0 && y >= top + 6 && y % 3 === 0) return vary([120, 170, 70], 10);
+      }
+      return NONE;
+    });
+    // Fliegenpilz und Steinpilz
+    tile(147, (x, y) => { if (y >= 9 && y <= 14 && x >= 6 && x <= 9) return vary([236, 232, 220], 8); if (y >= 4 && y <= 8 && Math.abs(x - 7.5) <= 6 - (8 - y) * 0.9) return (x * 3 + y * 5) % 7 === 0 ? [250, 250, 244] : vary([206, 30, 34], 10); return NONE; });
+    tile(148, (x, y) => { if (y >= 9 && y <= 14 && x >= 6 && x <= 9) return vary([226, 214, 184], 8); if (y >= 4 && y <= 8 && Math.abs(x - 7.5) <= 6 - (8 - y) * 0.9) return vary(y === 8 ? [196, 170, 120] : [126, 80, 40], 10); return NONE; });
+    // Terrakotta (Blumentöpfe): gebrannter Ton mit feinen Rillen
+    tile(149, (x, y) => vary(y % 5 === 4 ? [150, 72, 44] : (x + y * 3) % 11 === 0 ? [196, 106, 70] : [178, 92, 58], 12));
+    // Kacheln der Helfer-Teile
+    for (const f of V11.atlas) f(tile, vary, rnd);
     // Gemälde
     const shade = (c, v) => [cl(c[0] + v), cl(c[1] + v), cl(c[2] + v)];
     function paint(p, fn) {
@@ -1081,7 +1245,10 @@
   FACES.forEach(f => f.ax = [0, 1, 2].filter(k => f.d[k] === 0));
   const AOV = [0.48, 0.66, 0.83, 1];
   // Ebenen: 0 fest, 1 Wasser und Buntglas, 2 Glas und Pflanzen, 3 leuchtend, 4 große Gemälde
-  const layerOf = b => (b === WATER || b === SGLASS) ? 1 : (b === GLASS || b === BARS || b === WHEAT) ? 2 : b === LAMP ? 3 : 0;
+  // Blöcke der Helfer melden ihre Ebene über defBlock an (cutout: durchsichtige Pixel, glow: leuchtet selbst)
+  const LAYER = new Uint8Array(NB);
+  LAYER[WATER] = LAYER[SGLASS] = 1; LAYER[GLASS] = LAYER[BARS] = LAYER[WHEAT] = 2; LAYER[LAMP] = 3;
+  const layerOf = b => LAYER[b];
   // Blumen und Kerzen: zwei gekreuzte Flächen wie in Minecraft, Licht aus der eigenen Zelle
   function plantGeo(tg, x, y, z, b) {
     const t = TEX[b][2], i = x + z * W + y * WD, ls = skyL[i] / 15, lb = blkL[i] / 15;
@@ -1092,6 +1259,38 @@
         const uv = tileUV(t, u, v); tg.u.push(uv[0], uv[1]); tg.c.push(1, ls, lb);
       }
       tg.i.push(base, base + 1, base + 3, base, base + 3, base + 2, base, base + 3, base + 1, base, base + 2, base + 3);
+    }
+  }
+  // Kleiner Quader in einer Zelle (Zaunpfosten, Latten): jede Fläche zeigt den passenden Ausschnitt der Kachel, Licht der Zelle
+  const BOX_UV = [(x, y, z) => [1 - z, y], (x, y, z) => [z, y], (x, y, z) => [1 - x, z], (x, y, z) => [x, 1 - z], (x, y, z) => [x, y], (x, y, z) => [1 - x, y]];
+  // t: eine Kachel für alle Seiten oder [oben, unten, Seite]; glow: leuchtet selbst (volle Helligkeit)
+  // Ragt ein Quader über seine Zelle hinaus (etwa eine hohe Stuhllehne), wird der Kachel-Ausschnitt in die Kachel zurückgeschoben
+  const uvSpan = (lo, hi) => hi - lo >= 1 ? [0, 1] : hi > 1 ? [lo + 1 - hi, 1] : lo < 0 ? [0, hi - lo] : [lo, hi];
+  function boxGeo(tg, x, y, z, a, b, t, ls, lb, glow) {
+    const ux = uvSpan(a[0], b[0]), uy = uvSpan(a[1], b[1]), uz = uvSpan(a[2], b[2]);
+    FACES.forEach((f, fi) => {
+      const base = tg.p.length / 3, sh = glow || f.d[1] !== -1 ? 1 : 0.7, tt = typeof t === "number" ? t : t[f.s];
+      for (const cr of f.c) {
+        const px = cr[0] ? b[0] : a[0], py = cr[1] ? b[1] : a[1], pz = cr[2] ? b[2] : a[2], uv = BOX_UV[fi](ux[cr[0]], uy[cr[1]], uz[cr[2]]), q = tileUV(tt, uv[0], uv[1]);
+        tg.p.push(x + px, y + py, z + pz); tg.n.push(f.d[0], f.d[1], f.d[2]); tg.u.push(q[0], q[1]); tg.c.push(sh, ls, lb);
+      }
+      tg.i.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
+    });
+  }
+  // Geformte Blöcke (Möbel, Teppiche, Laternen): alle Quader mit dem Licht der eigenen Zelle, leuchtende Teile in der Lampen-Ebene
+  function shapeGeo(L, x, y, z, b) {
+    const S = SHAPE[b], i = x + z * W + y * WD, ls = skyL[i] / 15, lb = blkL[i] / 15;
+    for (const q of S.boxes) if (q.glow) boxGeo(L[3], x, y, z, q.a, q.b, q.tex, 1, 1, true); else boxGeo(L[S.layer], x, y, z, q.a, q.b, q.tex, ls, lb);
+  }
+  // Zaun: Pfosten in der Mitte, zwei Latten zu jedem Nachbarn (Zaun, Zauntor oder fester Block)
+  const fenceLink = n => n === FENCE || n === GATE || n === GATE_O || (OPQ[n] === 1 && solid(n));
+  function fenceGeo(tg, x, y, z) {
+    const i = x + z * W + y * WD, ls = skyL[i] / 15, lb = blkL[i] / 15, t = TEX[FENCE][0];
+    boxGeo(tg, x, y, z, [0.375, 0, 0.375], [0.625, 1, 0.625], t, ls, lb);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (!fenceLink(get(x + dx, y, z + dz))) continue;
+      const ax = dx > 0 ? [0.625, 1] : dx < 0 ? [0, 0.375] : [0.4375, 0.5625], az = dz > 0 ? [0.625, 1] : dz < 0 ? [0, 0.375] : [0.4375, 0.5625];
+      for (const [y0, y1] of [[0.375, 0.5625], [0.75, 0.9375]]) boxGeo(tg, x, y, z, [ax[0], y0, az[0]], [ax[1], y1, az[1]], t, ls, lb);
     }
   }
   // Für jede Seite die 3x3 Zellen davor: daraus kommen Ecken-Schatten und weiches Licht jeder Ecke
@@ -1107,8 +1306,10 @@
     let maxY = 0;
     for (let z = cz * CS; z < cz * CS + CS; z++) for (let x = cx * CS; x < cx * CS + CS; x++) maxY = Math.max(maxY, topY[x + z * W]);
     for (let y = 0; y <= Math.min(maxY, H - 1); y++) for (let z = cz * CS; z < cz * CS + CS; z++) for (let x = cx * CS; x < cx * CS + CS; x++) {
-      const b = world[idx(x, y, z)]; if (!b || b === DOOR || b === DOOR_O) continue;
+      const b = world[idx(x, y, z)]; if (!b || b === DOOR || b === DOOR_O || b === GATE || b === GATE_O) continue;
+      if (SHAPE[b]) { shapeGeo(L, x, y, z, b); continue; }
       if (PLANT[b]) { plantGeo(L[2], x, y, z, b); continue; }
+      if (b === FENCE) { fenceGeo(L[0], x, y, z); continue; }
       const ly = layerOf(b), art = isArt(b);
       for (const f of FACES) {
         if (y === 0 && f.d[1] === -1) continue;
@@ -1250,7 +1451,7 @@
       const e = [];
       for (const [k, b] of edits) e.push(k, b);
       localStorage.setItem(SAVE_KEY, JSON.stringify({
-        v: 1, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false, t: Math.round(dayT * 1e6) / 1e6, tr: timeRun,
+        v: 2, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false, t: Math.round(dayT * 1e6) / 1e6, tr: timeRun,
         p: P.dead ? null : (P.seat ? [...standSpot(P.seat), P.yaw, P.pitch] : [P.x, P.y, P.z, P.yaw, P.pitch]).map(n => Math.round(n * 1000) / 1000), fly: P.fly,
         hp: P.dead ? 20 : P.hp, mon: monsters, sp: P.spawn,
       }));
@@ -1259,7 +1460,19 @@
   function loadSave() {
     try {
       const s = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
-      return s && s.v === 1 && Array.isArray(s.e) ? s : null;
+      if (!s || !Array.isArray(s.e)) return null;
+      // Spielstand aus Version 10 oder älter: die Welt war 192 x 256 Blöcke groß, die Nummern der Zellen werden umgerechnet.
+      // Was an der alten Süd- und Ostmauer verändert wurde, entfällt (dort ist jetzt neues Land).
+      if (s.v === 1) {
+        const e = [];
+        for (let i = 0; i + 1 < s.e.length; i += 2) {
+          const k = s.e[i], x = k % 192, z = Math.floor(k / 192) % 256, y = Math.floor(k / (192 * 256));
+          if (!(k >= 0) || y >= H || (x >= 176 && x <= 186) || (z >= 240 && z <= 250)) continue;
+          e.push(idx(x, y, z), s.e[i + 1]);
+        }
+        s.e = e; s.v = 2;
+      }
+      return s.v === 2 ? s : null;
     } catch (err) { return null; }
   }
 
@@ -1325,7 +1538,10 @@
   for (const b of [LOG, PLANKS, DPLANK, SHELF, CHEST, BARREL, COUNTER, CRAFT, PANTRY, CANDLE, WEAPON_S, WEAPON_A, WEAPON_B, SHIELD_W, GOLD_TRIM, DOOR, DOOR_O]) MATOF[b] = "wood";
   for (let b = 32; b < 64; b++) MATOF[b] = "wood";
   for (let b = 100; b < 118; b++) MATOF[b] = "wood";
-  for (let b = 128; b < 256; b++) MATOF[b] = "wood";
+  for (let b = 128; b < 248; b++) MATOF[b] = "wood";
+  for (const b of [FENCE, SPRUCE_LOG, SPRUCE_PLANKS, BIRCH_LOG, BIRCH_PLANKS, GATE, GATE_O, PUMPKIN, MELON]) MATOF[b] = "wood";
+  for (const b of [SPRUCE_LEAVES, BIRCH_LEAVES, CARROTS, POTATOES, BEETS, TALLGRASS, FERN, REEDS, MUSHROOM_R, MUSHROOM_B]) MATOF[b] = "grass";
+  for (const b of [FARMLAND, PATH]) MATOF[b] = "dirt";
   for (const b of [RWOOL, WWOOL, BWOOL, BANNER, BANNER_C]) MATOF[b] = "wool";
   MATOF[DIRT] = "dirt"; MATOF[GLASS] = MATOF[SGLASS] = "glass"; MATOF[WATER] = "water";
   const matOf = b => MATOF[b] || "stone";
@@ -1382,7 +1598,12 @@
     hp: 20, air: 15, dead: false, deadT: 0, lastHurt: 99, inv: 0, shake: 0, fallTop: 40, safeFall: false, seat: null, spawn: null };
   const keys = {};
   const joy = { x: 0, y: 0 };
-  const solidAt = (x, y, z) => (x < 0 || z < 0 || x >= W || z >= D || y < 0) ? true : (y >= H ? false : solid(world[idx(x, y, z)]));
+  const solidAt = (x, y, z) => {
+    if (x < 0 || z < 0 || x >= W || z >= D || y < 0) return true;
+    if (y >= H) return false;
+    const i = idx(x, y, z);
+    return solid(world[i]) || (y > 0 && TALL[world[i - W * D]] === 1);
+  };
   function hits(x, y, z) {
     const r = 0.3;
     const x0 = Math.floor(x - r), x1 = Math.floor(x + r), y0 = Math.floor(y), y1 = Math.floor(y + 1.75), z0 = Math.floor(z - r), z1 = Math.floor(z + r);
@@ -1464,9 +1685,9 @@
   // Blockflächen beim Bauen der Chunks hell oder dunkel; Figuren fragen das Licht an ihrer Stelle ab.
   const WD = W * D;
   const skyL = new Uint8Array(W * H * D), blkL = new Uint8Array(W * H * D);
-  const OPQ = new Uint8Array(256), ATT = new Uint8Array(256), EMIT = new Uint8Array(256);
-  for (let b = 0; b < 256; b++) { OPQ[b] = opaque(b) ? 1 : 0; ATT[b] = OPQ[b] ? 15 : 1; }
-  ATT[LEAVES] = 2; ATT[HEDGE] = 2; ATT[WATER] = 2; ATT[ROSEBUSH] = 2; ATT[APPLE_LEAVES] = 2;   // Laub und Wasser dämpfen das Licht nur
+  const OPQ = new Uint8Array(NB), ATT = new Uint8Array(NB), EMIT = new Uint8Array(NB);
+  for (let b = 0; b < NB; b++) { OPQ[b] = opaque(b) ? 1 : 0; ATT[b] = OPQ[b] ? 15 : 1; }
+  for (const b of [LEAVES, HEDGE, WATER, ROSEBUSH, APPLE_LEAVES, SPRUCE_LEAVES, BIRCH_LEAVES]) ATT[b] = 2;   // Laub und Wasser dämpfen das Licht nur
   EMIT[LAMP] = 15; EMIT[CANDLE] = 12; EMIT[OVEN] = 13;
 
   // Warteschlange für die Ausbreitung (Ringpuffer)
@@ -1515,6 +1736,7 @@
       if (z > 0) m = Math.max(m, top[c - W]); if (z < D - 1) m = Math.max(m, top[c + W]);
       for (let y = Math.max(0, t + 1); y <= m && y < H; y++) qpush(c + y * WD);
       if (t >= 0) for (let y = t, i = c + t * WD; y >= 0 && skyL[i] > 1; y--, i -= WD) qpush(i);
+      if (((qt - qh) & QM) > QM >> 1) spreadLight(skyL);   // große Welt: zwischendurch abarbeiten, damit die Warteschlange nie überläuft
     }
     spreadLight(skyL);
     qh = qt = 0;
@@ -2340,7 +2562,7 @@
   function standable(x, y, z, doors) {
     if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1 || y < 1 || y >= H - 2) return false;
     const b0 = world[idx(x, y, z)], b1 = world[idx(x, y + 1, z)], bb = world[idx(x, y - 1, z)];
-    return (!solid(b0) || doors && b0 === DOOR) && (!solid(b1) || doors && b1 === DOOR) && b0 !== WATER && solid(bb) && bb !== BARS && bb !== DOOR;
+    return (!solid(b0) || doors && (b0 === DOOR || b0 === GATE)) && (!solid(b1) || doors && b1 === DOOR) && b0 !== WATER && solid(bb) && bb !== BARS && bb !== DOOR && !TALL[bb];
   }
   class Heap {
     constructor() { this.k = []; this.p = []; }
@@ -2565,13 +2787,25 @@
     lookAt(e, t.x, t.y + t.h * 0.6, t.z);
   }
 
-  // Bäume erkennen: ein Stamm mit Laub oben drauf (Hauspfosten zählen nicht)
+  // Bäume erkennen: zusammenhängende Stämme und Äste mit Laub oben drauf (Hauspfosten zählen nicht)
   function treeAt(x, y, z) {
-    const logs = []; let top = y;
-    for (let yy = y - 8; yy <= y + 8; yy++) if (get(x, yy, z) === LOG) { logs.push([x, yy, z]); top = Math.max(top, yy); }
+    if (!LOGB[get(x, y, z)]) return null;
+    const logs = [[x, y, z]], seen = new Set([idx(x, y, z)]);
+    let top = [x, y, z];
+    for (let i = 0; i < logs.length && logs.length < 80; i++) {
+      const [lx, ly, lz] = logs[i];
+      for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = lx + dx, ny = ly + dy, nz = lz + dz;
+        if (Math.abs(nx - x) > 6 || Math.abs(nz - z) > 6 || ny < y - 12 || ny > y + 14 || !LOGB[get(nx, ny, nz)]) continue;
+        const k = idx(nx, ny, nz); if (seen.has(k)) continue;
+        seen.add(k); logs.push([nx, ny, nz]); if (ny > top[1]) top = [nx, ny, nz];
+      }
+    }
     let leaves = 0;
-    for (let dy = -1; dy <= 3; dy++) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (get(x + dx, top + dy, z + dz) === LEAVES) leaves++;
-    return leaves >= 6 && logs.length ? logs : null;
+    for (let dy = -1; dy <= 3; dy++) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (LEAFB[get(top[0] + dx, top[1] + dy, top[2] + dz)]) leaves++;
+    if (leaves < 6) return null;
+    logs.sort((a, b) => a[1] - b[1]);
+    return logs;
   }
   // Der Spieler hat bei (x,y,z) einen Stamm abgebaut: James fällt den Rest und die Bäume daneben
   function butlerHelpTree(x, y, z) {
@@ -2583,7 +2817,7 @@
     for (let dz = -9; dz <= 9; dz++) for (let dx = -9; dx <= 9; dx++) {
       if (!dx && !dz) continue;
       for (let yy = y - 6; yy <= y + 4; yy++) {
-        if (get(x + dx, yy, z + dz) === LOG && get(x + dx, yy - 1, z + dz) !== LOG) { const t = treeAt(x + dx, yy, z + dz); if (t) cand.push([Math.hypot(dx, dz), t]); break; }
+        if (LOGB[get(x + dx, yy, z + dz)] && !LOGB[get(x + dx, yy - 1, z + dz)]) { if (trees.some(t => t.some(p => p[0] === x + dx && p[1] === yy && p[2] === z + dz))) break; const t = treeAt(x + dx, yy, z + dz); if (t) cand.push([Math.hypot(dx, dz), t]); break; }
       }
     }
     cand.sort((a, b) => a[0] - b[0]);
@@ -2597,26 +2831,27 @@
   function butlerChop(e, dt) {
     const J = e.job;
     if (!J.cur) {
-      while (J.trees.length && !J.trees[0].some(p => get(p[0], p[1], p[2]) === LOG)) J.trees.shift();
+      while (J.trees.length && !J.trees[0].some(p => LOGB[get(p[0], p[1], p[2])])) J.trees.shift();
       if (!J.trees.length) { e.job = null; e.tool = "umb"; say("James", "Erledigt, Majestät."); return; }
-      J.cur = J.trees[0].find(p => get(p[0], p[1], p[2]) === LOG);
+      J.cur = J.trees[0].find(p => LOGB[get(p[0], p[1], p[2])]);
       J.base = J.trees[0][0][1]; J.hits = 0; J.giveUp = 14; J.fails = 0; e.path = null; e.repath = 0;
     }
     const [lx, ly, lz] = J.cur;
-    if (get(lx, ly, lz) !== LOG) { J.cur = null; return; }
+    const lb = get(lx, ly, lz);
+    if (!LOGB[lb]) { J.cur = null; return; }
     J.giveUp -= dt;
     if (J.giveUp <= 0) { J.trees.shift(); J.cur = null; return; }
     const dx = lx + 0.5 - e.x, dz = lz + 0.5 - e.z, dh = Math.hypot(dx, dz), dy = ly + 0.5 - (e.y + 1.5);
-    if (dh < 2.8 && dy > -2.6 && dy < 4.6 && (e.ground || e.inWater)) {
+    if (dh < 2.8 && dy > -2.6 && dy < 13 && (e.ground || e.inWater)) {   // hohe Äste erreicht James mit der langen Axt
       e.dvx = e.dvz = 0; e.path = null; e.tool = "axe";
       lookAt(e, lx + 0.5, ly + 0.5, lz + 0.5, true);
       J.t -= dt;
       if (J.t <= 0) {
         J.t = 0.4; e.swingT = 0; e.swingDur = 0.34; J.hits++;
-        blockSound(LOG, "hit", 0.06 * Math.max(0, 1 - distP(e) / 30));
-        blockParticles(lx, ly, lz, LOG, 4);
+        blockSound(lb, "hit", 0.06 * Math.max(0, 1 - distP(e) / 30));
+        blockParticles(lx, ly, lz, lb, 4);
         if (J.hits >= 3) {
-          blockParticles(lx, ly, lz, LOG, 18); blockSound(LOG, "break", 0.07 * Math.max(0, 1 - distP(e) / 30));
+          blockParticles(lx, ly, lz, lb, 18); blockSound(lb, "break", 0.07 * Math.max(0, 1 - distP(e) / 30));
           editBlock(lx, ly, lz, AIR); scheduleDecay(lx, ly, lz); J.cur = null;
         }
       }
@@ -2640,13 +2875,13 @@
   // Laub, das keinen Stamm mehr in der Nähe hat, zerfällt nach und nach (wie in Minecraft)
   const decayQ = [], decaySet = new Set();
   function logNear(x, y, z) {
-    for (let dy = -4; dy <= 4; dy++) for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) if (get(x + dx, y + dy, z + dz) === LOG) return true;
+    for (let dy = -4; dy <= 4; dy++) for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) if (LOGB[get(x + dx, y + dy, z + dz)]) return true;
     return false;
   }
   function scheduleDecay(x, y, z) {
     for (let dy = -2; dy <= 5; dy++) for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
       const bx = x + dx, by = y + dy, bz = z + dz;
-      if (get(bx, by, bz) !== LEAVES) continue;
+      if (!LEAFB[get(bx, by, bz)]) continue;
       const k = idx(bx, by, bz); if (decaySet.has(k)) continue;
       decaySet.add(k); decayQ.push({ x: bx, y: by, z: bz, k, t: 0.6 + Math.random() * 5 });
     }
@@ -2656,9 +2891,10 @@
     for (let i = decayQ.length - 1; i >= 0; i--) {
       const q = decayQ[i]; q.t -= dt; if (q.t > 0) continue;
       decayQ.splice(i, 1); decaySet.delete(q.k);
-      if (get(q.x, q.y, q.z) !== LEAVES || logNear(q.x, q.y, q.z)) continue;
+      const lf = get(q.x, q.y, q.z);
+      if (!LEAFB[lf] || logNear(q.x, q.y, q.z)) continue;
       (list = list || []).push([q.x, q.y, q.z, AIR]); recordEdit(q.x, q.y, q.z, AIR);
-      if (Math.hypot(q.x - P.x, q.z - P.z) < 40) blockParticles(q.x, q.y, q.z, LEAVES, 3);
+      if (Math.hypot(q.x - P.x, q.z - P.z) < 40) blockParticles(q.x, q.y, q.z, lf, 3);
     }
     if (list) setBlocks(list);
   }
@@ -2678,9 +2914,9 @@
   // Wiese, auf der ein Tier stehen darf: Gras, nicht im Schloss, nicht zu hoch, Hühner auch im Dorf
   function animalSpot(x, z, type) {
     if (x < 16 || z < 16 || x >= W - 16 || z >= D - 16 || inCastle(x + 0.5, z + 0.5)) return -1;
-    const inVil = x >= VIL.x0 - 3 && x <= VIL.x1 + 3 && z >= VIL.z0 - 3 && z <= VIL.z1 + 3;
-    if (inVil && type !== "chicken") return -1;
-    const y = topY[x + z * W];
+    if (inTown(x + 0.5, z + 0.5, 3) && (type !== "chicken" || inRect(GUT, x, z, 3))) return -1;
+    if (inRect(FELD, x, z, 3) || lakeR(x, z) < 1.2) return -1;
+    const y = groundY(x, z);
     if (get(x, y, z) !== GRASS || y > 40 || !standable(x, y + 1, z)) return -1;
     return y + 1;
   }
@@ -2698,7 +2934,7 @@
     }
     return false;
   }
-  const HERDS = [["cow", 4, 3], ["sheep", 4, 3], ["pig", 3, 3], ["chicken", 4, 3]];
+  const HERDS = [["cow", 6, 3], ["sheep", 6, 3], ["pig", 4, 3], ["chicken", 5, 3]];
   function spawnAnimals() {
     const rnd = mulberry32(4242);
     for (const [type, herds, per] of HERDS) for (let i = 0; i < herds; i++) spawnHerd(type, per, rnd, false);
@@ -2708,14 +2944,16 @@
     if ((refillT -= dt) > 0) return;
     refillT = 40;
     for (const [type, herds, per] of HERDS) {
-      const have = ents.filter(e => e.type === type).length;
+      const have = ents.filter(e => e.type === type && !e.pen).length;   // Tiere auf den Weiden zählen nicht mit
       if (have < herds * per - 2) { spawnHerd(type, per, Math.random, true); return; }
     }
   }
   // Einen Schritt in Richtung dir, dabei Wasser, Abgründe und das Schloss meiden
   function moveDir(e, dx, dz, sp) {
     const ax = e.x + dx * 0.9, az = e.z + dz * 0.9, fx = Math.floor(ax), fz = Math.floor(az), fy = Math.floor(e.y + 0.05);
-    let bad = inCastle(ax, az) || get(fx, fy, fz) === WATER || get(fx, fy - 1, fz) === WATER;
+    let bad = inCastle(ax, az) || get(fx, fy, fz) === WATER || get(fx, fy - 1, fz) === WATER || get(fx, fy, fz) === GATE_O;
+    // Tiere auf der Weide bleiben in ihrem Gehege, wilde Tiere laufen nicht auf die Felder und nicht in den Gutshof
+    if (!bad && (e.pen ? !inRect(e.pen, ax, az) : inRect(FELD, ax, az, 1) || inRect(GUT, ax, az, 1))) bad = true;
     if (!bad && !solidAt(fx, fy - 1, fz) && !solidAt(fx, fy - 2, fz) && !solidAt(fx, fy - 3, fz)) bad = true;
     if (!bad && solidAt(fx, fy, fz) && solidAt(fx, fy + 1, fz)) bad = true;
     if (bad) {
@@ -2937,7 +3175,8 @@
   }
   // ---------- Nachts: Zombies steigen aus der Erde ----------
   // Im Schloss und im Dorf bist du sicher: dort entstehen keine Zombies, und sie gehen auch nicht hinein.
-  const noGo = (x, z) => inCastle(x, z) || (x >= VIL.x0 - 3 && x <= VIL.x1 + 3 && z >= VIL.z0 - 3 && z <= VIL.z1 + 3);
+  // Version 11: auch in der Oststadt, der Neustadt und auf dem Gutshof
+  const noGo = (x, z) => inTown(x, z, 3);
   const Z_MAX = 6;
   let monsters = true, zSpawnT = 4;
   function zombieSpot() {
@@ -2945,7 +3184,7 @@
       const a = Math.random() * Math.PI * 2, r = 22 + Math.random() * 22;
       const x = Math.floor(P.x + Math.sin(a) * r), z = Math.floor(P.z + Math.cos(a) * r);
       if (x < 14 || z < 14 || x >= W - 14 || z >= D - 14 || noGo(x + 0.5, z + 0.5)) continue;
-      const y = topY[x + z * W] + 1, b = get(x, y - 1, z);
+      const y = groundY(x, z) + 1, b = get(x, y - 1, z);
       if (b !== GRASS && b !== DIRT && b !== SAND && b !== SNOW && b !== STONE) continue;
       if (!standable(x, y, z) || blkL[idx(x, y, z)] > 5) continue;
       return [x + 0.5, y, z + 0.5];
@@ -3124,6 +3363,9 @@
   const SEATB = [PLANKS, DPLANK, RWOOL, WWOOL, BWOOL, GOLD, QUARTZ];
   const DIR4 = [[0, 1], [0, -1], [1, 0], [-1, 0]];
   function seatAt(x, y, z) {
+    // Geformte Stühle und Bänke (Version 11): Sitzhöhe und Blickrichtung stehen beim Block
+    const ss = SEAT_SHAPE[get(x, y, z)];
+    if (ss) return solid(get(x, y + 1, z)) ? null : { x, y, z, dx: ss.dx, dz: ss.dz, h: ss.h, throne: false };
     if (!SEATB.includes(get(x, y, z)) || !solid(get(x, y - 1, z)) || solid(get(x, y + 1, z)) || solid(get(x, y + 2, z))) return null;
     for (const [dx, dz] of DIR4)
       if (solid(get(x - dx, y + 1, z - dz)) && !solid(get(x + dx, y, z + dz)) && !solid(get(x + dx, y + 1, z + dz)))
@@ -3134,7 +3376,8 @@
     if (P.dead) return;
     P.seat = Object.assign(s, { t: 0, yaw: Math.atan2(s.dx, s.dz) });
     P.fly = false; flyTag.hidden = true;
-    P.x = s.x + 0.5 + s.dx * 0.19; P.z = s.z + 0.5 + s.dz * 0.19; P.y = s.y + 1 - 10 * PXS;
+    const off = s.h === undefined ? 0.19 : 0.06;
+    P.x = s.x + 0.5 + s.dx * off; P.z = s.z + 0.5 + s.dz * off; P.y = s.y + (s.h === undefined ? 1 : s.h) - 10 * PXS;
     P.vx = P.vy = P.vz = 0; P.yaw = Math.atan2(-s.dx, -s.dz); P.pitch = 0.06;
     blockSound(get(s.x, s.y, s.z), "step", 0.07);
     if (s.throne) say("Wache", "Lang lebe der König!");
@@ -3153,6 +3396,12 @@
   const freeAbove = (x, y, z) => !solid(get(x, y + 1, z));
   function bedAt(x, y, z) {
     const b = get(x, y, z);
+    // Geformte Betten (Version 11): Kopfteil und Fußteil gehören zusammen
+    const bs = BED_SHAPE[b];
+    if (bs) {
+      const hx = bs.part === 1 ? x : x - bs.dx, hz = bs.part === 1 ? z : z - bs.dz, hd = BED_SHAPE[get(hx, y, hz)], ft = BED_SHAPE[get(hx + bs.dx, y, hz + bs.dz)];
+      return hd && hd.part === 1 && ft && ft.part === 2 && hd.dx === bs.dx && hd.dz === bs.dz && freeAbove(hx, y, hz) ? { x: hx, y, z: hz, dx: bs.dx, dz: bs.dz, h: hd.h } : null;
+    }
     if (b !== WWOOL && b !== RWOOL && b !== BWOOL) return null;
     for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
       const px = x + dx, pz = z + dz;
@@ -3179,7 +3428,7 @@
     const b = sleepBed, before = sleepT;
     sleepT += dt;
     // Hinlegen: Kopf beim Kissen, Blick zur Decke
-    if (sleepT < 2.2) { P.x = b.x + 0.5 + b.dx * 0.6; P.z = b.z + 0.5 + b.dz * 0.6; P.y = b.y + 1.3 - 1.62; P.vx = P.vy = P.vz = 0; P.pitch = 1.1; P.yaw = Math.atan2(-b.dx, -b.dz); }
+    if (sleepT < 2.2) { P.x = b.x + 0.5 + b.dx * 0.6; P.z = b.z + 0.5 + b.dz * 0.6; P.y = b.y + (b.h === undefined ? 1 : b.h) + 0.3 - 1.62; P.vx = P.vy = P.vz = 0; P.pitch = 1.1; P.yaw = Math.atan2(-b.dx, -b.dz); }
     if (before < 2.2 && sleepT >= 2.2) {
       dayT = 0.25; updateSky(0);
       const sp = P.spawn || freeSpotNear(b.x + 0.5, b.y, b.z + 0.5, 0, 0);
@@ -3823,8 +4072,8 @@
     let px = x, py = y, pz = z, t = 0;
     while (t <= max) {
       const b = get(x, y, z);
-      if (b === DOOR || b === DOOR_O) {
-        // Türen: nur das Türblatt selbst zählt, durch die offene Tür kann man hindurch zielen
+      if (b === DOOR || b === DOOR_O || b === GATE || b === GATE_O) {
+        // Türen und Zauntore: nur das Türblatt selbst zählt, durch die offene Tür kann man hindurch zielen
         const d = doorAt(x, y, z), q = d ? doorBox(d) : null, td = q ? rayBox(ox, oy, oz, dx, dy, dz, q[0], q[1], q[2], q[3], q[4], q[5]) : -1;
         if (td >= 0 && td <= max) return { x, y, z, px, py, pz, t: td, door: d };
         // Bei offener Tür zählt auch die leere Öffnung (zum Schließen), außer man steht gerade selbst darin
@@ -3877,8 +4126,11 @@
     swingHand();
     blockParticles(x, y, z, b, 18); blockSound(b, "break", 0.08);
     editBlock(x, y, z, AIR);
+    // Ein Bett besteht aus zwei Teilen: das andere Teil verschwindet mit
+    const bs = BED_SHAPE[b];
+    if (bs) { const ox = bs.part === 1 ? bs.dx : -bs.dx, oz = bs.part === 1 ? bs.dz : -bs.dz, pb = BED_SHAPE[get(x + ox, y, z + oz)]; if (pb && pb.part !== bs.part) editBlock(x + ox, y, z + oz, AIR); }
     if (b === LEVER || b === LEVER_ON) { const i = levers.findIndex(l => l[0] === x && l[1] === y && l[2] === z); if (i >= 0) levers.splice(i, 1); }
-    if (b === LOG) { scheduleDecay(x, y, z); butlerHelpTree(x, y, z); }
+    if (LOGB[b]) { scheduleDecay(x, y, z); butlerHelpTree(x, y, z); }
   }
   // Hebel, Betten und Sitze benutzen; gibt true zurück, wenn etwas passiert ist
   function useTarget() {
@@ -3906,6 +4158,16 @@
     if (overlap || entOverlaps(px, py, pz)) return;
     let b = HOTBAR[sel];
     if (b === LEVER) { b = gate.open ? LEVER_ON : LEVER; levers.push([px, py, pz]); }
+    // Möbel mit Blickrichtung (Version 11): Stühle und Bänke schauen zu dir, ein Bett legt sein Kopfteil einen Block weiter weg
+    if (ROTB[b] !== undefined) {
+      const rb = ROTB[b], ax = Math.abs(P.x - px - 0.5) > Math.abs(P.z - pz - 0.5), dx = ax ? Math.sign(P.x - px - 0.5) : 0, dz = ax ? 0 : (Math.sign(P.z - pz - 0.5) || 1);
+      b = rotId(rb, dx, dz);
+      if (BED_SHAPE[rb]) {
+        const hx = px - dx, hz = pz - dz, hc = get(hx, py, hz);
+        if (BED_SHAPE[rb].part !== 1 || (hc !== AIR && hc !== WATER) || hx < 0 || hz < 0 || hx >= W || hz >= D || entOverlaps(hx, py, hz)) return;
+        editBlock(hx, py, hz, b); b = rotId(rb + 4, dx, dz);
+      }
+    }
     editBlock(px, py, pz, b);
     swingHand(); blockSound(b, "place", 0.07);
   }
@@ -3991,7 +4253,7 @@
     for (const b of PALETTE) {
       const btn = document.createElement("button"); btn.type = "button"; btn.className = "pal";
       const cv = document.createElement("canvas"); cv.width = cv.height = 16; drawIcon(cv, b);
-      const n = document.createElement("span"); n.textContent = b >= 60 ? "Bild: " + ["Blume", "Mond", "Schiff", "Burg"][b - 60] : NAMES[b];
+      const n = document.createElement("span"); n.textContent = b >= 60 && b < 64 ? "Bild: " + ["Blume", "Mond", "Schiff", "Burg"][b - 60] : NAMES[b];
       btn.append(cv, n);
       btn.addEventListener("click", () => { putInHand(b); closePalette(); });
       palGrid.appendChild(btn);
@@ -4359,6 +4621,7 @@
     updateProps(dt, t);
     updateStaffPose();
     updateDoors(dt);
+    for (const f of V11.update) f(dt, t);
   }
   // ---------- Version 10: Dinge im Schloss – Krone, Rüstungen, Waffen, Speisen, Globus und deine Goldstatue ----------
   // Die Dinge sind kleine Modelle aus Quadern wie die Figuren (Maße in Figuren-Pixeln, 1 Block = 17,8 Pixel).
@@ -4797,30 +5060,48 @@
   function updateStaffPose() {
     for (const e of staff) if (e.sleep && e.mesh.visible) { e.mesh.rotation.order = "YXZ"; e.mesh.rotation.set(-Math.PI / 2, e.bed.a, 0); e.mesh.position.set(e.x, e.y, e.z); }
   }
-  // ---------- Türen der Dorfhäuser ----------
+  // ---------- Türen der Häuser und Zauntore ----------
   // In der Welt stehen zwei unsichtbare Türblöcke übereinander: geschlossen (DOOR, fest) oder offen (DOOR_O, begehbar).
   // Licht geht in beiden Fällen durch. Das Türblatt ist ein eigenes Modell, das sich um die Angel dreht.
-  const DOOR_T = 3 / 16, doorCell = new Map();
-  let doorTex = null, doorGeo = null, doorScanT = 0;
-  // Türblatt 16 x 32 Pixel (dunkles Eichenholz, Fenster mit vier Scheiben, zwei Kassetten, eiserne Bänder, goldener Griff), daneben 4 Pixel für die Kanten
-  function makeDoorTex() {
+  // Zauntore (Version 11) funktionieren genauso, sind aber nur einen Block hoch (GATE und GATE_O) und stehen mitten im Zaun.
+  const DOOR_T = 3 / 16, GATE_T = 2 / 16, doorCell = new Map();
+  let doorGeo = null, gateGeo = null, gateTex = null, doorScanT = 0;
+  const doorTexs = {};
+  // Tür in einen Hauseingang setzen: (x, y, z) ist die untere Zelle, (ox, oz) zeigt nach draußen, die Tür geht nach innen auf.
+  // Stile: oak (dunkle Eiche, Fenster, Gold), spruce (Fichte, ohne Fenster), birch (helle Birke, Fenster), white (weiß lackiert, Glas),
+  // green (grün gestrichen), red (rot lackiert, Glas)
+  function addDoor(x, y, z, ox, oz, style) { setB(x, y, z, DOOR); setB(x, y + 1, z, DOOR); DOORS.push({ x, y, z, ox, oz, kind: "door", style: style || "oak" }); }
+  // Zauntor mitten in einem Zaun: (ox, oz) zeigt nach draußen, das Tor schwingt nach innen auf
+  function addGate(x, y, z, ox, oz) { setB(x, y, z, GATE); DOORS.push({ x, y, z, ox, oz, kind: "gate" }); }
+  const DOOR_STYLES = {
+    oak: { wood: [80, 53, 31], win: true, gold: true },
+    spruce: { wood: [66, 45, 27], win: false, gold: false },
+    birch: { wood: [196, 172, 120], win: true, gold: false },
+    white: { wood: [226, 224, 218], win: true, gold: true },
+    green: { wood: [58, 104, 66], win: false, gold: false },
+    red: { wood: [146, 36, 34], win: true, gold: true },
+  };
+  function makeDoorTex(style) {
+    const S = DOOR_STYLES[style] || DOOR_STYLES.oak, K = S.wood.map((v, i) => v / [80, 53, 31][i]);
     const c = document.createElement("canvas"); c.width = 32; c.height = 32;
     const g = c.getContext("2d"), img = g.createImageData(32, 32), rnd = mulberry32(4711);
-    const vary = (col, a) => { const v = (rnd() - 0.5) * a; return col.map(n => Math.max(0, Math.min(255, n + v | 0))); };
+    const vary0 = (col, a) => { const v = (rnd() - 0.5) * a; return col.map(n => Math.max(0, Math.min(255, n + v | 0))); };
+    // Holzfarben der Eichentür werden auf den Stil umgefärbt, Glas und Metall bleiben
+    const vary = (col, a) => vary0(col.map((n, i) => n * K[i]), a);
     const put = (x, y, col) => { const k = (y * 32 + x) * 4; img.data[k] = col[0]; img.data[k + 1] = col[1]; img.data[k + 2] = col[2]; img.data[k + 3] = 255; };
     const grain = (x, y) => ((x * 7 + (y >> 2) * 3) % 11 === 0 ? -10 : 0) + (x % 4 === 3 ? -6 : 0);
     const wood = (base, x, y) => vary(base.map(n => n + grain(x, y)), 10);
     for (let y = 0; y < 32; y++) for (let x = 0; x < 16; x++) {
       let col;
       const frame = x <= 1 || x >= 14 || y <= 1 || y >= 30;
-      const win = x >= 3 && x <= 12 && y >= 3 && y <= 12, pane = win && x !== 3 && x !== 12 && y !== 3 && y !== 12 && x !== 7 && x !== 8 && y !== 7 && y !== 8;
-      const panel = y >= 17 && y <= 28 && ((x >= 3 && x <= 6) || (x >= 9 && x <= 12));
+      const win = S.win && x >= 3 && x <= 12 && y >= 3 && y <= 12, pane = win && x !== 3 && x !== 12 && y !== 3 && y !== 12 && x !== 7 && x !== 8 && y !== 7 && y !== 8;
+      const panel = ((y >= 17 && y <= 28) || (!S.win && y >= 3 && y <= 11)) && ((x >= 3 && x <= 6) || (x >= 9 && x <= 12));
       if (frame) col = x === 0 || y === 0 ? wood([94, 63, 37], x, y) : x === 15 || y === 31 ? wood([52, 34, 20], x, y) : wood([74, 49, 29], x, y);
       else if (pane) {
         const px = x < 7 ? x - 4 : x - 9, py = y < 7 ? y - 4 : y - 9;
-        col = px === 0 && py === 0 ? [228, 242, 250] : (px + py === 1 ? [176, 210, 230] : (px === 2 && py === 2 ? [96, 136, 166] : vary([134, 178, 206], 8)));
+        col = px === 0 && py === 0 ? [228, 242, 250] : (px + py === 1 ? [176, 210, 230] : (px === 2 && py === 2 ? [96, 136, 166] : vary0([134, 178, 206], 8)));
       } else if (win) col = (x === 7 || x === 8 || y === 7 || y === 8) ? wood([70, 46, 27], x, y) : wood([56, 37, 22], x, y);
-      else if (y === 14) col = x >= 3 && x <= 12 ? vary([204, 160, 62], 14) : wood([86, 58, 34], x, y);   // goldene Leiste
+      else if (y === 14) col = x >= 3 && x <= 12 ? vary0(S.gold ? [204, 160, 62] : [120, 120, 126], 14) : wood([86, 58, 34], x, y);   // goldene Leiste
       else if (y === 13 || y === 15) col = wood([66, 44, 26], x, y);
       else if (panel) {
         const lx = x <= 6 ? x - 3 : x - 9, ly = y - 17;
@@ -4829,10 +5110,11 @@
       put(x, y, col);
     }
     // Eiserne Türbänder an der Angelseite mit hellen Nieten
-    for (const y0 of [4, 25]) for (let x = 0; x <= 5; x++) for (let y = y0; y <= y0 + 1; y++) put(x, y, (x === 1 || x === 4) && y === y0 ? [150, 146, 140] : vary([46, 44, 46], 8));
+    for (const y0 of [4, 25]) for (let x = 0; x <= 5; x++) for (let y = y0; y <= y0 + 1; y++) put(x, y, (x === 1 || x === 4) && y === y0 ? [150, 146, 140] : vary0([46, 44, 46], 8));
     // Goldener Türgriff mit Schild und Schlüsselloch
+    const HG = S.gold ? null : [[150, 110, 40], [100, 100, 106]], hcol = col => HG ? (col[0] > 200 ? [196, 198, 204] : col[0] > 160 ? [150, 152, 160] : col[0] < 40 ? col : [96, 98, 104]) : col;
     for (const [x, y, col] of [[13, 17, [150, 110, 40]], [13, 18, [236, 196, 84]], [12, 18, [214, 170, 62]], [13, 19, [255, 236, 150]], [12, 19, [236, 196, 84]],
-      [13, 20, [150, 110, 40]], [13, 21, [170, 128, 48]], [13, 22, [24, 18, 14]], [13, 23, [150, 110, 40]]]) put(x, y, col);
+      [13, 20, [150, 110, 40]], [13, 21, [170, 128, 48]], [13, 22, [24, 18, 14]], [13, 23, [150, 110, 40]]]) put(x, y, hcol(col));
     // Kanten
     for (let y = 0; y < 32; y++) for (let x = 16; x < 20; x++) put(x, y, vary(x === 17 ? [60, 40, 24] : [76, 51, 30], 8));
     for (let y = 0; y < 32; y++) for (let x = 20; x < 32; x++) put(x, y, [0, 0, 0]);
@@ -4841,27 +5123,49 @@
     t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
     return t;
   }
+  // Zauntor 16 x 16 Pixel: zwei Pfosten, drei Latten, eine schräge Strebe, dazwischen frei (durchsichtig)
+  function makeGateTex() {
+    const c = document.createElement("canvas"); c.width = 16; c.height = 16;
+    const g = c.getContext("2d"), img = g.createImageData(16, 16), rnd = mulberry32(4712);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const post = x <= 1 || x >= 14, rail = y <= 1 || y >= 14 || y === 7 || y === 8, brace = x > 1 && x < 14 && Math.abs((15 - y) - (x - 1) * 15 / 12) < 1.2;
+      const k = (y * 16 + x) * 4, on = post || rail || brace;
+      const base = post ? [150, 114, 66] : (y === 0 || y === 7 || y === 14) ? [196, 158, 100] : [172, 134, 82], v = (rnd() - 0.5) * 14;
+      img.data[k] = base[0] + v; img.data[k + 1] = base[1] + v; img.data[k + 2] = base[2] + v; img.data[k + 3] = on ? 255 : 0;
+    }
+    g.putImageData(img, 0, 0);
+    const t = new THREE.CanvasTexture(c);
+    t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+    return t;
+  }
   // Die Tür dreht sich um eine Angel in der äußeren Ecke der Türöffnung und klappt nach innen an die Laibung
   function initDoors() {
-    doorTex = makeDoorTex();
     doorGeo = new THREE.BoxGeometry(DOOR_T, 2, 1);
     const uv = doorGeo.attributes.uv;   // Seiten: +x, -x (Türblatt, gespiegelt, damit der Griff immer außen am freien Rand sitzt), oben, unten, Kanten
     for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) { const i = f * 4 + k, u = uv.getX(i); uv.setX(i, f === 1 ? u * 0.5 : f === 0 ? (1 - u) * 0.5 : (16.5 + u * 3) / 32); }
     uv.needsUpdate = true;
+    gateGeo = new THREE.BoxGeometry(GATE_T, 0.85, 1);
+    const gu = gateGeo.attributes.uv;   // Kanten und Deckflächen zeigen den Pfosten
+    for (let f = 2; f < 6; f++) for (let k = 0; k < 4; k++) { const i = f * 4 + k; gu.setX(i, 0.03 + gu.getX(i) * 0.06); gu.setY(i, 0.04 + gu.getY(i) * 0.08); }
+    gu.needsUpdate = true;
+    gateTex = gateTex || makeGateTex();
     for (let i = DOORS.length - 1; i >= 0; i--) {
-      const d = DOORS[i], k0 = idx(d.x, d.y, d.z), k1 = idx(d.x, d.y + 1, d.z);
+      const d = DOORS[i], gt = d.kind === "gate", B = gt ? GATE : DOOR, k0 = idx(d.x, d.y, d.z), k1 = idx(d.x, d.y + 1, d.z);
+      d.h = gt ? 1 : 2;
       // Hat der König die Tür früher abgebaut, bleibt die Öffnung frei
-      if (world[k0] !== DOOR || world[k1] !== DOOR) { if (world[k0] === DOOR) world[k0] = AIR; if (world[k1] === DOOR) world[k1] = AIR; DOORS.splice(i, 1); continue; }
-      const s = d.ox ? [0, -1] : [-1, 0], e = 0.5 - DOOR_T / 2;
-      d.px = d.x + 0.5 + (d.ox + s[0]) * e; d.pz = d.z + 0.5 + (d.oz + s[1]) * e;
+      if (world[k0] !== B || (!gt && world[k1] !== B)) { if (world[k0] === B) world[k0] = AIR; if (!gt && world[k1] === B) world[k1] = AIR; DOORS.splice(i, 1); continue; }
+      const T = gt ? GATE_T : DOOR_T, s = d.ox ? [0, -1] : [-1, 0], e = 0.5 - T / 2, o = gt ? 0 : 1;
+      d.T = T; d.px = d.x + 0.5 + (d.ox * o + s[0]) * e; d.pz = d.z + 0.5 + (d.oz * o + s[1]) * e;
       d.th0 = Math.atan2(-s[0], -s[1]); d.dth = wrapA(Math.atan2(-d.ox, -d.oz) - d.th0);
       d.cx = d.x + 0.5; d.cz = d.z + 0.5; d.open = false; d.auto = false; d.ang = 0; d.idleT = 0; d.lt = Math.random() * 3;
-      d.mat = litEnt(new THREE.MeshLambertMaterial({ map: doorTex }), { value: new THREE.Vector2(1, 0) });
-      const m = new THREE.Mesh(doorGeo, d.mat);
-      m.position.set(0, 1, 0.5 - DOOR_T / 2); m.castShadow = true; m.receiveShadow = true;
+      const tex = gt ? gateTex : (doorTexs[d.style || "oak"] = doorTexs[d.style || "oak"] || makeDoorTex(d.style || "oak"));
+      d.mat = litEnt(new THREE.MeshLambertMaterial(gt ? { map: tex, alphaTest: 0.5, side: THREE.DoubleSide } : { map: tex }), { value: new THREE.Vector2(1, 0) });
+      const m = new THREE.Mesh(gt ? gateGeo : doorGeo, d.mat);
+      if (gt) m.position.set(0, 0.525, 0.5 - T / 2); else m.position.set(0, 1, 0.5 - T / 2);
+      m.castShadow = true; m.receiveShadow = true;
       d.g = new THREE.Group(); d.g.position.set(d.px, d.y, d.pz); d.g.rotation.y = d.th0; d.g.add(m);
       scene.add(d.g);
-      doorCell.set(k0, d); doorCell.set(k1, d);
+      doorCell.set(k0, d); if (!gt) doorCell.set(k1, d);
       doorLight(d);
     }
   }
@@ -4875,15 +5179,15 @@
   function doorBox(d) {
     const a = d.th0 + (d.open ? d.dth : 0), ux = Math.sin(a), uz = Math.cos(a), vx = Math.cos(a), vz = -Math.sin(a);
     let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
-    for (const w of [-DOOR_T / 2, 1 - DOOR_T / 2]) for (const t of [-DOOR_T / 2, DOOR_T / 2]) {
+    for (const w of [-d.T / 2, 1 - d.T / 2]) for (const t of [-d.T / 2, d.T / 2]) {
       const x = d.px + ux * w + vx * t, z = d.pz + uz * w + vz * t;
       x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z);
     }
-    return [x0, d.y, z0, x1, d.y + 2, z1];
+    return [x0, d.y, z0, x1, d.y + d.h, z1];
   }
   // Steht jemand (der König oder eine Figur) in der Türöffnung? Dann kann die Tür nicht zugehen.
   function doorBusy(d) {
-    const inside = (x, y, z, r, h) => x + r > d.x && x - r < d.x + 1 && z + r > d.z && z - r < d.z + 1 && y < d.y + 2 && y + h > d.y;
+    const inside = (x, y, z, r, h) => x + r > d.x && x - r < d.x + 1 && z + r > d.z && z - r < d.z + 1 && y < d.y + d.h && y + h > d.y;
     if (inside(P.x, P.y, P.z, 0.3, 1.8)) return true;
     for (const e of ents) if (Math.abs(e.x - d.cx) < 2 && Math.abs(e.z - d.cz) < 2 && inside(e.x, e.y, e.z, e.r, e.h)) return true;
     return false;
@@ -4898,24 +5202,25 @@
     if (d.open === open) return true;
     if (!open && doorBusy(d)) return false;
     d.open = open; d.auto = open && auto; d.idleT = 0;
-    const b = open ? DOOR_O : DOOR;
-    world[idx(d.x, d.y, d.z)] = b; world[idx(d.x, d.y + 1, d.z)] = b;
+    if (d.h === 1) world[idx(d.x, d.y, d.z)] = open ? GATE_O : GATE;
+    else { const b = open ? DOOR_O : DOOR; world[idx(d.x, d.y, d.z)] = b; world[idx(d.x, d.y + 1, d.z)] = b; }
     doorSound(open, 1 - Math.hypot(P.x - d.cx, P.y - d.y, P.z - d.cz) / 18);
     return true;
   }
   // Der König öffnet oder schließt die Tür mit Rechtsklick oder E
   function useDoor(d) {
     swingHand();
-    if (!setDoor(d, !d.open, false)) showName("Es steht jemand in der Tür");
+    if (!setDoor(d, !d.open, false)) showName(d.h === 1 ? "Es steht jemand im Tor" : "Es steht jemand in der Tür");
   }
   // Abbauen wie in Minecraft: die ganze Tür verschwindet, die Öffnung bleibt frei (wird gespeichert)
   function breakDoor(d) {
     swingHand();
-    blockParticles(d.x, d.y, d.z, DPLANK, 12); blockParticles(d.x, d.y + 1, d.z, DPLANK, 12); blockSound(DPLANK, "break", 0.08);
-    doorCell.delete(idx(d.x, d.y, d.z)); doorCell.delete(idx(d.x, d.y + 1, d.z));
+    const pb = d.h === 1 ? PLANKS : DPLANK;
+    blockParticles(d.x, d.y, d.z, pb, 12); if (d.h === 2) blockParticles(d.x, d.y + 1, d.z, pb, 12); blockSound(pb, "break", 0.08);
+    doorCell.delete(idx(d.x, d.y, d.z)); if (d.h === 2) doorCell.delete(idx(d.x, d.y + 1, d.z));
     const i = DOORS.indexOf(d); if (i >= 0) DOORS.splice(i, 1);
     scene.remove(d.g); d.mat.dispose();
-    editBlock(d.x, d.y, d.z, AIR); editBlock(d.x, d.y + 1, d.z, AIR);
+    editBlock(d.x, d.y, d.z, AIR); if (d.h === 2) editBlock(d.x, d.y + 1, d.z, AIR);
   }
   // Will diese Figur gleich durch die Tür? (Ihr Weg führt hindurch, sie steht darin oder läuft direkt darauf zu)
   function doorWanted(e, d) {
@@ -4952,6 +5257,384 @@
       }
     }
   }
+  // ---------- Version 11: Fundament für das große Land ----------
+  // Neue Blockarten anmelden: Name, Kacheln [oben, unten, Seite] und Eigenschaften (cutout: Kachel mit durchsichtigen Pixeln, glow: leuchtet selbst). Das dürfen auch die Teile der Helfer
+  // (jeder hat seinen eigenen Nummernbereich für Blöcke und Atlas-Kacheln).
+  function defBlock(b, o) {
+    NAMES[b] = o.name; TEX[b] = o.tex;
+    if (o.plant) PLANT[b] = 1;
+    if (o.clear || o.plant) CLEAR[b] = 1;
+    if (o.nonsolid || o.plant) NONSOLID[b] = 1;
+    if (o.tall) TALL[b] = 1;
+    if (o.log) LOGB[b] = 1;
+    if (o.leaf) LEAFB[b] = 1;
+    OPQ[b] = CLEAR[b] ? 0 : 1;
+    ATT[b] = o.att || (OPQ[b] ? 15 : 1);
+    EMIT[b] = o.emit || 0;
+    if (o.mat) MATOF[b] = o.mat;
+    if (o.seat && !SEATB.includes(b)) SEATB.push(b);
+    if (o.cutout) LAYER[b] = 2;
+    if (o.glow) LAYER[b] = 3;
+    if (!o.hidden && !PALETTE.includes(b)) PALETTE.push(b);
+  }
+  // Stämme und Laub aller Baumarten (James fällt sie, Laub ohne Stamm zerfällt)
+  const LOGB = new Uint8Array(NB), LEAFB = new Uint8Array(NB);
+  for (const b of [LOG, SPRUCE_LOG, BIRCH_LOG]) LOGB[b] = 1;
+  for (const b of [LEAVES, SPRUCE_LEAVES, BIRCH_LEAVES, APPLE_LEAVES]) LEAFB[b] = 1;
+  // ---------- Geformte Blöcke: Möbel, Teppiche, Laternen aus kleinen Quadern ----------
+  // Maße in Sechzehnteln eines Blocks (wie die Pixel einer Kachel). Jeder Quader: { f: [x0, y0, z0], t: [x1, y1, z1], tex: Kachel oder [oben, unten, Seite], glow: true leuchtet }
+  // Mit rot: true entstehen vier Blöcke (id bis id + 3), um je 90 Grad gedreht: id schaut nach Süden (+z), id + 1 nach Westen, id + 2 nach Norden, id + 3 nach Osten.
+  // Weitere Angaben: name, icon (Kachel fürs Blockmenü), nonsolid (man läuft hindurch, etwa Teppich), emit (Licht 1 bis 15), mat (Geräusch),
+  // layer 2 (Kacheln mit durchsichtigen Pixeln), seat (Sitzhöhe in Sechzehnteln: man kann sich daraufsetzen und schaut in Blickrichtung), hidden (nicht im Blockmenü).
+  // bed: 1 Kopfteil (Kissen), 2 Fußteil (Decke); das Fußteil liegt in Blickrichtung vor dem Kopfteil, lie: Liegehöhe in Sechzehnteln.
+  const SHAPE = [], SEAT_SHAPE = [], BED_SHAPE = [], ROTB = [];
+  const rot16 = (x, z, k) => { for (let i = 0; i < k; i++) { const t = x; x = 16 - z; z = t; } return [x, z]; };
+  function defShape(id, o) {
+    for (let k = 0; k < (o.rot ? 4 : 1); k++) {
+      const boxes = o.boxes.map(q => {
+        const p0 = rot16(q.f[0], q.f[2], k), p1 = rot16(q.t[0], q.t[2], k);
+        return { a: [Math.min(p0[0], p1[0]) / 16, q.f[1] / 16, Math.min(p0[1], p1[1]) / 16], b: [Math.max(p0[0], p1[0]) / 16, q.t[1] / 16, Math.max(p0[1], p1[1]) / 16], tex: q.tex, glow: !!q.glow };
+      });
+      SHAPE[id + k] = { boxes, layer: o.layer || 0 };
+      const ic = o.icon !== undefined ? o.icon : typeof o.boxes[0].tex === "number" ? o.boxes[0].tex : o.boxes[0].tex[2];
+      defBlock(id + k, { name: o.name, tex: [ic, ic, ic], clear: true, nonsolid: o.nonsolid, emit: o.emit, mat: o.mat, att: 1, hidden: k > 0 || o.hidden });
+      const d = rot16(8, 16, k), dx = Math.sign(d[0] - 8), dz = Math.sign(d[1] - 8);
+      if (o.seat) SEAT_SHAPE[id + k] = { h: o.seat / 16, dx, dz };
+      if (o.bed) BED_SHAPE[id + k] = { part: o.bed, h: (o.lie || 9) / 16, dx, dz };
+      if (o.rot) ROTB[id + k] = id;
+    }
+  }
+  // Gedrehter Block, der in Richtung (dx, dz) schaut: Stuhl mit Blick nach (dx, dz), Kopfteil eines Betts mit dem Fußende dort
+  const rotId = (id, dx, dz) => id + (dz > 0 ? 0 : dx < 0 ? 1 : dz < 0 ? 2 : 3);
+  // Teppiche (1/16 hoch, man läuft darüber): rot, weiß, blau
+  const CARPET_R = 290, CARPET_W = 291, CARPET_B = 292;
+  defShape(CARPET_R, { name: "Teppich rot", nonsolid: true, mat: "wool", boxes: [{ f: [0, 0, 0], t: [16, 1, 16], tex: 16 }] });
+  defShape(CARPET_W, { name: "Teppich weiß", nonsolid: true, mat: "wool", boxes: [{ f: [0, 0, 0], t: [16, 1, 16], tex: 22 }] });
+  defShape(CARPET_B, { name: "Teppich blau", nonsolid: true, mat: "wool", boxes: [{ f: [0, 0, 0], t: [16, 1, 16], tex: 23 }] });
+
+  // ---------- Grundausstattung an Möbeln für alle Häuser (Block-IDs 620 bis 679) ----------
+  // Stühle schauen mit rot nach Süden (id), Westen (id + 1), Norden (id + 2), Osten (id + 3); die Lehne steht auf der Rückseite.
+  const chairBoxes = (wood, pad, rail) => [
+    ...[[2.5, 2.5], [12, 2.5], [2.5, 12], [12, 12]].map(([x, z]) => ({ f: [x, 0, z], t: [x + 1.5, 8, z + 1.5], tex: wood })),
+    { f: [2, 8, 2], t: [14, 9.5, 14], tex: wood },
+    { f: [2.8, 9.5, 3.8], t: [13.2, 10.8, 13.2], tex: pad },
+    { f: [2.5, 9.5, 2.5], t: [4, 20, 4], tex: wood }, { f: [12, 9.5, 2.5], t: [13.5, 20, 4], tex: wood },
+    { f: [2, 20, 2.2], t: [14, 21.5, 4.2], tex: rail },
+    { f: [4, 11.5, 2.8], t: [12, 19, 3.8], tex: pad },
+  ];
+  const CHAIR_O = 620, CHAIR_D = 624, CHAIR_W = 628;
+  defShape(CHAIR_O, { name: "Stuhl aus Eiche", rot: true, seat: 11, mat: "wood", icon: 9, boxes: chairBoxes(9, 16, 9) });
+  defShape(CHAIR_D, { name: "Stuhl aus dunklem Holz", rot: true, seat: 11, mat: "wood", icon: 15, boxes: chairBoxes(15, 23, 17) });
+  defShape(CHAIR_W, { name: "Salonstuhl", rot: true, seat: 11, mat: "wood", icon: 20, boxes: chairBoxes(20, 16, 17) });
+  // Tische: Eiche, dunkles Holz mit Tischläufer, weißer Marmor mit goldenen Beinen
+  const tableBoxes = (top, leg) => [{ f: [0, 14, 0], t: [16, 16, 16], tex: top }, { f: [1, 12.5, 1], t: [15, 14, 15], tex: leg },
+    ...[[1, 1], [13, 1], [1, 13], [13, 13]].map(([x, z]) => ({ f: [x, 0, z], t: [x + 2, 12.5, z + 2], tex: leg }))];
+  const TABLE_O = 632, TABLE_D = 633, TABLE_W = 634;
+  defShape(TABLE_O, { name: "Tisch aus Eiche", mat: "wood", icon: 9, boxes: tableBoxes(9, 9) });
+  defShape(TABLE_D, { name: "Tisch mit Tischläufer", mat: "wood", icon: 15, boxes: [...tableBoxes(15, 15), { f: [0, 16, 5], t: [16, 16.3, 11], tex: 22 }, { f: [-0.2, 13, 5], t: [16.2, 16.3, 11], tex: 22 }] });
+  defShape(TABLE_W, { name: "Marmortisch", mat: "stone", icon: 20, boxes: tableBoxes(20, 17) });
+  // Laternen: hängend (an der Decke oder unter einem Balken) und stehend (auf Tisch, Mauer oder Boden)
+  const lanternCage = (y0, y1) => [[4.6, 4.6], [10.6, 4.6], [4.6, 10.6], [10.6, 10.6]].map(([x, z]) => ({ f: [x, y0, z], t: [x + 0.8, y1, z + 0.8], tex: 69 }));
+  const LANTERN_H = 635, LANTERN_S = 636;
+  defShape(LANTERN_H, { name: "Hängelaterne", emit: 14, mat: "stone", icon: 21, boxes: [{ f: [7.5, 10, 7.5], t: [8.5, 16, 8.5], tex: 69 }, { f: [5, 2, 5], t: [11, 9, 11], tex: 21, glow: true },
+    { f: [4.5, 9, 4.5], t: [11.5, 10, 11.5], tex: 69 }, { f: [6, 10, 6], t: [10, 11, 10], tex: 69 }, { f: [4.5, 1, 4.5], t: [11.5, 2, 11.5], tex: 69 }, ...lanternCage(2, 9)] });
+  defShape(LANTERN_S, { name: "Laterne", emit: 14, mat: "stone", icon: 21, boxes: [{ f: [4.5, 0, 4.5], t: [11.5, 1, 11.5], tex: 69 }, { f: [5, 1, 5], t: [11, 8, 11], tex: 21, glow: true },
+    { f: [4.5, 8, 4.5], t: [11.5, 9, 11.5], tex: 69 }, { f: [6, 9, 6], t: [10, 10, 10], tex: 69 }, { f: [7.5, 10, 7.5], t: [8.5, 12, 8.5], tex: 69 }, ...lanternCage(1, 8)] });
+  // Gartenbank aus dunklem Holz mit gusseisernen Seiten, Hocker, Buchsbaum im Terrakottatopf
+  const BENCH = 637, STOOL = 641, POT_BOX = 642;
+  defShape(BENCH, { name: "Gartenbank", rot: true, seat: 10, mat: "wood", icon: 15, boxes: [
+    { f: [0, 8, 3], t: [16, 9.5, 13], tex: 15 }, { f: [1, 0, 3.5], t: [2.5, 8, 12.5], tex: 69 }, { f: [13.5, 0, 3.5], t: [15, 8, 12.5], tex: 69 },
+    { f: [1, 8, 2], t: [2.5, 17, 3.5], tex: 69 }, { f: [13.5, 8, 2], t: [15, 17, 3.5], tex: 69 },
+    { f: [0, 11, 2.2], t: [16, 13, 3.4], tex: 15 }, { f: [0, 14.5, 2.2], t: [16, 16.5, 3.4], tex: 15 },
+    { f: [0.5, 12, 3.5], t: [2.5, 13, 12], tex: 69 }, { f: [13.5, 12, 3.5], t: [15.5, 13, 12], tex: 69 }] });
+  defShape(STOOL, { name: "Hocker", seat: 10, mat: "wood", icon: 9, boxes: [{ f: [3, 8, 3], t: [13, 10, 13], tex: 9 },
+    ...[[3.5, 3.5], [11, 3.5], [3.5, 11], [11, 11]].map(([x, z]) => ({ f: [x, 0, z], t: [x + 1.5, 8, z + 1.5], tex: 9 })), { f: [4.5, 3, 4.5], t: [11.5, 4, 11.5], tex: 9 }] });
+  defShape(POT_BOX, { name: "Buchsbaum im Topf", mat: "wood", icon: 7, boxes: [{ f: [4.5, 0, 4.5], t: [11.5, 6, 11.5], tex: 149 }, { f: [4, 5, 4], t: [12, 6.5, 12], tex: 149 },
+    { f: [4.5, 6.5, 4.5], t: [11.5, 12.5, 11.5], tex: 7 }, { f: [5.5, 12.5, 5.5], t: [10.5, 15, 10.5], tex: 7 }, { f: [3.8, 7.5, 5.5], t: [12.2, 11.5, 10.5], tex: 7 }, { f: [5.5, 7.5, 3.8], t: [10.5, 11.5, 12.2], tex: 7 }] });
+  // Betten aus Kopfteil und Fußteil mit hohem Rahmen aus dunklem Holz und Goldleiste: rot und blau.
+  // Kopfteil mit rot: das Fußteil liegt in Blickrichtung davor. Am einfachsten mit bed2(x, y, z, dx, dz, BED_R): Kopf bei (x, z), Füße bei (x + dx, z + dz).
+  const bedHead = cover => [{ f: [0, 0, 0], t: [16, 15, 2], tex: 15 }, { f: [0, 15, 0], t: [16, 16.5, 2.4], tex: 17 }, { f: [3, 6, 1.9], t: [13, 13, 2.2], tex: cover },
+    { f: [0, 2, 2], t: [1, 6, 16], tex: 15 }, { f: [15, 2, 2], t: [16, 6, 16], tex: 15 }, { f: [1, 3, 2], t: [15, 8, 16], tex: 22 },
+    { f: [2.5, 8, 3], t: [13.5, 10, 7], tex: 22 }, { f: [0.6, 5, 7], t: [15.4, 9, 16], tex: cover }, { f: [0.4, 7.5, 7], t: [15.6, 8.5, 16], tex: 17 }];
+  const bedFoot = cover => [{ f: [0.6, 5, 0], t: [15.4, 9, 14], tex: cover }, { f: [0.4, 7.5, 0], t: [15.6, 8.5, 14], tex: 17 }, { f: [1, 3, 0], t: [15, 8, 14], tex: 22 },
+    { f: [0, 2, 0], t: [1, 6, 14], tex: 15 }, { f: [15, 2, 0], t: [16, 6, 14], tex: 15 }, { f: [0, 0, 14], t: [16, 10, 16], tex: 15 }, { f: [0, 10, 13.6], t: [16, 11, 16], tex: 17 }];
+  const BED_R = 643, BED_R_F = 647, BED_B = 651, BED_B_F = 655;
+  defShape(BED_R, { name: "Bett rot", rot: true, bed: 1, lie: 9, mat: "wool", icon: 16, boxes: bedHead(16) });
+  defShape(BED_R_F, { name: "Bett rot (Fußende)", rot: true, bed: 2, lie: 9, mat: "wool", icon: 16, hidden: true, boxes: bedFoot(16) });
+  defShape(BED_B, { name: "Bett blau", rot: true, bed: 1, lie: 9, mat: "wool", icon: 23, boxes: bedHead(23) });
+  defShape(BED_B_F, { name: "Bett blau (Fußende)", rot: true, bed: 2, lie: 9, mat: "wool", icon: 23, hidden: true, boxes: bedFoot(23) });
+  // Ganzes Bett setzen: Kopfteil bei (x, y, z), Fußteil bei (x + dx, y, z + dz). foot ist das Fußteil zum Kopfteil (sonst id + 4).
+  function bed2(x, y, z, dx, dz, head, foot) { setB(x, y, z, rotId(head, dx, dz)); setB(x + dx, y, z + dz, rotId(foot || head + 4, dx, dz)); }
+  PALETTE.push(SPRUCE_LOG, SPRUCE_PLANKS, SPRUCE_LEAVES, BIRCH_LOG, BIRCH_PLANKS, BIRCH_LEAVES, MOSSY_COBBLE, PATH, FARMLAND, FENCE,
+    PLASTER_W, PLASTER_Y, PLASTER_R, PLASTER_B, ROOF_RED, ROOF_GREEN, PUMPKIN, MELON, CARROTS, POTATOES, BEETS, TALLGRASS, FERN, REEDS, MUSHROOM_R, MUSHROOM_B);
+  // Hier melden sich die Teile der Helfer an: Atlas-Kacheln malen, Bauten in die Welt setzen, Tiere und Figuren erzeugen, jedes Bild etwas tun
+  const V11 = { atlas: [], build: [], spawn: [], update: [] };
+  // Orte für spätere Versionen (ab Version 14 leben die Bewohner nach Tagesablauf): Häuser mit Betten und Truhe, Brunnen zum Wasserholen,
+  // Arbeitsplätze, Tiergehege, Felder und Sehenswürdigkeiten für die Karte
+  const PLACES11 = { homes: [], wells: [], work: [], pens: [], fields: [], sights: [] };
+
+  // Wo gehört ein Ort hin? Schloss, Dorf, Oststadt, Neustadt, Gutshof, Felder, Wald oder freies Land
+  function zoneAt(x, z) {
+    if (inCastle(x, z)) return "schloss";
+    if (inRect(VIL, x, z)) return "dorf";
+    if (inRect(EAST, x, z)) return "oststadt";
+    if (inRect(MARKT, x, z)) return "markt";
+    if (inRect(NEU, x, z)) return "neustadt";
+    if (inRect(GUT, x, z)) return "gutshof";
+    if (inRect(FELD, x, z)) return "felder";
+    if (lakeR(x, z) < 1) return "see";
+    if (inRect(WALD, x, z)) return "wald";
+    return "land";
+  }
+  // Siedlungen: hier entstehen keine Zombies, wilde Tiere laufen nicht hinein
+  const inTown = (x, z, m) => inCastle(x, z) || inRect(VIL, x, z, m || 0) || inRect(EAST, x, z, m || 0) || inRect(NEU, x, z, m || 0) || inRect(GUT, x, z, m || 0);
+  // Boden an einer Stelle (Gras, Blumen und Farn zählen nicht)
+  function groundY(x, z) {
+    let y = topY[x + z * W];
+    while (y > 0 && (PLANT[get(x, y, z)] || get(x, y, z) === AIR)) y--;
+    return y;
+  }
+
+  // ---------- Wege ----------
+  // Mittellinie (Zellmitte), halbe Breite, Block. Eine Zelle gehört zum Weg, wenn ihre Mitte näher als die halbe Breite an der Linie liegt.
+  const ROADS11 = [
+    { b: COBBLE, hw: 3.5, pts: [[96.5, 243], [96.5, 335]] },                        // Hauptstraße durch die Neustadt
+    { b: PATH, hw: 2.5, pts: [[96.5, 335], [96.5, 433]] },                          // Feldweg nach Süden durch die Felder
+    { b: COBBLE, hw: 2, pts: [[153, 197], [207, 197]] },                            // Oststraße durch die Oststadt
+    { b: PATH, hw: 2, pts: [[207, 197], [215, 197]] },                              // weiter zum Gutshof
+    { b: COBBLE, hw: 2, pts: [[204, 197], [204, 158]] },                            // Gasse der Oststadt nach Norden zum Waldweg
+    { b: COBBLE, hw: 2, pts: [[31, 287], [207, 287]] },                             // Querstraße der Neustadt, mitten über den Marktplatz
+    { b: PATH, hw: 2, pts: [[207, 287], [215, 287]] },                              // weiter zum Gutshof
+    { b: PATH, hw: 2, pts: [[228, 300], [228, 343]] },                              // vom Gutshof zu den Feldern
+    { b: PATH, hw: 2, pts: [[204, 158], [204, 144], [206, 128], [205, 112], [202, 98], [199, 88], [199, 80]] },   // Waldweg von der Oststadt zum Bootssteg
+  ];
+  const roadMask = new Uint8Array(W * D);   // 1 Weg, 2 Wegrand (dort wachsen keine Bäume)
+  function segDist(px, pz, a, b) {
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz;
+    const t = L ? Math.max(0, Math.min(1, ((px - a[0]) * dx + (pz - a[1]) * dz) / L)) : 0;
+    return Math.hypot(px - a[0] - t * dx, pz - a[1] - t * dz);
+  }
+  function markRoads11() {
+    roadMask.fill(0);
+    for (const r of ROADS11) r.cells = [];
+    for (const r of ROADS11) for (let i = 0; i + 1 < r.pts.length; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], m = r.hw + 3;
+      for (let z = Math.floor(Math.min(a[1], b[1]) - m); z <= Math.ceil(Math.max(a[1], b[1]) + m); z++)
+        for (let x = Math.floor(Math.min(a[0], b[0]) - m); x <= Math.ceil(Math.max(a[0], b[0]) + m); x++) {
+          if (x < 0 || z < 0 || x >= W || z >= D) continue;
+          const d = segDist(x + 0.5, z + 0.5, a, b), k = x + z * W;
+          if (d < r.hw) { if (roadMask[k] !== 1) r.cells.push(k); roadMask[k] = 1; }
+          else if (d < m && !roadMask[k]) roadMask[k] = 2;
+        }
+    }
+  }
+  function paintRoads11() {
+    for (const r of ROADS11) for (const k of r.cells) {
+      const x = k % W, z = (k - x) / W;
+      let y = heights[k];
+      if (y <= SEA) { y = SEA + 1; setB(x, y, z, SPRUCE_PLANKS); }   // über Wasser: ein Steg aus Brettern
+      else setB(x, y, z, r.b);
+      for (let yy = y + 1; yy <= y + 4; yy++) { const b = get(x, yy, z); if (PLANT[b] || LEAFB[b]) setB(x, yy, z, AIR); }
+    }
+  }
+
+  // ---------- Bäume ----------
+  // Dürfen hier Bäume wachsen? Nicht in Siedlungen, auf Feldern, auf Wegen oder am Seeufer
+  function treeOk11(x, z) {
+    if (roadMask[x + z * W]) return false;
+    if (inRect(EAST, x, z, 5) || inRect(NEU, x, z, 5) || inRect(GUT, x, z, 5) || inRect(FELD, x, z, 4)) return false;
+    return lakeR(x, z) > 1.22;
+  }
+  // Birke: schlanker weißer Stamm, lichte Krone
+  function plantBirch(x, h, z, rnd) {
+    const th = 5 + Math.floor(rnd() * 3);
+    for (let y = 1; y <= th; y++) setB(x, h + y, z, BIRCH_LOG);
+    for (let dy = th - 3; dy <= th + 1; dy++) {
+      const r = dy >= th ? 1 : 2;
+      for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.abs(dx) === r && Math.abs(dz) === r && (r === 2 || dy === th + 1 || rnd() < 0.5)) continue;
+        if (get(x + dx, h + dy, z + dz) === AIR) setB(x + dx, h + dy, z + dz, BIRCH_LEAVES);
+      }
+    }
+  }
+  // Fichte: hoher Stamm, Zweige in Stufen, die nach unten breiter werden, oben spitz
+  function plantSpruce(x, h, z, rnd) {
+    const th = 7 + Math.floor(rnd() * 5), base = 2 + Math.floor(rnd() * 2), layers = th - base + 1;
+    for (let y = 1; y <= th; y++) setB(x, h + y, z, SPRUCE_LOG);
+    setB(x, h + th + 1, z, SPRUCE_LEAVES);
+    if (rnd() < 0.6) setB(x, h + th + 2, z, SPRUCE_LEAVES);
+    for (let i = 0; i < layers; i++) {
+      const y = h + th - i, t = i / Math.max(1, layers - 1);
+      let r = Math.round(1 + t * 2.3); if (i % 2 === 1) r = Math.max(1, r - 1);
+      for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+        if ((!dx && !dz) || dx * dx + dz * dz > r * r + 0.6) continue;
+        if (get(x + dx, y, z + dz) === AIR) setB(x + dx, y, z + dz, SPRUCE_LEAVES);
+      }
+    }
+  }
+  // Alte Eiche: dicker Stamm mit Wurzeln, schräge Äste, große runde Kronen
+  function plantBigOak(x, h, z, rnd) {
+    const th = 8 + Math.floor(rnd() * 4);
+    for (let y = 1; y <= th; y++) setB(x, h + y, z, LOG);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (rnd() < 0.75 && solid(get(x + dx, h, z + dz))) setB(x + dx, h + 1, z + dz, LOG);
+    const blobs = [[x, h + th + 1, z, 3.3]], nb = 3 + Math.floor(rnd() * 3);
+    for (let i = 0; i < nb; i++) {
+      const a = rnd() * 1.2 + i * Math.PI * 2 / nb, len = 3 + Math.floor(rnd() * 3), y0 = h + th - 2 - Math.floor(rnd() * 3);
+      let bx = x, by = y0, bz = z;
+      for (let s = 1; s <= len; s++) { bx = Math.round(x + Math.sin(a) * s); bz = Math.round(z + Math.cos(a) * s); by = y0 + Math.round(s * 0.55); setB(bx, by, bz, LOG); }
+      blobs.push([bx, by + 1, bz, 2.3 + rnd() * 0.9]);
+    }
+    for (const [cx, cy, cz, r] of blobs) {
+      const R = Math.ceil(r);
+      for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
+        if (dx * dx + dy * dy * 1.7 + dz * dz > r * r || rnd() < 0.07) continue;
+        if (get(cx + dx, cy + dy, cz + dz) === AIR) setB(cx + dx, cy + dy, cz + dz, LEAVES);
+      }
+    }
+  }
+  // Busch: ein kleiner Laubhügel am Boden
+  function plantBush(x, h, z, rnd, leaf) {
+    setB(x, h + 1, z, leaf);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (rnd() < 0.55 && get(x + dx, h + 1, z + dz) === AIR && solid(get(x + dx, h, z + dz))) setB(x + dx, h + 1, z + dz, leaf);
+    if (rnd() < 0.4) setB(x, h + 2, z, leaf);
+  }
+  // Findling: ein bemooster Steinbrocken
+  function plantRock(x, h, z, rnd) {
+    const r = 1.2 + rnd() * 1.1;
+    for (let dy = 0; dy <= 2; dy++) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+      if (dx * dx + dz * dz + dy * dy * 2.2 > r * r + rnd() * 0.8) continue;
+      setB(x + dx, h + dy, z + dz, rnd() < 0.45 ? MOSSY_COBBLE : rnd() < 0.5 ? COBBLE : STONE);
+    }
+  }
+
+  // ---------- Das neue Land: Wege, Wald, Wiesen, See, dann die Bauten der Helfer ----------
+  function buildLand11() {
+    paintRoads11();
+    const rnd = mulberry32(20261101), trunk = new Uint8Array(W * D);
+    const free = (x, z, r) => { for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { const k = x + dx + (z + dz) * W; if (trunk[k] || LOGB[get(x + dx, heights[k] + 1, z + dz)]) return false; } return true; };
+    for (let z = 4; z < D - 4; z++) for (let x = 4; x < W - 4; x++) {
+      const k = x + z * W, h = heights[k];
+      if (world[idx(x, h, z)] !== GRASS || h > 44 || !treeOk11(x, z)) continue;
+      const old = x < OLD_W - 3 && z < OLD_D - 3;
+      if (old && (Math.max(Math.abs(x - C), Math.abs(z - C)) < 68 || inRect(VIL, x, z, 6))) continue;
+      const wald = inRect(WALD, x, z), dense = fbm(x / 34, z / 34, 99);
+      // Im alten Teil stehen die Bäume von Version 10 schon; nur im Königswald kommen welche dazu
+      const p = wald ? 0.018 + 0.05 * dense : old ? 0 : 0.011;
+      if (rnd() > p) continue;
+      const kind = rnd(), big = wald && kind < 0.07;
+      if (!free(x, z, big ? 4 : 2)) continue;
+      trunk[k] = 1;
+      const spruceP = h > 31 ? 0.75 : wald ? 0.22 : 0.1, birchP = fbm(x / 46, z / 46, 97) > 0.56 ? 0.6 : 0.16;
+      if (big) plantBigOak(x, h, z, rnd);
+      else if (kind < 0.07 + spruceP) plantSpruce(x, h, z, rnd);
+      else if (kind < 0.07 + spruceP + birchP * (1 - spruceP)) plantBirch(x, h, z, rnd);
+      else plantTree(x, h, z, rnd);
+    }
+    // Unterholz, Findlinge, Gras, Blumen, Farn und Pilze (nicht in Siedlungen und auf Feldern)
+    for (let z = 14; z < D - 14; z++) for (let x = 14; x < W - 14; x++) {
+      const k = x + z * W, h = heights[k];
+      if (roadMask[k] === 1 || inTown(x + 0.5, z + 0.5, 2) || inRect(FELD, x, z, 1) || Math.max(Math.abs(x - C), Math.abs(z - C)) < 62) continue;
+      const top = world[idx(x, h, z)];
+      if (get(x, h + 1, z) !== AIR) continue;
+      const wald = inRect(WALD, x, z), r = hash(x, z, 1101), r2 = hash(x, z, 1102);
+      if (top === GRASS) {
+        if (wald && r < 0.012 && !roadMask[k]) plantBush(x, h, z, rnd, rnd() < 0.3 ? BIRCH_LEAVES : LEAVES);
+        else if (r < 0.0016 && !roadMask[k]) plantRock(x, h, z, rnd);
+        else if (wald && r < 0.09) setB(x, h + 1, z, r2 < 0.55 ? FERN : r2 < 0.62 ? (r2 < 0.585 ? MUSHROOM_R : MUSHROOM_B) : TALLGRASS);
+        else if (r < 0.12 + 0.1 * fbm(x / 20, z / 20, 1103)) setB(x, h + 1, z, TALLGRASS);
+        else if (r > 0.994) setB(x, h + 1, z, [FLOWER_R, FLOWER_Y, FLOWER_B, FLOWER_W, TULIP][Math.floor(r2 * 5)]);
+      } else if (top === SAND && h === SEA + 1 && r < 0.5) {
+        // Schilf am Wasser
+        if (get(x + 1, SEA, z) === WATER || get(x - 1, SEA, z) === WATER || get(x, SEA, z + 1) === WATER || get(x, SEA, z - 1) === WATER) setB(x, h + 1, z, REEDS);
+      }
+    }
+    buildLake11(rnd);
+    for (const f of V11.build) f();
+  }
+
+  // ---------- Der Königssee: Bootssteg am Westufer, Pavillon auf der Insel ----------
+  const JETTY = { x: 0, z: LAKE.cz };
+  function buildLake11(rnd) {
+    // Vom Ende des Waldwegs nach Osten bis zum Wasser, dann 14 Blöcke hinaus
+    const z0 = LAKE.cz - 1;
+    let sx = 200;
+    while (sx < LAKE.cx && get(sx, SEA, z0) !== WATER) sx++;
+    JETTY.x = sx;
+    const y = SEA + 1;
+    for (let i = -4; i <= 14; i++) for (let dz = 0; dz < 3; dz++) {
+      const x = sx + i, z = z0 + dz;
+      if (i < 0 && heights[x + z * W] >= y) continue;
+      setB(x, y, z, SPRUCE_PLANKS);
+      for (let yy = y + 1; yy <= y + 3; yy++) if (PLANT[get(x, yy, z)]) setB(x, yy, z, AIR);
+      if ((i % 4 === 0) && dz !== 1) for (let yy = heights[x + z * W] + 1; yy < y; yy++) setB(x, yy, z, SPRUCE_LOG);
+    }
+    // Geländer mit Laternen am Ende
+    for (let i = 0; i <= 13; i++) for (const dz of [0, 2]) setB(sx + i, y + 1, z0 + dz, FENCE);
+    for (const dz of [0, 2]) { setB(sx + 14, y + 1, z0 + dz, SPRUCE_LOG); setB(sx + 14, y + 2, z0 + dz, LAMP); }
+    buildPavilion(ISLE.x, SEA + 2, ISLE.z);
+  }
+  // Pavillon: runder Marmorboden, acht Säulen, Kupferkuppel mit goldener Spitze, Bänke und eine Laterne in der Mitte
+  function buildPavilion(cx, gy, cz) {
+    const R = 4.6;
+    for (let dz = -8; dz <= 8; dz++) for (let dx = -8; dx <= 8; dx++) {
+      const d = Math.hypot(dx, dz);
+      if (d <= R + 0.5) { setB(cx + dx, gy + 1, cz + dz, d > R - 0.6 ? MARBLE_D : ((dx + dz) & 1) ? MARBLE : QUARTZ); for (let y = gy + 2; y <= gy + 12; y++) setB(cx + dx, y, cz + dz, AIR); }
+      else if (d <= R + 3 && get(cx + dx, gy, cz + dz) === GRASS && get(cx + dx, gy + 1, cz + dz) === AIR && ((dx * 3 + dz * 5) & 3) !== 0) setB(cx + dx, gy + 1, cz + dz, d > R + 2.2 ? ROSEBUSH : [FLOWER_R, FLOWER_W, TULIP, FLOWER_Y][(dx * 7 + dz * 3 + 99) % 4]);
+    }
+    // Stufen zum Wasser nach Westen (zum Steg hin)
+    // Weg aus Quarz vom Pavillon nach Westen bis ans Wasser (zum Steg hin)
+    for (let i = 1; i <= 7; i++) for (let dz = -1; dz <= 1; dz++) {
+      const x = cx - Math.round(R) - i, top = heights[x + (cz + dz) * W];
+      if (top < SEA + 1) continue;
+      setB(x, top, cz + dz, QUARTZ); setB(x, top + 1, cz + dz, AIR);
+    }
+    for (let k = 0; k < 8; k++) {
+      const a = k * Math.PI / 4 + Math.PI / 8, px = cx + Math.round(Math.cos(a) * (R - 0.8)), pz = cz + Math.round(Math.sin(a) * (R - 0.8));
+      fill(px, gy + 2, pz, px, gy + 6, pz, PILLAR); setB(px, gy + 7, pz, GOLD_TRIM);
+    }
+    // Kuppel
+    for (let dy = 0; dy <= 5; dy++) {
+      const r = (R + 0.6) * Math.cos(dy / 6 * Math.PI / 2);
+      for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) {
+        const d = Math.hypot(dx, dz);
+        if (d <= r + 0.5 && d > r - 1.3 - (dy === 0 ? 1 : 0)) setB(cx + dx, gy + 8 + dy, cz + dz, dy === 0 && d > r - 0.5 ? GOLD_TRIM : ROOF_GREEN);
+      }
+    }
+    fill(cx, gy + 14, cz, cx, gy + 15, cz, GOLD);
+    // Laterne an einer Kette, Bänke aus dunklem Holz mit Lehne
+    fill(cx, gy + 9, cz, cx, gy + 12, cz, BARS); setB(cx, gy + 8, cz, LAMP);
+    for (const [dx, dz, bx, bz] of [[-2, 0, -3, 0], [2, 0, 3, 0], [0, 2, 0, 3]]) { setB(cx + dx, gy + 2, cz + dz, DPLANK); setB(cx + bx, gy + 2, cz + bz, DPLANK); setB(cx + bx, gy + 3, cz + bz, DPLANK); }
+  }
+  // ---------- Version 11: Namen der neuen Gebiete ----------
+  // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.
+  // Der Bootssteg liegt erst nach dem Bau der Welt fest
+  const AREA_JETTY = ["Bootssteg", "am Königssee", 0, 0, SEA - 2, SEA + 6, LAKE.cz - 2, LAKE.cz + 2];
+  V11.build.push(() => { AREA_JETTY[2] = JETTY.x - 4; AREA_JETTY[3] = JETTY.x + 14; });
+  AREAS.push(
+    ["Inselpavillon", "mitten im Königssee", ISLE.x - 6, ISLE.x + 6, SEA - 2, SEA + 16, ISLE.z - 6, ISLE.z + 6],
+    AREA_JETTY,
+    ["Der Königssee", "", LAKE.cx - 26, LAKE.cx + 26, SEA - 12, SEA + 8, LAKE.cz - 34, LAKE.cz + 34],
+    ["Der Königswald", "Birken, Fichten und alte Eichen", WALD.x0, WALD.x1, G0 - 12, G0 + 40, WALD.z0, WALD.z1],
+    ["Die Oststadt", "", EAST.x0, EAST.x1, G0 - 4, G0 + 30, EAST.z0, EAST.z1],
+    ["Der Marktplatz", "", MARKT.x0, MARKT.x1, G0 - 4, G0 + 30, MARKT.z0, MARKT.z1],
+    ["Die Neustadt", "", NEU.x0, NEU.x1, G0 - 4, G0 + 30, NEU.z0, NEU.z1],
+    ["Der Gutshof", "Pferde, Kühe, Schafe und das Gutshaus", GUT.x0, GUT.x1, G0 - 4, G0 + 30, GUT.z0, GUT.z1],
+    ["Die Felder", "", FELD.x0, FELD.x1, G0 - 4, G0 + 30, FELD.z0, FELD.z1],
+  );
+  // Solange in einem Gebiet noch nichts steht (der Teil des Helfers fehlt noch), heißt es dort „Bauplatz“.
+  // Sobald ein Teil dort Häuser, Arbeitsplätze, Weiden, Felder oder Sehenswürdigkeiten einträgt, verschwindet das.
+  const AREA_BAU = AREAS.slice(-5);
+  V11.build.push(() => {
+    const pts = [];
+    for (const h of PLACES11.homes) pts.push([h.door[0], h.door[2]]);
+    for (const w of PLACES11.work) pts.push([w.spot[0], w.spot[2]]);
+    for (const w of PLACES11.wells) if (w.water) pts.push([w.water[0], w.water[2]]);
+    for (const s of PLACES11.sights) pts.push([s.x, s.z]);
+    for (const q of PLACES11.pens.concat(PLACES11.fields)) pts.push([(q.x0 + q.x1) / 2, (q.z0 + q.z1) / 2]);
+    for (const a of AREA_BAU) {
+      if (!pts.some(([x, z]) => x >= a[2] && x <= a[3] && z >= a[6] && z <= a[7])) a[1] = "Bauplatz: hier wird gerade gebaut";
+    }
+  });
 
   // ---------- Version 10: Gemälde von König Markus' Taten ----------
   // Beim Start wird jedes Bild einmal gemalt: eine kleine Bühne in der echten Welt mit Figuren in Pose,
@@ -5241,6 +5924,14 @@
   function drawMapArt(pw, ph) {
     const out = new Uint8ClampedArray(pw * ph * 4), PAR = [238, 220, 176], INK = [92, 64, 36];
     const hAt = (x, z) => topY[Math.max(0, Math.min(W - 1, x)) + Math.max(0, Math.min(D - 1, z)) * W];
+    // Alle anderen Blöcke (auch die neuen der Version 11): mittlere Farbe ihrer Kachel von oben, etwas gedämpft
+    const AT = atlasCanvas.getContext("2d").getImageData(0, 0, 256, 256).data, tileC = [];
+    const tileColor = t => {
+      if (tileC[t]) return tileC[t];
+      let r = 0, g = 0, bl = 0, n = 0;
+      for (let v = 0; v < 16; v++) for (let u = 0; u < 16; u++) { const o = (((Math.floor(t / 16) * 16 + v) * 256) + (t % 16) * 16 + u) * 4; if (AT[o + 3] > 100) { r += AT[o]; g += AT[o + 1]; bl += AT[o + 2]; n++; } }
+      return (tileC[t] = n ? mix([r / n, g / n, bl / n], [150, 136, 118], 0.25) : [150, 136, 118]);
+    };
     for (let z = 0; z < ph; z++) for (let x = 0; x < pw; x++) {
       const wx = Math.floor(x * W / pw), wz = Math.floor(z * D / ph), y = hAt(wx, wz), b = get(wx, y, wz);
       let c;
@@ -5252,8 +5943,11 @@
       else if (b === SLATE || b === BRICK || b === RWOOL) c = [160, 82, 60];
       else if (b === GOLD || b === GOLD_TRIM) c = [226, 182, 64];
       else if (b === SAND) c = [230, 210, 156];
-      else if (b === GRASS || b === DIRT || PLANT[b] || b === SNOW) c = mix(PAR, [150, 172, 104], 0.5);
-      else c = [150, 136, 118];
+      else if (b === GRASS || b === DIRT || (PLANT[b] && !(b >= CARROTS && b <= BEETS)) || b === SNOW) c = mix(PAR, [150, 172, 104], 0.5);
+      else if (b === FARMLAND || (b >= CARROTS && b <= BEETS)) c = [170, 146, 92];
+      else if (b === PATH) c = [196, 176, 136];
+      else if (LEAFB[b]) c = b === BIRCH_LEAVES ? [112, 142, 72] : [70, 102, 62];
+      else c = TEX[b] ? tileColor(TEX[b][0]) : [150, 136, 118];
       // Relief: Licht von Nordwesten, Höhenlinien alle 4 Blöcke
       const k = 1 + Math.max(-0.22, Math.min(0.22, (y - hAt(wx - 1, wz - 1)) * 0.07));
       c = mix(c, PAR, 0.3).map(v => v * k);
@@ -5284,14 +5978,21 @@
     text("Schloss", C, 128, 14, false);
     text("Garten", C, 58, 11, true);
     text("Dorf", C, 180, 13, false);
-    text("Felder", 58, 224, 10, true); text("Felder", 132, 224, 10, true);
-    text("Große Mauer", C, 241, 10, true);
+    // Das neue Land (Version 11)
+    text("Oststadt", 182, 172, 11, false);
+    text("Neustadt", 152, 316, 13, false);
+    text("Markt", C, 266, 10, true);
+    text("Gutshof", 266, 178, 12, false);
+    text("Königswald", 206, 140, 11, true);
+    text("Königssee", 240, 84, 10, true);
+    text("Felder", 62, 367, 11, true); text("Felder", 170, 367, 11, true);
+    text("Große Mauer", 250, 428, 10, true);
     // Krone über dem Thronsaal
     const [cx, cy] = P2(C + 0.5, 92);
     g.fillStyle = "#d8a933"; g.strokeStyle = "#5a3a12"; g.lineWidth = 1;
     g.beginPath(); g.moveTo(cx - 7, cy + 4); g.lineTo(cx - 7, cy - 3); g.lineTo(cx - 3.5, cy + 0.5); g.lineTo(cx, cy - 5); g.lineTo(cx + 3.5, cy + 0.5); g.lineTo(cx + 7, cy - 3); g.lineTo(cx + 7, cy + 4); g.closePath(); g.fill(); g.stroke();
     // Windrose unten links
-    const [rx, ry] = P2(30, 222);
+    const [rx, ry] = P2(28, 424);
     g.save(); g.translate(rx, ry);
     for (let i = 0; i < 4; i++) {
       g.rotate(Math.PI / 2);
@@ -5360,11 +6061,11 @@
       return [d, artFire([mouth.x, mouth.y, mouth.z], dir, Math.hypot(...dir) * 0.5),
         artActor("business", mx, my, mz, -0.35, "swordUp", { sword: "diamond", shield: true, crown: true, cape: true, light: [1, 0.55] })];
     } },
-    // Morgens auf der Großen Mauer: der König zeigt über sein Dorf zum Schloss
-    wall: { day: 0.3, cam: [93, 0, 250.8], look: [96.5, 0, 205], fov: 55, ready() { const y0 = standY(96, 245); this.cam[1] = y0 + 2.8; this.look[1] = y0 + 1.5; }, stage: () => {
-      const y0 = standY(96, 245);
-      return [artActor("business", 95.4, y0, 244.2, Math.PI + 0.25, "point", { crown: true, cape: true, head: [0, 1] }),
-        artActor("guard", 91.4, y0, 244.4, Math.PI - 0.15, "spear")];
+    // Morgens auf der Großen Mauer im Westen: der König zeigt über das Dorf zum Schloss, hinter ihm ein Wachturm
+    wall: { day: 0.3, cam: [8.8, 0, 217], look: [62, 0, 150], fov: 55, ready() { const y0 = standY(11.2, 211.8); this.cam[1] = y0 + 2.5; this.look[1] = y0 - 7; }, stage: () => {
+      const y0 = standY(11.2, 211.8), y1 = standY(9.6, 207.8);
+      return [artActor("business", 11.2, y0, 211.8, 1.95, "point", { crown: true, cape: true, head: [0, 1] }),
+        artActor("guard", 9.6, y1, 207.8, 2.6, "spear")];
     } },
     people: { day: 0.52, cam: [96.5, 29.8, 212.2], look: [96.5, 28.8, 200], fov: 50, stage: () => [
       artActor("business", 96.5, 27, 202.6, 0, "wave", { crown: true, cape: true }),
@@ -5494,7 +6195,7 @@
     if (playing && !palOpen) {
       updateTarget();
       outline.visible = !!target;
-      if (target && target.door) { const q = doorBox(target.door); outline.scale.set(q[3] - q[0], 2, q[5] - q[2]); outline.position.set((q[0] + q[3]) / 2, q[1] + 1, (q[2] + q[5]) / 2); }
+      if (target && target.door) { const q = doorBox(target.door); outline.scale.set(q[3] - q[0], q[4] - q[1], q[5] - q[2]); outline.position.set((q[0] + q[3]) / 2, (q[1] + q[4]) / 2, (q[2] + q[5]) / 2); }
       else if (target) { outline.scale.set(1, 1, 1); outline.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5); }
     } else outline.visible = false;
     // Hinweise: erst gesprochene Sätze, sonst was man mit dem Angeschauten tun kann
@@ -5504,7 +6205,7 @@
       const tb = target ? get(target.x, target.y, target.z) : AIR, act = isTouch ? "„Bauen“: " : "E: ", use = isTouch ? "„Bauen“: " : "Rechtsklick oder E: ";
       if (P.seat && P.seat.t < 6) msg = isTouch ? "Springen oder Joystick: Aufstehen" : "Leertaste oder W A S D: Aufstehen";
       else if (tb === LEVER || tb === LEVER_ON) msg = (isTouch ? "Tippe auf „Bauen“, um das Tor zu " : "Rechtsklick oder E, um das Tor zu ") + (gate.open ? "schließen" : "öffnen");
-      else if (target && target.door) msg = use + (target.door.open ? "Tür schließen" : "Tür öffnen");
+      else if (target && target.door) msg = use + (target.door.h === 1 ? (target.door.open ? "Tor schließen" : "Tor öffnen") : (target.door.open ? "Tür schließen" : "Tür öffnen"));
       else if (target && bigCellAt(target.x, target.y, target.z)) msg = use + (BGATE.open ? "Das Riesentor schließen" : "Das Riesentor öffnen");
       else if (target && paintingTitle(tb)) msg = "Gemälde: „" + paintingTitle(tb) + "“";
       else if (targetEnt && targetEnt === butler) msg = act + (butler.stay ? "James soll dir wieder folgen" : "James soll hier warten");
@@ -5557,7 +6258,7 @@
       if (save.gate) gateInstantOpen();
       for (let i = 0; i + 1 < save.e.length; i += 2) {
         const k = save.e[i], b = save.e[i + 1];
-        if (!(k >= 0 && k < world.length && b >= 0 && b < 256 && (b === AIR || TEX[b]))) continue;
+        if (!(k >= 0 && k < world.length && b >= 0 && b < NB && (b === AIR || TEX[b]) && b !== DOOR && b !== DOOR_O && b !== GATE && b !== GATE_O)) continue;
         world[k] = b; edits.set(k, b);
         if (b === LEVER || b === LEVER_ON) {
           const x = k % W, z = Math.floor(k / W) % D, y = Math.floor(k / (W * D));
@@ -5587,7 +6288,9 @@
     setMonsters(!(save && save.mon === false));
     timeRun = !(save && save.tr === false);
     P.fallTop = P.y; updateSky(0); syncTimeUI(); showClock();
-    spawnPeople(); spawnAnimals(); spawnButler(save && save.stay); updateJamesTag(); placeProps(); spawnStaff(); initDoors();
+    spawnPeople(); spawnAnimals(); spawnButler(save && save.stay); updateJamesTag(); placeProps(); spawnStaff();
+    for (const f of V11.spawn) f();
+    initDoors();
     worldReady = true;
     artQueue.push(...Object.keys(ART_SCENES));
     playBtn.disabled = false; playBtn.textContent = isTouch ? "Spielen" : "Spielen (Klick)";
