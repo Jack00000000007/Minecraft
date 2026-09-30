@@ -2,11 +2,21 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Neu in Version 11, Teil 2: Marktplatz und Felder
+
+- Mitten in der Neustadt liegt jetzt der Marktplatz mit dem Kronenbrunnen: ein achteckiges Marmorbecken mit einer goldenen Schale und einer Krone, aus der das Wasser sprudelt. Rundherum stehen zwölf Marktstände mit gestreiften Markisen: Gemüse, Obst, Bäcker, Metzger, Käse, Fisch, Blumen, Töpfer, Tuch, Wein, Honig und Gewürze. Dazu kommen ein weiß-blauer Maibaum mit Zunftzeichen, Linden mit Rundbänken und Laternen.
+- Zwölf Händler verkaufen an ihren Ständen und rufen ihre Waren aus, wenn du vorbeikommst. Acht Kunden kaufen ein, schauen in den Brunnen und sitzen auf den Bänken. Mit E oder Rechtsklick redest du mit ihnen.
+- Südlich der Neustadt sind die Felder bunt bepflanzt: Weizen, Sonnenblumen, Lavendel, Raps, Mais, Kürbisse, Kartoffeln, Karotten, Kohl, Rote Bete, Melonen und ein Obstgarten mit Bienenkörben. Bauern und Mägde mähen, hacken, pflücken und gießen.
+- Auf einem Hügel steht die Windmühle mit Umgang, und ihre Flügel drehen sich. Daneben liegen das Müllerhaus mit Reetdach, ein Ziehbrunnen und ein Geräteschuppen. Der Müller und die Müllerin schlafen nachts in ihren Betten.
+- Morgens kommen alle über die Straßen herein, abends gehen sie heim. Nachts ist der Markt leer, aber hell erleuchtet.
+- Neu im Blockmenü (B): Kopfsteinpflaster, Markisen in vier Farben, Marktpfosten, Theke, Kisten mit Waren, Laternenmast, Maibaum, Sonnenblume, Mais, Lavendel, Raps, Kohlkopf, Reetdach, Holzschindeln, Mühlstein, Mehlsack, Wassertrog und die goldene Brunnenschale.
+- Noch im Bau: die Häuser der Oststadt und der Neustadt, das Rathaus mit Uhrturm, das Gasthaus, die Bäckerei und die Schmiede rund um den Markt und der Gutshof mit Pferdestall. Dort steht beim Hineinlaufen „Bauplatz“.
+
 ## Neu in Version 11, Teil 1: das große Land
 
 - Das Land ist jetzt dreimal so groß. Die Große Mauer steht weiter draußen, Schloss und Dorf sind genau wie vorher, und dein alter Spielstand läuft weiter.
 - Östlich vom Schloss liegt der Königssee mit einem Bootssteg und einem Pavillon auf der Insel, rundherum der Königswald mit Birken, Fichten und alten Eichen.
-- Neue Straßen und Wege führen vom Dorf in die neuen Gebiete: die Oststadt, die Neustadt mit dem Marktplatz, den Gutshof und die Felder. Dort sind jetzt noch Bauplätze. In Teil 2 kommen die Häuser mit voller Einrichtung, der Markt mit Brunnen, der Gutshof mit Pferdestall und Pferden und die Felder mit Windmühle.
+- Neue Straßen und Wege führen vom Dorf in die neuen Gebiete: die Oststadt, die Neustadt mit dem Marktplatz, den Gutshof und die Felder.
 - Neue Möbel im Blockmenü (B): Stühle und Gartenbänke, auf die du dich setzen kannst, Tische, Laternen, Hocker, Buchsbäume im Topf und Betten mit Holzrahmen, in denen du schlafen kannst. Stühle, Bänke und Betten drehen sich beim Bauen zu dir.
 - Neue Blöcke: Fichten- und Birkenholz, bemooster Bruchstein, Feldweg, Ackerboden, Holzzaun, Putz in vier Farben, rote Dachziegel, Kupferdach, Kürbis, Melone, Karotten, Kartoffeln, Rote Bete, Farn, Schilf und Pilze.
 - Die Karte im Arbeitszimmer zeigt das ganze neue Land mit allen Namen, und das Gemälde „Der König auf der Großen Mauer“ ist neu gemalt. Betrittst du ein neues Gebiet, steht oben kurz sein Name.
