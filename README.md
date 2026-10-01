@@ -2,6 +2,15 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Neu in Version 11, Teil 3: die Häuser der Oststadt und der Neustadt
+
+- In der Oststadt und der Neustadt stehen jetzt 32 Häuser mit 35 Wohnungen: Fachwerkhäuser, Bürgerhäuser in vielen Farben, ein Schwedenhaus mit Grasdach, Reihenhäuser mit langen Gärten und vier Villen, darunter die Barockvilla Rosenhof mit Springbrunnen und eine moderne Villa mit Glasfronten und Schwimmbecken.
+- Jedes Haus ist ganz eingerichtet: Diele mit Standuhr, Küche mit Herd, Esszimmer mit gedeckter Tafel und Kronleuchter, Salon mit Kamin, Sofa und Klavier, Schlafzimmer, Kinderzimmer und Bad. Die Haustüren gehen auf und zu, die Treppen kannst du hinaufgehen, und in jedes der 186 Betten kannst du dich zum Schlafen legen.
+- In der Oststadt liegt der Lindenplatz mit einer großen Linde, Bänken und einem Ziehbrunnen, in der Neustadt der Stadtpark mit Teich, Schilf und einem Musikpavillon mit Kupferkuppel. Dazu Gärten mit Zäunen, Obstbäumen und Gemüsebeeten und fast hundert Laternen.
+- Neu im Blockmenü (B): Fachwerk, Putz in fünf neuen Farben, Sandstein, Parkett, Orientteppiche, Tapeten, Holzvertäfelung, Delfter Kacheln, Sprossen- und Butzenscheibenfenster, Balustrade, Stuckfries und Möbel wie Samtsofa, Ohrensessel, Kleiderschrank, Klavier, Standuhr, Badewanne, Küchenherd und Kronleuchter.
+- Damit das Spiel trotz der vielen Möbel flüssig bleibt, zeichnet es die Einrichtung tief drinnen in den Häusern nur in deiner Nähe. Von draußen sieht alles aus wie vorher.
+- Noch im Bau: Rathaus mit Uhrturm, Gasthaus, Bäckerei, Schmiede und Läden rund um den Markt und der Gutshof mit den Pferden. Dort steht beim Hineinlaufen „Bauplatz“.
+
 ## Neu in Version 11, Teil 2: Marktplatz und Felder
 
 - Mitten in der Neustadt liegt jetzt der Marktplatz mit dem Kronenbrunnen: ein achteckiges Marmorbecken mit einer goldenen Schale und einer Krone, aus der das Wasser sprudelt. Rundherum stehen zwölf Marktstände mit gestreiften Markisen: Gemüse, Obst, Bäcker, Metzger, Käse, Fisch, Blumen, Töpfer, Tuch, Wein, Honig und Gewürze. Dazu kommen ein weiß-blauer Maibaum mit Zunftzeichen, Linden mit Rundbänken und Laternen.
@@ -10,7 +19,6 @@ Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und
 - Auf einem Hügel steht die Windmühle mit Umgang, und ihre Flügel drehen sich. Daneben liegen das Müllerhaus mit Reetdach, ein Ziehbrunnen und ein Geräteschuppen. Der Müller und die Müllerin schlafen nachts in ihren Betten.
 - Morgens kommen alle über die Straßen herein, abends gehen sie heim. Nachts ist der Markt leer, aber hell erleuchtet.
 - Neu im Blockmenü (B): Kopfsteinpflaster, Markisen in vier Farben, Marktpfosten, Theke, Kisten mit Waren, Laternenmast, Maibaum, Sonnenblume, Mais, Lavendel, Raps, Kohlkopf, Reetdach, Holzschindeln, Mühlstein, Mehlsack, Wassertrog und die goldene Brunnenschale.
-- Noch im Bau: die Häuser der Oststadt und der Neustadt, das Rathaus mit Uhrturm, das Gasthaus, die Bäckerei und die Schmiede rund um den Markt und der Gutshof mit Pferdestall. Dort steht beim Hineinlaufen „Bauplatz“.
 
 ## Neu in Version 11, Teil 1: das große Land
 

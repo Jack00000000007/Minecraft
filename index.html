@@ -168,7 +168,7 @@
 <div id="menu">
   <div class="card">
     <h1>Blockwelt</h1>
-    <p id="menuText">Du bist der König dieses Landes, auch wenn du lieber Anzug trägst als Krone. Dein Butler James begleitet dich überallhin. Vor dir steht dein Schloss: Durch den Vorsaal mit acht Gemälden von dir und das große geschnitzte Tor kommst du in den Thronsaal, und der Thron gehört dir. Köche und Dienerinnen arbeiten im Schloss, es gibt eine Schatzkammer, einen Speisesaal, ein Bad und hinten einen Garten. Hinter dir liegt das Dorf, auf den Wiesen leben Kühe, Schafe, Schweine und Hühner. Das Land ist jetzt dreimal so groß: Östlich vom Schloss liegt der Königssee mit Bootssteg und einem Pavillon auf der Insel, rundherum der Königswald. Mitten in der Neustadt liegt der Marktplatz mit dem Kronenbrunnen und zwölf Marktständen, weiter südlich die Felder mit der Windmühle. Die Häuser der Oststadt und der Neustadt, die Gebäude rund um den Markt und der Gutshof mit den Pferden entstehen gerade. Nachts steigen draußen Zombies aus der Erde, im Schloss und im Dorf bist du sicher. Zieh den Hebel oder drück Strg + G, dann senkt sich die Zugbrücke.</p>
+    <p id="menuText">Du bist der König dieses Landes, auch wenn du lieber Anzug trägst als Krone. Dein Butler James begleitet dich überallhin. Vor dir steht dein Schloss: Durch den Vorsaal mit acht Gemälden von dir und das große geschnitzte Tor kommst du in den Thronsaal, und der Thron gehört dir. Köche und Dienerinnen arbeiten im Schloss, es gibt eine Schatzkammer, einen Speisesaal, ein Bad und hinten einen Garten. Hinter dir liegt das Dorf, auf den Wiesen leben Kühe, Schafe, Schweine und Hühner. Das Land ist jetzt dreimal so groß: Östlich vom Schloss liegt der Königssee mit Bootssteg und einem Pavillon auf der Insel, rundherum der Königswald. Die Oststadt und die Neustadt sind voller prächtiger Bürgerhäuser und Villen, alle ganz eingerichtet, mit dem Lindenplatz und dem Stadtpark. Mitten in der Neustadt liegt der Marktplatz mit dem Kronenbrunnen und zwölf Marktständen, weiter südlich die Felder mit der Windmühle. Rathaus, Gasthaus, Bäckerei und Schmiede rund um den Markt und der Gutshof mit den Pferden entstehen gerade. Nachts steigen draußen Zombies aus der Erde, im Schloss und im Dorf bist du sicher. Zieh den Hebel oder drück Strg + G, dann senkt sich die Zugbrücke.</p>
     <button id="play" disabled>Welt wird erzeugt …</button>
     <button id="quality">Grafik: Auto</button>
     <div class="timebox">
@@ -1277,10 +1277,13 @@
       tg.i.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
     });
   }
-  // Geformte Blöcke (Möbel, Teppiche, Laternen): alle Quader mit dem Licht der eigenen Zelle, leuchtende Teile in der Lampen-Ebene
+  // Geformte Blöcke (Möbel, Teppiche, Laternen): alle Quader mit dem Licht der eigenen Zelle, leuchtende Teile in der Lampen-Ebene.
+  // Möbel tief drinnen in Häusern (Dach darüber, wenig Himmelslicht) kommen in die Ebene „Innenleben“ (L[5]): Sie wirft keinen
+  // Sonnenschatten und wird nur in der Nähe gezeigt (siehe cullChunks). Von draußen sieht man sie aus der Ferne ohnehin kaum.
   function shapeGeo(L, x, y, z, b) {
     const S = SHAPE[b], i = x + z * W + y * WD, ls = skyL[i] / 15, lb = blkL[i] / 15;
-    for (const q of S.boxes) if (q.glow) boxGeo(L[3], x, y, z, q.a, q.b, q.tex, 1, 1, true); else boxGeo(L[S.layer], x, y, z, q.a, q.b, q.tex, ls, lb);
+    const tg = S.layer === 0 && skyL[i] <= 12 && topY[x + z * W] > y + 1 ? L[5] : L[S.layer];
+    for (const q of S.boxes) if (q.glow) boxGeo(L[3], x, y, z, q.a, q.b, q.tex, 1, 1, true); else boxGeo(tg, x, y, z, q.a, q.b, q.tex, ls, lb);
   }
   // Zaun: Pfosten in der Mitte, zwei Latten zu jedem Nachbarn (Zaun, Zauntor oder fester Block)
   const fenceLink = n => n === FENCE || n === GATE || n === GATE_O || (OPQ[n] === 1 && solid(n));
@@ -1301,7 +1304,7 @@
   });
   const nO = new Uint8Array(9), nS = new Uint8Array(9), nB = new Uint8Array(9);
   function buildGeo(cx, cz) {
-    const L = [0, 1, 2, 3, 4].map(() => ({ p: [], n: [], u: [], c: [], i: [] }));
+    const L = [0, 1, 2, 3, 4, 5].map(() => ({ p: [], n: [], u: [], c: [], i: [] }));
     const ao = [0, 0, 0, 0];
     let maxY = 0;
     for (let z = cz * CS; z < cz * CS + CS; z++) for (let x = cx * CS; x < cx * CS + CS; x++) maxY = Math.max(maxY, topY[x + z * W]);
@@ -1421,8 +1424,8 @@
     const key = cx + "," + cz, old = chunks.get(key);
     if (old) for (const m of old) if (m) { scene.remove(m); m.geometry.dispose(); }
     const L = buildGeo(cx, cz);
-    const ms = [toMesh(L[0], mats[0], true), toMesh(L[1], mats[1], false), toMesh(L[2], mats[2], false), toMesh(L[3], mats[3], true), toMesh(L[4], mats[4], true)];
-    ms.forEach((m, i) => { if (m) { if (i === 1) m.renderOrder = 1; m.userData.c = [cx * CS + CS / 2, cz * CS + CS / 2]; scene.add(m); } });
+    const ms = [toMesh(L[0], mats[0], true), toMesh(L[1], mats[1], false), toMesh(L[2], mats[2], false), toMesh(L[3], mats[3], true), toMesh(L[4], mats[4], true), toMesh(L[5], mats[0], false)];
+    ms.forEach((m, i) => { if (m) { if (i === 1) m.renderOrder = 1; m.userData.c = [cx * CS + CS / 2, cz * CS + CS / 2]; m.userData.d = i === 5; scene.add(m); } });
     chunks.set(key, ms);
   }
   // Blöcke ändern: die Chunks werden einmal pro Bild neu gebaut (siehe flushWorld), das Licht wird dabei nachgerechnet
@@ -4175,6 +4178,7 @@
   function attack(e) {
     if (atkCd > 0) return;
     atkCd = 0.32; swingHand();
+    if (e.onHit) { e.onHit(e); return; }   // Version 11: Figuren mit eigener Reaktion
     if (e.kind === "zombie") {
       noiseHit(700, 1, 0.09, 0.06);
       damage(e, 3, P, 7);
@@ -4190,6 +4194,7 @@
     else { e.talkT = 2.5; say(e.name, pick(OUCH)); }
   }
   function interact(e) {
+    if (e.use) { e.use(e); return; }   // Version 11: Figuren mit eigenem Verhalten (zum Beispiel die Königin)
     if (e === butler) {
       e.stay = !e.stay; e.job = null; e.target = null; e.talkT = 1.6;
       say("James", e.stay ? "Sehr wohl, ich warte hier auf Sie." : "Sehr wohl, ich folge Ihnen.");
@@ -5606,6 +5611,2253 @@
     fill(cx, gy + 9, cz, cx, gy + 12, cz, BARS); setB(cx, gy + 8, cz, LAMP);
     for (const [dx, dz, bx, bz] of [[-2, 0, -3, 0], [2, 0, 3, 0], [0, 2, 0, 3]]) { setB(cx + dx, gy + 2, cz + dz, DPLANK); setB(cx + bx, gy + 2, cz + bz, DPLANK); setB(cx + bx, gy + 3, cz + bz, DPLANK); }
   }
+  // =====================================================================================================
+  // ---------- Helfer H1 „Häuser“: die Altstadt (Oststadt) und die Neustadt ----------
+  // Block-IDs 300 bis 379, Atlas-Kacheln 152 bis 179. Alle Namen beginnen mit hs oder HS_.
+  // =====================================================================================================
+
+  // ---------- Neue Blöcke: Fachwerk, Putzfarben, Sandstein, Parkett, Teppiche, Tapeten, Fenster ----------
+  const HS_FW_A = 300, HS_FW_B = 301, HS_FW_X = 302, HS_P_GRUEN = 303, HS_P_APRI = 304, HS_P_ROT = 305, HS_P_FLIEDER = 306, HS_P_OCKER = 307,
+    HS_SANDST = 308, HS_PARKETT = 309, HS_RUG_R = 310, HS_RUG_B = 311, HS_TAP_G = 312, HS_TAP_B = 313, HS_PANEEL = 314, HS_DELFT = 315,
+    HS_FENSTER = 316, HS_BALU = 317, HS_FALU = 318, HS_DACH = 319, HS_STUCK = 320, HS_BUTZ = 379;
+  // Möbel und Zierrat aus kleinen Quadern (mit rot: true je vier IDs)
+  const HS_SOFA_L = 321, HS_SOFA_R = 325, HS_SESSEL = 329, HS_SCHRANK = 333, HS_KOMMODE = 337, HS_HERD = 341, HS_SPUELE = 345, HS_WANNE = 349,
+    HS_KLAVIER = 353, HS_UHR = 357, HS_BLUMENK = 361, HS_LADEN = 365, HS_WLAMPE = 369,
+    HS_NACHTT = 373, HS_PALME = 374, HS_MAST = 375, HS_COUCHT = 376, HS_LEUCHTER = 377, HS_FEUER = 378;
+
+  // ---------- Atlas-Kacheln 152 bis 179 ----------
+  V11.atlas.push((tile, vary) => {
+    const PUTZ = [236, 232, 220], BALK = [92, 62, 38], BALK_D = [56, 37, 22];
+    const beam = (d, x, y) => d < 1.1 ? vary(((x * 3 + y * 5) % 7 === 0) ? shade(BALK, 0.85) : BALK, 10) : vary(BALK_D, 8);
+    const putz = (x, y, s) => vary(hash(x, y, s) > 0.94 ? PUTZ.map(v => v - 14) : PUTZ, 6);
+    // Fachwerk: weißer Putz mit dunkler Strebe (von außen gesehen) „/“, „\“ und Andreaskreuz
+    tile(152, (x, y) => { const d = Math.abs(x + y - 15) / Math.SQRT2 * 1.41; return d < 1.9 ? beam(d, x, y) : putz(x, y, 1521); });
+    tile(153, (x, y) => { const d = Math.abs(x - y); return d < 1.9 ? beam(d, x, y) : putz(x, y, 1531); });
+    tile(177, (x, y) => { const d = Math.min(Math.abs(x - y), Math.abs(x + y - 15)); return d < 1.9 ? beam(d, x, y) : putz(x, y, 1771); });
+    // Putzfarben: Salbeigrün, Apricot, Ochsenblutrot, Flieder, Ocker
+    [[166, 198, 158], [242, 178, 124], [176, 82, 66], [192, 172, 212], [212, 164, 92]].forEach((c, i) =>
+      tile(154 + i, (x, y) => vary(hash(x, y, 1540 + i) > 0.93 ? c.map(v => v - 16) : c, 7)));
+    // Sandsteinquader mit Fugen
+    tile(159, (x, y) => {
+      const row = y >> 3, off = row & 1 ? 8 : 0;
+      if (y % 8 === 7 || (x + off) % 16 === 15) return vary([158, 138, 104], 8);
+      if (y % 8 === 0 || (x + off) % 16 === 0) return vary([230, 212, 170], 8);
+      return vary(hash(x >> 1, y >> 1, 1591) > 0.8 ? [200, 178, 134] : [216, 194, 150], 10);
+    });
+    // Fischgrätparkett
+    tile(160, (x, y) => {
+      const c = x >> 2, lx = x & 3, t = (c & 1) ? (y + lx) : (y + 3 - lx), band = (t >> 2) + c;
+      if ((t & 3) === 0) return vary([104, 66, 36], 8);
+      return vary((band & 1) ? [186, 132, 78] : [160, 108, 62], 10);
+    });
+    // Orientteppiche: Medaillon in der Mitte, Viertel in den Ecken
+    const rug = (i, field, med, gold, cream) => tile(i, (x, y) => {
+      const dx = Math.abs(x - 7.5), dy = Math.abs(y - 7.5), d = dx + dy, cd = (7.5 - dx) + (7.5 - dy);
+      if (d < 1.6) return cream;
+      if (d < 3.6) return vary(gold, 10);
+      if (d < 4.6) return vary(cream, 6);
+      if (d < 6.2) return vary(med, 8);
+      if (cd < 2.6) return vary(gold, 10);
+      if (cd < 3.8) return vary(med, 8);
+      return vary(((x + 2 * y) % 5) === 0 ? shade(field, 0.82) : field, 8);
+    });
+    rug(161, [156, 30, 38], [36, 46, 104], [214, 170, 76], [238, 222, 176]);
+    rug(162, [40, 54, 116], [150, 28, 36], [214, 170, 76], [238, 222, 176]);
+    // Tapeten: grün mit Goldstreifen, cremefarben mit blauen Ranken
+    tile(163, (x, y) => {
+      if (x === 0 || x === 8) return vary([198, 164, 74], 8);
+      if ((x === 4 || x === 12) && ((y + (x === 12 ? 8 : 0)) % 8 === 3)) return [222, 190, 104];
+      return vary((x >> 2) & 1 ? [58, 100, 70] : [48, 86, 60], 6);
+    });
+    tile(164, (x, y) => {
+      if (x === 2 || x === 3 || x === 10 || x === 11) return vary([112, 136, 182], 6);
+      const lx = (x + 2) & 7, ly = (y + (x >= 6 && x < 10 ? 0 : 4)) & 7;
+      if (lx >= 5 && lx <= 7 && ly >= 3 && ly <= 5 && (lx === 6 || ly === 4)) return [120, 146, 192];
+      return vary([236, 228, 206], 5);
+    });
+    // Holzvertäfelung: Rahmen mit Licht oben links und Schatten unten rechts
+    tile(165, (x, y) => {
+      if (x === 0 || y === 0) return vary([122, 84, 50], 6);
+      if (x === 15 || y === 15) return vary([52, 34, 20], 6);
+      if (x <= 2 || x >= 13 || y <= 2 || y >= 13) return vary([96, 64, 38], 8);
+      if (x === 3 || y === 3) return vary([62, 41, 24], 6);
+      if (x === 12 || y === 12) return vary([116, 80, 48], 6);
+      return vary((x * 3 + y) % 11 === 0 ? [78, 52, 31] : [88, 59, 35], 8);
+    });
+    // Delfter Kacheln: weiß glasiert mit blauem Blütenmuster
+    tile(166, (x, y) => {
+      const lx = x & 7, ly = y & 7;
+      if (lx === 7 || ly === 7) return vary([196, 200, 206], 6);
+      if ((lx === 3 && ly >= 1 && ly <= 5) || (ly === 3 && lx >= 1 && lx <= 5)) return vary([44, 78, 160], 10);
+      if ((lx === 2 || lx === 4) && (ly === 2 || ly === 4)) return vary([96, 128, 196], 10);
+      if ((lx === 0 || lx === 6) && (ly === 0 || ly === 6)) return vary([130, 156, 214], 8);
+      return vary([240, 242, 244], 5);
+    });
+    // Sprossenfenster: weißer Rahmen, Fensterkreuz, durchsichtige Scheiben mit Glanz
+    tile(167, (x, y) => {
+      if (x === 0 || y === 0) return [252, 252, 248];
+      if (x === 15 || y === 15) return [178, 178, 172];
+      if (x === 1 || y === 1 || x === 14 || y === 14) return [236, 236, 230];
+      if (x === 7 || x === 8 || y === 7 || y === 8) return x === 8 || y === 8 ? [206, 206, 200] : [240, 240, 236];
+      if ((x === 3 && y === 3) || (x === 4 && y === 3) || (x === 3 && y === 4) || (x === 10 && y === 11)) return [226, 240, 248];
+      return [0, 0, 0, 0];
+    });
+    // Butzenscheiben: dunkler Holzrahmen, Fensterkreuz, Bleiruten in Rauten, dazwischen durchsichtiges Glas mit grünlichem Schimmer
+    tile(178, (x, y) => {
+      if (x === 0 || y === 0 || x === 15 || y === 15) return vary(x === 15 || y === 15 ? [40, 26, 16] : [92, 62, 36], 6);
+      if (x === 1 || y === 1 || x === 14 || y === 14) return vary([62, 40, 24], 6);
+      if (y === 7 || y === 8) return vary(y === 8 ? [50, 32, 20] : [80, 54, 32], 6);   // Kämpfer (Querholz)
+      if ((x + y) % 5 === 2 || ((x - y) % 5 + 5) % 5 === 2) return [66, 68, 72];        // Bleiruten in Rauten
+      if (hash(x, y, 1781) > 0.84) return [214, 228, 184];
+      return [0, 0, 0, 0];
+    });
+    // Balustrade: Handlauf, Sockel und zwei gedrechselte Docken
+    const dock = [0, 0, 0, 1.4, 1.1, 1.7, 2.3, 2.6, 2.4, 1.8, 1.2, 1.3, 1.9, 0, 0, 0];
+    tile(168, (x, y) => {
+      if (y <= 2) return y === 0 ? [252, 250, 244] : vary([232, 228, 218], 5);
+      if (y >= 13) return y === 13 ? [214, 210, 200] : vary([226, 222, 212], 5);
+      const cx = x < 8 ? 3.5 : 11.5, d = x + 0.5 - (cx + 0.5), w = dock[y];
+      if (Math.abs(d) <= w) return vary(d < -w / 3 ? [250, 248, 240] : d > w / 2 ? [196, 192, 182] : [230, 226, 216], 4);
+      return [0, 0, 0, 0];
+    });
+    // Schwedenrote Bretter (Falunrot)
+    tile(169, (x, y) => {
+      if (x % 4 === 3) return vary([92, 28, 22], 8);
+      if (x % 4 === 0) return vary([168, 56, 42], 8);
+      return vary(hash(x, y >> 2, 1691) > 0.8 ? [132, 38, 30] : [150, 44, 34], 10);
+    });
+    // Dunkle Biberschwanzziegel der Altstadt
+    tile(170, (x, y) => {
+      const row = y >> 2, off = row & 1 ? 2 : 0, u = (x + off) & 3, v = y & 3;
+      if (v === 3) return vary([70, 32, 24], 8);
+      if (u === 0) return vary([98, 44, 32], 8);
+      return vary(v === 0 ? [152, 74, 54] : [126, 58, 42], 10);
+    });
+    // Klaviertasten (von oben)
+    tile(171, (x, y) => {
+      if (y <= 1) return vary([60, 38, 24], 6);
+      const k = x >> 1, black = y < 10 && [0, 1, 3, 4, 5].includes(k % 7) && (x & 1) === 1;
+      const black2 = y < 10 && [0, 1, 3, 4, 5].includes((k + 6) % 7) && (x & 1) === 0 && k > 0;
+      if (black || black2) return [26, 24, 26];
+      if ((x & 1) === 1 && y >= 10) return [170, 168, 160];
+      return vary([246, 244, 236], 4);
+    });
+    // Standuhr: oben das Zifferblatt (die Uhr zeigt nur die oberen 8 x 8 Pixel ab Spalte 4), unten Gehäuse mit Pendel
+    tile(172, (x, y) => {
+      const r = Math.hypot(x + 0.5 - 8, y + 0.5 - 4);
+      if (y < 8 && x >= 4 && x < 12) {
+        if (r > 4.2) return vary([60, 38, 24], 6);
+        if (r > 3.3) return vary([222, 178, 72], 10);                    // Goldrand
+        if (x === 7 && y >= 1 && y <= 3) return [26, 24, 30];            // großer Zeiger auf zwölf
+        if (y === 3 && x >= 8 && x <= 9) return [26, 24, 30];            // kleiner Zeiger auf drei
+        if ((x === 7 && y === 6) || (x === 5 && y === 3) || (x === 10 && y === 4)) return [70, 64, 60];   // Stundenstriche
+        return vary([246, 240, 220], 4);
+      }
+      if (Math.hypot(x + 0.5 - 8, y + 0.5 - 12.5) < 2.2) return vary([226, 182, 76], 10);   // Pendelscheibe
+      if (y >= 8 && (x === 7 || x === 8) && y < 11) return [200, 160, 60];
+      return vary(x < 2 || x > 13 ? [46, 30, 18] : [66, 42, 26], 6);
+    });
+    // Grüner Samt mit Glanz
+    tile(173, (x, y) => { const s = Math.sin((x + y) / 2.6) * 10; return vary([38 + s * 0.4, 96 + s, 60 + s * 0.6], 6); });
+    // Grüner Fensterladen mit Lamellen
+    tile(174, (x, y) => {
+      if (x <= 1 || x >= 14 || y <= 1 || y >= 14) return vary(x === 0 || y === 0 ? [74, 128, 84] : [46, 88, 54], 6);
+      const s = (y - 2) % 3;
+      return vary(s === 0 ? [96, 156, 106] : s === 2 ? [36, 70, 42] : [68, 120, 78], 6);
+    });
+    // Flammen für das Kaminfeuer (ganz undurchsichtig)
+    tile(175, (x, y) => {
+      const cx = Math.abs(x - 7.5), h = (15 - y) / 15, n = hash(x, y, 1751);
+      const heat = 1 - cx / (7.5 - h * 4.5) - h * 0.55 + n * 0.25;
+      if (heat > 0.75) return [255, 246, 200];
+      if (heat > 0.5) return [255, 214, 96];
+      if (heat > 0.25) return [246, 146, 46];
+      if (heat > 0) return [206, 74, 30];
+      return [70, 28, 16];
+    });
+    // Stuckfries: Eierstab zwischen zwei Leisten
+    tile(176, (x, y) => {
+      const W0 = [240, 236, 226];
+      if (y <= 2) return y === 0 ? [252, 250, 244] : vary(W0, 4);
+      if (y === 3 || y === 11) return [196, 190, 176];
+      if (y >= 12) return y === 13 && (x & 1) ? [212, 206, 194] : vary(W0, 4);
+      const ex = x & 7, dx = ex - 3.5, dy = y - 7;
+      if (ex === 7) return [186, 180, 166];
+      const e = (dx * dx) / 6 + (dy * dy) / 7;
+      if (e < 1) return dx < 0 && dy < 0 ? [252, 250, 244] : dx > 0 && dy > 0 ? [212, 206, 194] : [238, 234, 224];
+      if (e < 1.6) return [200, 194, 180];
+      return vary([230, 226, 214], 4);
+    });
+  });
+
+  defBlock(HS_FW_A, { name: "Fachwerk mit Strebe", tex: [140, 140, 152], mat: "wood" });
+  defBlock(HS_FW_B, { name: "Fachwerk mit Gegenstrebe", tex: [140, 140, 153], mat: "wood" });
+  defBlock(HS_FW_X, { name: "Fachwerk mit Andreaskreuz", tex: [140, 140, 177], mat: "wood" });
+  defBlock(HS_P_GRUEN, { name: "Salbeigrüner Putz", tex: [154, 154, 154] });
+  defBlock(HS_P_APRI, { name: "Apricotfarbener Putz", tex: [155, 155, 155] });
+  defBlock(HS_P_ROT, { name: "Ochsenblutroter Putz", tex: [156, 156, 156] });
+  defBlock(HS_P_FLIEDER, { name: "Fliederfarbener Putz", tex: [157, 157, 157] });
+  defBlock(HS_P_OCKER, { name: "Ockerfarbener Putz", tex: [158, 158, 158] });
+  defBlock(HS_SANDST, { name: "Sandstein", tex: [159, 159, 159] });
+  defBlock(HS_PARKETT, { name: "Parkett", tex: [160, 20, 160], mat: "wood" });
+  defBlock(HS_RUG_R, { name: "Orientteppich rot", tex: [161, 20, 161], mat: "wool" });
+  defBlock(HS_RUG_B, { name: "Orientteppich blau", tex: [162, 20, 162], mat: "wool" });
+  defBlock(HS_TAP_G, { name: "Grüne Tapete", tex: [140, 140, 163] });
+  defBlock(HS_TAP_B, { name: "Tapete mit Ranken", tex: [140, 140, 164] });
+  defBlock(HS_PANEEL, { name: "Holzvertäfelung", tex: [15, 15, 165], mat: "wood" });
+  defBlock(HS_DELFT, { name: "Delfter Kacheln", tex: [140, 140, 166] });
+  defBlock(HS_FENSTER, { name: "Sprossenfenster", tex: [140, 140, 167], clear: true, cutout: true, mat: "glass" });
+  defBlock(HS_BALU, { name: "Balustrade", tex: [20, 20, 168], clear: true, cutout: true, tall: true, mat: "stone" });
+  defBlock(HS_FALU, { name: "Schwedenrote Bretter", tex: [169, 169, 169], mat: "wood" });
+  defBlock(HS_DACH, { name: "Dunkle Dachziegel", tex: [170, 170, 170] });
+  defBlock(HS_STUCK, { name: "Stuckfries", tex: [140, 140, 176] });
+  defBlock(HS_BUTZ, { name: "Butzenscheibenfenster", tex: [15, 15, 178], clear: true, cutout: true, mat: "glass" });
+
+  // ---------- Möbel (Maße in Sechzehnteln; Grundstellung schaut nach Süden, die Rückseite liegt bei z = 0) ----------
+  // Sofa aus zwei Hälften: HS_SOFA_L sitzt rechts vom Sitzenden (Armlehne außen), HS_SOFA_R links davon
+  const hsSofa = left => {
+    const a0 = left ? 0 : 13, a1 = left ? 3 : 16, l0 = left ? 1 : 13, p0 = left ? 3.5 : 7.5;
+    return [
+      { f: [0, 2, 1], t: [16, 6.5, 15], tex: 173 },
+      { f: [0, 6.5, 3.5], t: [16, 9, 14.8], tex: 173 },
+      { f: [0, 6.5, 1], t: [16, 15.5, 4], tex: 173 },
+      { f: [0, 15, 1.4], t: [16, 16.8, 4.4], tex: 173 },
+      { f: [a0, 6.5, 1], t: [a1, 11.5, 15], tex: 173 },
+      { f: [a0 - 0.3, 11, 1.6], t: [a1 + 0.3, 12.6, 15.3], tex: 173 },
+      { f: [0, 2, 14.8], t: [16, 2.8, 15.3], tex: 17 },
+      { f: [l0, 0, 2], t: [l0 + 2, 2, 4], tex: 17 }, { f: [l0, 0, 12], t: [l0 + 2, 2, 14], tex: 17 },
+      { f: [p0, 9, 4], t: [p0 + 5, 13.5, 6.5], tex: left ? 16 : 17 },
+    ];
+  };
+  defShape(HS_SOFA_L, { name: "Samtsofa", rot: true, seat: 9, mat: "wool", icon: 173, boxes: hsSofa(true) });
+  defShape(HS_SOFA_R, { name: "Samtsofa (linke Hälfte)", rot: true, seat: 9, mat: "wool", icon: 173, hidden: true, boxes: hsSofa(false) });
+  // Ohrensessel: rot mit Goldfüßen
+  defShape(HS_SESSEL, { name: "Ohrensessel", rot: true, seat: 9, mat: "wool", icon: 16, boxes: [
+    ...[[2, 2.5], [12.5, 2.5], [2, 12.5], [12.5, 12.5]].map(([x, z]) => ({ f: [x, 0, z], t: [x + 1.5, 2.5, z + 1.5], tex: 17 })),
+    { f: [1.5, 2.5, 1.5], t: [14.5, 7, 15], tex: 16 },
+    { f: [3.5, 7, 4], t: [12.5, 9.5, 14.6], tex: 16 },
+    { f: [1.5, 7, 1], t: [14.5, 21, 4], tex: 16 },
+    { f: [1, 12, 3.5], t: [3.5, 20.5, 8], tex: 16 }, { f: [12.5, 12, 3.5], t: [15, 20.5, 8], tex: 16 },
+    { f: [1, 7, 4], t: [3.5, 12.5, 15], tex: 16 }, { f: [12.5, 7, 4], t: [15, 12.5, 15], tex: 16 },
+    { f: [0.7, 12.5, 4], t: [3.8, 13.5, 15.3], tex: 17 }, { f: [12.2, 12.5, 4], t: [15.3, 13.5, 15.3], tex: 17 },
+    { f: [2, 20.5, 1.2], t: [14, 21.5, 3.8], tex: 17 },
+  ] });
+  // Kleiderschrank, zwei Blöcke hoch, mit Türen, Krone und Goldknäufen
+  defShape(HS_SCHRANK, { name: "Kleiderschrank", rot: true, mat: "wood", icon: 79, boxes: [
+    { f: [0.5, 1.5, 1.5], t: [15.5, 29.5, 15], tex: 15 },
+    { f: [1.3, 2.3, 15], t: [14.7, 28.5, 15.5], tex: 79 },
+    { f: [0, 0, 1], t: [16, 1.5, 15.5], tex: 15 },
+    { f: [0, 29.5, 1], t: [16, 31, 15.6], tex: 15 },
+    { f: [-0.4, 31, 0.8], t: [16.4, 32, 16], tex: 17 },
+    { f: [7.1, 13, 15.5], t: [7.7, 16, 16], tex: 17 }, { f: [8.3, 13, 15.5], t: [8.9, 16, 16], tex: 17 },
+  ] });
+  // Kommode mit Marmorplatte, drei Schubladen und Goldknöpfen
+  defShape(HS_KOMMODE, { name: "Kommode", rot: true, mat: "wood", icon: 15, boxes: [
+    { f: [1, 1.5, 2], t: [15, 14.5, 14.6], tex: 15 },
+    { f: [0.4, 14.5, 1.4], t: [15.6, 16, 15.4], tex: 20 },
+    { f: [1.6, 2.4, 14.6], t: [14.4, 5.6, 15.1], tex: 9 }, { f: [1.6, 6.4, 14.6], t: [14.4, 9.6, 15.1], tex: 9 }, { f: [1.6, 10.4, 14.6], t: [14.4, 13.6, 15.1], tex: 9 },
+    { f: [7.3, 3.5, 15.1], t: [8.7, 4.5, 15.7], tex: 17 }, { f: [7.3, 7.5, 15.1], t: [8.7, 8.5, 15.7], tex: 17 }, { f: [7.3, 11.5, 15.1], t: [8.7, 12.5, 15.7], tex: 17 },
+    ...[[1.2, 2.2], [13.3, 2.2], [1.2, 12.8], [13.3, 12.8]].map(([x, z]) => ({ f: [x, 0, z], t: [x + 1.5, 1.5, z + 1.5], tex: 15 })),
+  ] });
+  // Küchenherd aus Gusseisen mit Feuerklappe, Kochplatten, Messingstange und Ofenrohr (glüht ein wenig)
+  defShape(HS_HERD, { name: "Küchenherd", rot: true, mat: "stone", emit: 9, icon: 76, boxes: [
+    { f: [0.5, 1, 1.5], t: [15.5, 13, 15], tex: 24 },
+    { f: [0, 13, 1], t: [16, 14.5, 15.5], tex: 24 },
+    { f: [2, 3, 15], t: [8, 10, 15.4], tex: 76, glow: true },
+    { f: [9, 3, 15], t: [14, 10, 15.4], tex: 65 }, { f: [9.6, 8.4, 15.4], t: [13.4, 9.1, 15.9], tex: 17 },
+    { f: [0, 11, 15.5], t: [16, 11.8, 16.3], tex: 17 },
+    { f: [2.5, 14.5, 4], t: [7, 15, 8.5], tex: 69 }, { f: [9, 14.5, 4], t: [13.5, 15, 8.5], tex: 69 }, { f: [5.5, 14.5, 9.5], t: [10.5, 15, 13.5], tex: 69 },
+    { f: [6.5, 14.5, 1.5], t: [9.5, 30, 4.5], tex: 24 }, { f: [6, 22, 1], t: [10, 23, 5], tex: 17 },
+    { f: [1, 0, 2], t: [3, 1, 4], tex: 24 }, { f: [13, 0, 2], t: [15, 1, 4], tex: 24 }, { f: [1, 0, 12], t: [3, 1, 14], tex: 24 }, { f: [13, 0, 12], t: [15, 1, 14], tex: 24 },
+  ] });
+  // Spülstein mit Wasser, Schwengelpumpe aus Messing und Unterschrank
+  defShape(HS_SPUELE, { name: "Spülstein", rot: true, mat: "stone", icon: 8, boxes: [
+    { f: [0.5, 0, 2], t: [15.5, 11, 15], tex: 15 },
+    { f: [1.3, 1, 15], t: [14.7, 10, 15.4], tex: 79 },
+    { f: [0, 11, 1], t: [16, 12.5, 16], tex: 20 },
+    { f: [0, 12.5, 1], t: [16, 15, 3], tex: 20 }, { f: [0, 12.5, 14], t: [16, 15, 16], tex: 20 },
+    { f: [0, 12.5, 3], t: [2, 15, 14], tex: 20 }, { f: [14, 12.5, 3], t: [16, 15, 14], tex: 20 },
+    { f: [2, 12.5, 3], t: [14, 13.8, 14], tex: 8 },
+    { f: [7, 15, 1.2], t: [9, 23, 3.2], tex: 17 }, { f: [7.3, 21, 3.2], t: [8.7, 22.2, 7], tex: 17 },
+    { f: [7.6, 22, 0.6], t: [8.4, 23, 1.2], tex: 17 }, { f: [7.6, 22.4, -3], t: [8.4, 23.2, 0.6], tex: 69 },
+  ] });
+  // Badewanne auf goldenen Löwenfüßen: zwei Hälften, die sich gegenüberstehen
+  defShape(HS_WANNE, { name: "Badewanne", rot: true, mat: "stone", icon: 20, boxes: [
+    { f: [1, 2, 1], t: [15, 3.5, 16], tex: 20 },
+    { f: [1, 3.5, 1], t: [2.5, 11, 16], tex: 20 }, { f: [13.5, 3.5, 1], t: [15, 11, 16], tex: 20 },
+    { f: [1, 3.5, 1], t: [15, 11, 2.5], tex: 20 },
+    { f: [0.5, 10.6, 0.5], t: [15.5, 12, 2.8], tex: 20 },
+    { f: [0.5, 10.6, 2.8], t: [2.8, 12, 16], tex: 20 }, { f: [13.2, 10.6, 2.8], t: [15.5, 12, 16], tex: 20 },
+    { f: [2.5, 3.5, 2.5], t: [13.5, 9, 16], tex: 8 },
+    { f: [2, 0, 2.5], t: [4, 2, 4.5], tex: 17 }, { f: [12, 0, 2.5], t: [14, 2, 4.5], tex: 17 },
+    { f: [7, 12, 0.7], t: [9, 15, 2.2], tex: 17 }, { f: [7.4, 14, 2.2], t: [8.6, 15, 4.5], tex: 17 },
+  ] });
+  // Klavier aus Nussbaum mit Tasten, Notenpult und Kerzenleuchtern
+  defShape(HS_KLAVIER, { name: "Klavier", rot: true, mat: "wood", icon: 171, boxes: [
+    { f: [0, 0, 1.5], t: [16, 22, 7.5], tex: 15 },
+    { f: [-0.3, 22, 1.2], t: [16.3, 23.2, 8], tex: 15 },
+    { f: [0.5, 9.5, 7.5], t: [15.5, 11, 12], tex: [171, 15, 15] },
+    { f: [0.5, 11, 7.5], t: [15.5, 20.5, 8.3], tex: 15 },
+    { f: [3, 13.5, 8.3], t: [13, 18.5, 8.9], tex: 134 },
+    { f: [0, 0, 7.5], t: [1.6, 11, 12.2], tex: 15 }, { f: [14.4, 0, 7.5], t: [16, 11, 12.2], tex: 15 },
+    { f: [0.2, 0, 10.5], t: [1.4, 9.5, 12], tex: 15 }, { f: [14.6, 0, 10.5], t: [15.8, 9.5, 12], tex: 15 },
+    { f: [6.5, 0.4, 7.5], t: [7.5, 1, 10], tex: 17 }, { f: [8.5, 0.4, 7.5], t: [9.5, 1, 10], tex: 17 },
+    { f: [1, 18, 8.3], t: [2.2, 19, 10.5], tex: 17 }, { f: [13.8, 18, 8.3], t: [15, 19, 10.5], tex: 17 },
+    { f: [1.2, 19, 9.2], t: [2, 21.5, 10], tex: 22 }, { f: [14, 19, 9.2], t: [14.8, 21.5, 10], tex: 22 },
+    { f: [1.4, 21.5, 9.4], t: [1.8, 22.3, 9.8], tex: 21, glow: true },
+  ] });
+  // Standuhr mit Pendel hinter Glas und Zifferblatt
+  defShape(HS_UHR, { name: "Standuhr", rot: true, mat: "wood", icon: 172, boxes: [
+    { f: [2, 0, 4], t: [14, 8, 14], tex: 15 },
+    { f: [1.5, 7.5, 3.5], t: [14.5, 8.5, 14.5], tex: 17 },
+    { f: [3, 8.5, 5], t: [13, 22, 13], tex: 15 },
+    { f: [4.5, 10, 13], t: [11.5, 20.5, 13.3], tex: 65 },
+    { f: [7.6, 12.5, 13.3], t: [8.4, 20, 13.5], tex: 17 }, { f: [6.8, 11.5, 13.3], t: [9.2, 13.5, 13.7], tex: 17 },
+    { f: [1.5, 22, 3.5], t: [14.5, 32, 14.5], tex: 15 },
+    { f: [2.6, 22.6, 14.5], t: [13.4, 31.4, 14.7], tex: 17 },
+    { f: [4, 23, 14.7], t: [12, 31, 15], tex: 172 },
+    { f: [1, 32, 3], t: [15, 33.5, 15], tex: 15 },
+    { f: [7, 33.5, 8], t: [9, 36, 10], tex: 17 }, { f: [1.5, 33.5, 12.5], t: [3, 35, 14], tex: 17 }, { f: [13, 33.5, 12.5], t: [14.5, 35, 14], tex: 17 },
+  ] });
+  // Blumenkasten mit Geranien: sitzt oben in der Zelle unter dem Fenster, die Blüten reichen bis an die Fensterbank (man läuft hindurch)
+  defShape(HS_BLUMENK, { name: "Blumenkasten", rot: true, nonsolid: true, mat: "wood", icon: 85, boxes: [
+    { f: [0.5, 8.5, 0], t: [15.5, 13.5, 5], tex: 174 },
+    { f: [1, 7.5, 0], t: [2.5, 8.5, 3.5], tex: 24 }, { f: [13.5, 7.5, 0], t: [15, 8.5, 3.5], tex: 24 },
+    { f: [1, 13.5, 0.5], t: [15, 17, 4.6], tex: 85 },
+    { f: [1.5, 16.5, 0.8], t: [5, 19.5, 4.4], tex: 85 }, { f: [6.5, 17, 1.2], t: [10, 20, 4.4], tex: 85 }, { f: [11, 16.5, 0.8], t: [14.5, 19, 4.4], tex: 85 },
+    { f: [2, 10.5, 5], t: [4, 14, 5.8], tex: 7 }, { f: [9, 9.5, 5], t: [11, 14, 5.8], tex: 7 }, { f: [13, 11, 5], t: [14.5, 14, 5.8], tex: 7 },
+  ] });
+  // Fensterladen (zwei Blöcke hoch), hängt außen neben dem Fenster; Beschläge auf beiden Seiten, damit er links und rechts passt
+  defShape(HS_LADEN, { name: "Fensterladen", rot: true, nonsolid: true, mat: "wood", icon: 174, boxes: [
+    { f: [1.5, 0.3, 0], t: [14.5, 15.8, 1.3], tex: 174 },
+    { f: [1.5, 16.2, 0], t: [14.5, 31.7, 1.3], tex: 174 },
+    { f: [0, 4, 0], t: [3, 5, 1.6], tex: 24 }, { f: [0, 27, 0], t: [3, 28, 1.6], tex: 24 },
+    { f: [13, 4, 0], t: [16, 5, 1.6], tex: 24 }, { f: [13, 27, 0], t: [16, 28, 1.6], tex: 24 },
+  ] });
+  // Wandlaterne an einem Arm aus Eisen
+  defShape(HS_WLAMPE, { name: "Wandlaterne", rot: true, nonsolid: true, emit: 14, mat: "stone", icon: 21, boxes: [
+    { f: [6.5, 7, 0], t: [9.5, 14, 0.8], tex: 24 },
+    { f: [7.5, 12, 0.8], t: [8.5, 13, 8], tex: 24 },
+    { f: [7.5, 10.5, 7], t: [8.5, 12, 8], tex: 24 },
+    { f: [5.5, 3.5, 5], t: [10.5, 9.5, 10], tex: 21, glow: true },
+    { f: [5, 9.5, 4.5], t: [11, 10.5, 10.5], tex: 24 }, { f: [6.5, 10.5, 6], t: [9.5, 11, 9], tex: 24 },
+    { f: [5, 2.5, 4.5], t: [11, 3.5, 10.5], tex: 24 },
+    ...[[5, 4.5], [10.2, 4.5], [5, 9.7], [10.2, 9.7]].map(([x, z]) => ({ f: [x, 3.5, z], t: [x + 0.8, 9.5, z + 0.8], tex: 24 })),
+  ] });
+  // Nachttisch
+  defShape(HS_NACHTT, { name: "Nachttisch", mat: "wood", icon: 15, boxes: [
+    { f: [3, 2, 3], t: [13, 14.5, 13], tex: 15 },
+    { f: [2.4, 14.5, 2.4], t: [13.6, 16, 13.6], tex: 9 },
+    { f: [3.8, 9, 2.8], t: [12.2, 13, 13.2], tex: 9 }, { f: [2.8, 9, 3.8], t: [13.2, 13, 12.2], tex: 9 },
+    { f: [7.4, 10.5, 2.4], t: [8.6, 11.5, 13.6], tex: 17 },
+    ...[[3, 3], [11.6, 3], [3, 11.6], [11.6, 11.6]].map(([x, z]) => ({ f: [x, 0, z], t: [x + 1.4, 2, z + 1.4], tex: 15 })),
+  ] });
+  // Zimmerpalme im Delfter Topf
+  defShape(HS_PALME, { name: "Zimmerpalme", mat: "wood", icon: 7, boxes: [
+    { f: [4.5, 0, 4.5], t: [11.5, 6, 11.5], tex: 166 },
+    { f: [4, 5.5, 4], t: [12, 6.8, 12], tex: 20 },
+    { f: [5, 6.2, 5], t: [11, 6.9, 11], tex: 2 },
+    { f: [7.2, 6.5, 7.2], t: [8.8, 15, 8.8], tex: 5 },
+    { f: [1, 14, 6.8], t: [8, 15.3, 9.2], tex: 7 }, { f: [8, 14, 6.8], t: [15, 15.3, 9.2], tex: 7 },
+    { f: [6.8, 14, 1], t: [9.2, 15.3, 8], tex: 7 }, { f: [6.8, 14, 8], t: [9.2, 15.3, 15], tex: 7 },
+    { f: [-0.5, 11.5, 7.2], t: [1.5, 14.5, 8.8], tex: 7 }, { f: [14.5, 11.5, 7.2], t: [16.5, 14.5, 8.8], tex: 7 },
+    { f: [7.2, 11.5, -0.5], t: [8.8, 14.5, 1.5], tex: 7 }, { f: [7.2, 11.5, 14.5], t: [8.8, 14.5, 16.5], tex: 7 },
+    { f: [5.5, 15, 5.5], t: [10.5, 19, 10.5], tex: 7 },
+  ] });
+  // Laternenmast aus dunklem Gusseisen, zwei Blöcke hoch: oben drauf kommt eine Laterne
+  defShape(HS_MAST, { name: "Hoher Laternenmast", mat: "stone", icon: 24, boxes: [
+    { f: [4.5, 0, 4.5], t: [11.5, 2, 11.5], tex: 24 },
+    { f: [5.5, 2, 5.5], t: [10.5, 4.5, 10.5], tex: 24 },
+    { f: [7, 4.5, 7], t: [9, 31, 9], tex: 24 },
+    { f: [6.3, 12, 6.3], t: [9.7, 13, 9.7], tex: 17 },
+    { f: [6, 30, 6], t: [10, 32, 10], tex: 24 },
+  ] });
+  // Couchtisch mit Marmorplatte und Goldbeinen
+  defShape(HS_COUCHT, { name: "Couchtisch", mat: "wood", icon: 20, boxes: [
+    { f: [1, 7, 2], t: [15, 8.5, 14], tex: 20 },
+    { f: [1.5, 6.3, 2.5], t: [14.5, 7, 13.5], tex: 15 },
+    ...[[2, 3], [12.5, 3], [2, 11.5], [12.5, 11.5]].map(([x, z]) => ({ f: [x, 0, z], t: [x + 1.5, 6.3, z + 1.5], tex: 17 })),
+    { f: [2.5, 2, 3.5], t: [13.5, 2.8, 12.5], tex: 15 },
+  ] });
+  // Kronleuchter: hängt oben im Raum, man läuft darunter hindurch
+  defShape(HS_LEUCHTER, { name: "Kronleuchter", nonsolid: true, emit: 15, mat: "stone", icon: 17, boxes: [
+    { f: [7.5, 9, 7.5], t: [8.5, 16, 8.5], tex: 17 },
+    { f: [6, 5.5, 6], t: [10, 9, 10], tex: 17 },
+    { f: [1.5, 6.5, 7.4], t: [14.5, 7.3, 8.6], tex: 17 }, { f: [7.4, 6.5, 1.5], t: [8.6, 7.3, 14.5], tex: 17 },
+    ...[[1.4, 7.4], [13.4, 7.4], [7.4, 1.4], [7.4, 13.4]].map(([x, z]) => ({ f: [x, 7.3, z], t: [x + 1.2, 10, z + 1.2], tex: 21, glow: true })),
+    { f: [6.8, 3, 6.8], t: [9.2, 5.5, 9.2], tex: 21, glow: true },
+    { f: [5, 11, 5], t: [11, 11.6, 11], tex: 17 },
+  ] });
+  // Kaminfeuer: Holzscheite auf einem Rost mit Flammen
+  defShape(HS_FEUER, { name: "Kaminfeuer", emit: 13, mat: "wood", icon: 175, boxes: [
+    { f: [2, 0, 2], t: [14, 1, 13], tex: 24 },
+    { f: [2.5, 1, 4], t: [13.5, 3.5, 6.5], tex: 5 }, { f: [3, 1, 8.5], t: [13, 3.5, 11], tex: 5 },
+    { f: [5.5, 3, 3], t: [8, 5.5, 12], tex: 5 },
+    { f: [3.5, 1, 4.5], t: [12.5, 1.6, 11.5], tex: 175, glow: true },
+    { f: [4, 3.5, 5], t: [12, 9, 10], tex: 175, glow: true },
+    { f: [5.5, 5, 6], t: [10.5, 12.5, 9.5], tex: 175, glow: true },
+    { f: [7, 9, 6.8], t: [9, 14, 8.6], tex: 175, glow: true },
+  ] });
+
+  // =====================================================================================================
+  // ---------- Hilfsmittel: Baugebiet und lokaler Rahmen eines Hauses ----------
+  // =====================================================================================================
+  // Mein Gebiet (Rechtecke einschließlich): Oststadt und Neustadt ohne den Markt und seinen Rahmen (x 60–132, z 252–320, dort bauen
+  // andere Helfer Rathaus, Gasthaus und Läden). Straßenzellen bleiben immer frei.
+  const HS_ZONE = [[158, 206, 158, 242], [30, 59, 246, 334], [133, 206, 246, 334], [60, 132, 246, 251], [60, 132, 321, 334]];
+  let hsMask = null, hsHouseMask = null;   // hsHouseMask: Grundfläche und Dachüberstand aller Häuser (dort wachsen keine Bäume)
+  const hsStat = { drop: 0, dropAt: [], houses: 0 };
+  function hsMaskInit() {
+    hsMask = new Uint8Array(W * D); hsHouseMask = new Uint8Array(W * D);
+    for (const [x0, x1, z0, z1] of HS_ZONE) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) if (roadMask[x + z * W] !== 1) hsMask[x + z * W] = 1;
+  }
+  const hsOk = (x, z) => x >= 0 && z >= 0 && x < W && z < D && hsMask[x + z * W] === 1;
+  // Block setzen, aber nur in meinem Gebiet und nie auf einer Straße (sonst zählen wir den Fehler)
+  function hsSet(x, y, z, b) {
+    if (hsOk(x, z)) { setB(x, y, z, b); return true; }
+    hsStat.drop++; if (hsStat.dropAt.length < 30) hsStat.dropAt.push([x, y, z, b]);
+    return false;
+  }
+  function hsFill(x0, y0, z0, x1, y1, z1, b) {
+    for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++)
+      for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) hsSet(x, y, z, b);
+  }
+  // Lokaler Rahmen: u läuft an der Straßenseite entlang (von außen gesehen nach rechts), v von der Front ins Haus hinein.
+  // face: Richtung der Front ("s" Süden = +z, "n", "e", "w"); (x0, z0, w, d): Grundfläche, w entlang der Front, d in die Tiefe.
+  const HS_FACE = { s: [[1, 0], [0, -1]], n: [[-1, 0], [0, 1]], e: [[0, -1], [-1, 0]], w: [[0, 1], [1, 0]] };
+  const HS_PFACE = { "0,1": "+z", "0,-1": "-z", "1,0": "+x", "-1,0": "-x" };
+  const HS_PRIGHT = { "+z": [1, 0], "-z": [-1, 0], "+x": [0, -1], "-x": [0, 1] };
+  function hsFrame(face, x0, z0, w, d) {
+    const [U, V] = HS_FACE[face];
+    const ox = face === "n" ? x0 + w - 1 : face === "e" ? x0 + d - 1 : x0;
+    const oz = face === "s" ? z0 + d - 1 : face === "e" ? z0 + w - 1 : z0;
+    const T = { face, U, V };
+    T.x = (u, v) => ox + u * U[0] + v * V[0];
+    T.z = (u, v) => oz + u * U[1] + v * V[1];
+    T.dir = (du, dv) => [du * U[0] + dv * V[0], du * U[1] + dv * V[1]];
+    T.loc = (dx, dz) => [dx * U[0] + dz * U[1], dx * V[0] + dz * V[1]];
+    T.set = (u, y, v, b) => hsSet(T.x(u, v), y, T.z(u, v), b);
+    T.get = (u, y, v) => get(T.x(u, v), y, T.z(u, v));
+    T.fill = (u0, y0, v0, u1, y1, v1, b) => {
+      for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let v = Math.min(v0, v1); v <= Math.max(v0, v1); v++)
+        for (let u = Math.min(u0, u1); u <= Math.max(u0, u1); u++) T.set(u, y, v, b);
+    };
+    // Gedrehte Möbel: (du, dv) ist die lokale Blickrichtung
+    T.rid = (id, du, dv) => { if (ROTB[id] !== id) return id; const [dx, dz] = T.dir(du, dv); return rotId(id, dx, dz); };
+    T.shape = (u, y, v, id, du, dv) => T.set(u, y, v, T.rid(id, du, dv));
+    // Bett: Kopfteil bei (u, v), Fußteil in Richtung (du, dv)
+    T.bed = (u, y, v, du, dv, head) => { T.shape(u, y, v, head, du, dv); T.shape(u + du, y, v + dv, head + 4, du, dv); };
+    T.door = (u, y, v, du, dv, style) => { const x = T.x(u, v), z = T.z(u, v), [dx, dz] = T.dir(du, dv); if (hsOk(x, z)) addDoor(x, y, z, dx, dz, style); return [x, y, z]; };
+    T.gate = (u, y, v, du, dv) => { const x = T.x(u, v), z = T.z(u, v), [dx, dz] = T.dir(du, dv); if (hsOk(x, z)) addGate(x, y, z, dx, dz); return [x, y, z]; };
+    T.wp = (u, y, v) => [T.x(u, v), y, T.z(u, v)];
+    // Gemälde an einer Wand: (du, dv) Blickrichtung ins Zimmer, (uc, y, vc) Mitte unten (bei gerader Breite die linke der beiden Mitten)
+    T.paint = (p, du, dv, uc, y, vc) => {
+      const f = HS_PFACE[T.dir(du, dv).join(",")], R = T.loc(...HS_PRIGHT[f]), o = Math.floor((p.w - 1) / 2);
+      for (let r = 0; r < p.h; r++) for (let c = 0; c < p.w; c++) T.set(uc + R[0] * (c - o), y + (p.h - 1 - r), vc + R[1] * (c - o), p.base + r * p.w + c);
+    };
+    return T;
+  }
+
+  // =====================================================================================================
+  // ---------- Der Hausbauer ----------
+  // Ein Haus besteht aus Baukörpern (Hauptbau und Flügel) mit Geschossen. Für jedes Geschoss gibt es ein Raster in lokalen
+  // Koordinaten (0 draußen, 1 Wand, 2 innen). Daraus entstehen Fassaden, Fenster, Zimmer und über ein Höhenfeld das Dach.
+  // =====================================================================================================
+  const HS_OD = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+  const hsWinRows = fh => fh >= 6 ? [2, 3, 4] : fh === 5 ? [2, 3] : [2];
+  function hsCtx(H) {
+    const T = hsFrame(H.face, H.x0, H.z0, H.w, H.d);
+    const n = H.fh.length, ys = [H.F];
+    for (let k = 0; k < n; k++) ys.push(ys[k] + H.fh[k]);
+    const boxes = [{ u0: 0, u1: H.w - 1, v0: 0, v1: H.d - 1, n, jet: H.jet || 0, main: true, roof: H.roof, sty: H.sty }];
+    for (const g of H.wings || []) boxes.push(Object.assign({ jet: 0, sty: H.sty }, g));
+    let a = 1e9, b = -1e9, c = 1e9, e = -1e9;
+    for (const bx of boxes) { a = Math.min(a, bx.u0); b = Math.max(b, bx.u1); c = Math.min(c, bx.v0 - bx.jet * (bx.n - 1)); e = Math.max(e, bx.v1); bx.yTop = ys[bx.n]; }
+    const M = 6, gu0 = a - M, gv0 = c - M, GW = b - a + 1 + 2 * M, GD = e - c + 1 + 2 * M;
+    const C = { H, T, S: H.sty, n, ys, yTop: ys[n], boxes, gu0, gv0, GW, GD, grids: [], wins: [], ext: [], rooms: [], keep: [], rnd: mulberry32(H.seed || 7),
+      beds: [], seats: [], feats: [], tables: [], chests: [], chim: [], works: [] };
+    C.gi = (u, v) => { const i = u - gu0, j = v - gv0; return i < 0 || j < 0 || i >= GW || j >= GD ? -1 : i + j * GW; };
+    C.g = (k, u, v) => { const i = C.gi(u, v); return i < 0 || k < 0 || k >= n ? 0 : C.grids[k][i]; };
+    C.fv = k => -(H.jet || 0) * k;
+    for (let k = 0; k < n; k++) {
+      const g = new Int8Array(GW * GD);
+      for (const bx of boxes) if (k < bx.n) {
+        const bv0 = bx.v0 - bx.jet * k;
+        for (let v = bv0; v <= bx.v1; v++) for (let u = bx.u0; u <= bx.u1; u++) {
+          const i = C.gi(u, v), edge = u === bx.u0 || u === bx.u1 || v === bv0 || v === bx.v1;
+          if (!edge) g[i] = 2; else if (g[i] !== 2) g[i] = 1;
+        }
+      }
+      C.grids.push(g); C.wins.push(new Map()); C.keep.push(new Set());
+    }
+    // Stil eines Geschosses (die Liste gilt von unten nach oben, der letzte Eintrag weiter)
+    C.fs = (k, bx) => { const L = (bx && bx.sty || H.sty).fl; return L[Math.min(k, L.length - 1)]; };
+    C.boxAt = (u, v, k) => { for (const bx of boxes) if (k < bx.n && u >= bx.u0 && u <= bx.u1 && v >= bx.v0 - bx.jet * k && v <= bx.v1) return bx; return boxes[0]; };
+    return C;
+  }
+
+  // ---------- Grundriss ----------
+  // H.plan: { cols: [{ u0, u1, hall: true } | { u0, u1, cross: [v...] }], ss: "a"|"b" (Treppe im Flur links/rechts), sw: 1|2, sv: 3 (erste Stufe),
+  //           door: u (Haustür vorne), use: [[Zimmerarten Erdgeschoss], [1. Stock], ...] }
+  // Zwischen zwei Spaltengruppen liegt je eine Innenwand. Flügel (H.wings) sind je Geschoss ein Zimmer (oder mit cross geteilt).
+  function hsPlan(C) {
+    const H = C.H, P = H.plan, n = C.n;
+    const sw = P.sw || 1, sv = P.sv || 3;
+    // Einheiten: jeder Flur (hall) gehört zu einer Wohnung; die Spaltengruppen tragen ihre Einheit (unit, Standard 0)
+    P.cols.forEach(c => { if (c.unit === undefined) c.unit = 0; });
+    C.units = [];
+    for (const hall of P.cols.filter(c => c.hall)) {
+      const U = { idx: hall.unit, hall, door: hall.door !== undefined ? hall.door : P.door, ss: hall.ss || P.ss || "a", stair: null, style: hall.style, name: hall.name, work: hall.work };
+      if (n > 1) {
+        // Gerade Treppe, wenn die Tiefe reicht; sonst Podesttreppe mit Wende: der zweite Lauf führt in der Nachbarspalte zurück
+        const colA = U.ss === "b" ? hall.u1 : hall.u0, colB = U.ss === "b" ? hall.u1 - 1 : hall.u0 + 1;
+        let sum = 0; for (let k = 0; k + 1 < n; k++) sum += H.fh[k];
+        const straight = sv - 1 + sum <= H.d - 2 || n > 3;
+        const flights = [];
+        let s = sv, vmax = sv;
+        if (straight) for (let k = 0; k + 1 < n; k++) { const ns = H.fh[k] - 1; flights.push({ k, s, ns, dir: 1, col: colA }); s += ns + 1; vmax = s - 1; }
+        else {
+          const ns0 = H.fh[0] - 1;
+          flights.push({ k: 0, s: sv, ns: ns0, dir: 1, col: colA }); vmax = sv + ns0;
+          if (n > 2) flights.push({ k: 1, s: sv + ns0 - 1, ns: H.fh[1] - 1, dir: -1, col: colB });
+        }
+        U.stair = { sc: [colA, colA], rail: colB, flights, v0: sv - 1, v1: vmax, turn: !straight };
+      }
+      C.units.push(U);
+    }
+    C.stair = C.units.length ? C.units[0].stair : null;
+    for (let k = 0; k < n; k++) {
+      const g = C.grids[k], fv = C.fv(k), vA = fv + 1, vB = H.d - 2;
+      for (let j = 0; j + 1 < P.cols.length; j++) {
+        const u = P.cols[j].u1 + 1;
+        for (let v = vA; v <= vB; v++) g[C.gi(u, v)] = 1;
+      }
+      const list = [];
+      for (const col of P.cols) {
+        if (col.hall) { list.push({ k, u0: col.u0, u1: col.u1, v0: vA, v1: vB, type: k === 0 ? "diele" : "flur", hall: true, main: true, unit: col.unit }); continue; }
+        const cuts = (col.cross || []).filter(v => v > vA && v < vB);
+        let v0 = vA;
+        for (const cv of [...cuts, vB + 1]) {
+          if (cv <= vB) for (let u = col.u0; u <= col.u1; u++) g[C.gi(u, cv)] = 1;
+          list.push({ k, u0: col.u0, u1: col.u1, v0, v1: cv - 1, main: true, unit: col.unit });
+          v0 = cv + 1;
+        }
+      }
+      for (const bx of C.boxes) if (!bx.main && k < bx.n) {
+        const cuts = bx.cross || [];
+        let v0 = bx.v0 + 1;
+        for (const cv of [...cuts, bx.v1]) {
+          if (cv < bx.v1) for (let u = bx.u0 + 1; u < bx.u1; u++) g[C.gi(u, cv)] = 1;
+          list.push({ k, u0: bx.u0 + 1, u1: bx.u1 - 1, v0, v1: cv - 1, wing: bx, unit: bx.unit || 0 });
+          v0 = cv + 1;
+        }
+      }
+      // Zimmerarten: H.plan.use[k] (ohne Flure, Einheit für Einheit in der Reihenfolge der Spalten) bzw. Flügel bx.use[k]
+      const use = (P.use && P.use[k]) || [];
+      let ui = 0;
+      const wingIdx = new Map();
+      for (const r of list) {
+        if (r.hall) continue;
+        if (r.wing) { const i = wingIdx.get(r.wing) || 0; wingIdx.set(r.wing, i + 1); r.type = (r.wing.use && r.wing.use[k] && r.wing.use[k][i]) || "wohnen"; }
+        else r.type = use[ui++] || "schlafen";
+      }
+      for (const r of list) { r.doors = []; r.w = r.u1 - r.u0 + 1; r.d = r.v1 - r.v0 + 1; r.y = C.ys[k]; }
+      C.rooms.push(...list);
+    }
+    // Durchgänge: jedes Zimmer zum Flur seiner Einheit (oder zum Nachbarzimmer näher am Flur); Flügel zum Hauptbau
+    for (const r of C.rooms) {
+      if (r.hall) continue;
+      if (r.wing) {
+        const bx = r.wing, cand = [];
+        for (let v = r.v0; v <= r.v1; v++) for (let u = r.u0; u <= r.u1; u++) {
+          for (const [du, dv] of HS_OD) {
+            const wu = u + du, wv = v + dv, ou = u + 2 * du, ov = v + 2 * dv;
+            if (C.g(r.k, wu, wv) !== 1 || C.g(r.k, ou, ov) !== 2) continue;
+            const other = C.rooms.find(q => q.k === r.k && q !== r && ou >= q.u0 && ou <= q.u1 && ov >= q.v0 && ov <= q.v1);
+            if (!other || other.wing) continue;
+            if (bx.to && other.type !== bx.to && !(bx.to === "flur" && other.hall)) continue;
+            const U = C.units.find(t => t.idx === other.unit), st = U && U.stair;
+            if (st && other.hall && ou >= Math.min(st.sc[0], st.rail) && ou <= Math.max(st.sc[0], st.rail) && ov >= st.v0 && ov <= st.v1) continue;
+            cand.push([wu, wv, u, v, ou, ov, other]);
+          }
+        }
+        if (cand.length) {
+          const cu = bx.du !== undefined ? bx.du : (r.u0 + r.u1) / 2, cv = bx.dv !== undefined ? bx.dv : (r.v0 + r.v1) / 2;
+          cand.sort((p, q) => Math.hypot(p[2] - cu, p[3] - cv) - Math.hypot(q[2] - cu, q[3] - cv));
+          const [wu, wv, u, v, ou, ov, other] = cand[0];
+          hsAddDoorway(C, r, other, wu, wv, u, v, ou, ov);
+        }
+        continue;
+      }
+      const hr = C.rooms.find(q => q.k === r.k && q.hall && q.unit === r.unit);
+      if (!hr) continue;
+      const U = C.units.find(t => t.idx === r.unit), st = U.stair;
+      const stairWall = !st ? null : U.ss === "b" ? hr.u1 + 1 : hr.u0 - 1;
+      let wallU = null, side = 0;
+      if (r.u0 === hr.u1 + 2) { wallU = hr.u1 + 1; side = -1; }
+      else if (r.u1 === hr.u0 - 2) { wallU = hr.u0 - 1; side = 1; }
+      if (wallU !== null) {
+        const pref = r.pref !== undefined ? r.pref : (r.v0 + r.v1) / 2;
+        let best = null, bd = 1e9;
+        for (let v = r.v0; v <= r.v1; v++) {
+          if (st && wallU === stairWall && hsStairBlocks(C, st, r.k, v)) continue;
+          if (r.k === 0 && v <= 1 && U.door !== undefined && Math.abs(wallU - U.door) <= 1) continue;
+          const dd = Math.abs(v - pref);
+          if (dd < bd) { bd = dd; best = v; }
+        }
+        if (best !== null) hsAddDoorway(C, r, hr, wallU, best, wallU - side, best, wallU + side, best);
+      } else {
+        const dir = r.u0 > hr.u1 ? -1 : 1, wu = dir < 0 ? r.u0 - 1 : r.u1 + 1, v = Math.round((r.v0 + r.v1) / 2);
+        const other = C.rooms.find(q => q.k === r.k && q !== r && q.unit === r.unit && wu + dir >= q.u0 && wu + dir <= q.u1 && v >= q.v0 && v <= q.v1);
+        if (other) hsAddDoorway(C, r, other, wu, v, wu - dir, v, wu + dir, v);
+      }
+    }
+    // Verbindungstüren zwischen hintereinanderliegenden Zimmern derselben Gruppe (Enfilade) in den Geschossen P.enf
+    if (P.enf) for (const r of C.rooms) {
+      if (r.hall || r.wing || !P.enf.includes(r.k)) continue;
+      const q = C.rooms.find(o => o.k === r.k && !o.hall && !o.wing && o.u0 === r.u0 && o.v0 === r.v1 + 2);
+      if (!q) continue;
+      const u = r.u0 + Math.floor(r.w / 2);
+      hsAddDoorway(C, r, q, u, r.v1 + 1, u, r.v1, u, r.v1 + 2);
+    }
+  }
+  // Liegt in Geschoss k bei v in der wandnahen Treppenspalte eine Stufe, ein Antritt, ein Loch, ein Geländer oder ein Podest?
+  function hsStairBlocks(C, st, k, v) {
+    for (const f of st.flights) {
+      if (f.col !== st.sc[0]) {
+        // Lauf in der Nachbarspalte: sein Loch bekommt in der wandnahen Spalte ein Geländer
+        if (f.k === k - 1) { const i0 = Math.max(0, C.H.fh[f.k] - 4); for (let i = i0; i < f.ns; i++) if (f.s + f.dir * i === v) return true; }
+        continue;
+      }
+      if (f.k === k) for (let i = -1; i < f.ns; i++) if (f.s + f.dir * i === v) return true;
+      if (f.k === k - 1) { const i0 = Math.max(0, C.H.fh[f.k] - 4); for (let i = i0 - 1; i <= f.ns; i++) if (f.s + f.dir * i === v) return true; }
+    }
+    return false;
+  }
+  // Durchgang in einer Innenwand: (wu, wv) Wandzelle, (u, v) davor im Zimmer r, (ou, ov) dahinter im Zimmer q
+  function hsAddDoorway(C, r, q, wu, wv, u, v, ou, ov) {
+    const d = { wu, wv, k: r.k, a: [u, v], b: [ou, ov] };
+    r.doors.push({ u, v, wu, wv }); if (q.doors) q.doors.push({ u: ou, v: ov, wu, wv });
+    C.keep[r.k].add(C.gi(u, v)); C.keep[r.k].add(C.gi(ou, ov));
+    (C.doorways || (C.doorways = [])).push(d);
+  }
+
+  // ---------- Dach: Höhenfeld über dem Raster ----------
+  // Dachform r.t: "sattel" (First parallel zu u oder v, r.ridge), "walm", "zelt", "mansard", "flach"; r.p Neigung (Blöcke je Zelle),
+  // r.o Überstand, r.kw Krüppelwalm (Höhe über der Traufe, ab der die Giebelspitze abgewalmt ist), r.m Dachblock.
+  // rf[i] ist die Höhe des obersten Dachblocks über der Zelle (-1 = kein Dach), rb[i] der Baukörper, der dort das Dach bildet.
+  function hsRoofProf(r, s) {   // s: Abstand von der Wandlinie (negativ im Überstand) -> Höhe über der Traufe
+    if (r.t === "flach") return 0;
+    if (s < 0) return s;          // Überstand: ein Block je Zelle tiefer, auch bei steilen Dächern
+    if (r.t === "mansard") { const m = r.mk || 2, p = r.p || 2; return s <= m ? Math.floor(s * p) : Math.floor(m * p + (s - m) * (r.p2 || 0.5)); }
+    return Math.floor(s * (r.p || 1));
+  }
+  function hsRoofField(C) {
+    const { GW, GD } = C;
+    C.rf = new Int16Array(GW * GD).fill(-1); C.rb = new Int8Array(GW * GD).fill(-1);
+    C.boxes.forEach((bx, bi) => {
+      const r = bx.roof || C.H.roof; if (!r) return;
+      const o = r.o !== undefined ? r.o : 1, yE = C.ys[bx.n];
+      const va = bx.v0 - bx.jet * (bx.n - 1) - o, vb = bx.v1 + o, ua = bx.u0 - o, ub = bx.u1 + o;
+      Object.assign(bx, { yE, r, o, va, vb, ua, ub });
+      for (let v = va; v <= vb; v++) for (let u = ua; u <= ub; u++) {
+        const tv = Math.min(v - va, vb - v), tu = Math.min(u - ua, ub - u);
+        let h;
+        if (r.t === "sattel") {
+          h = hsRoofProf(r, (r.ridge === "v" ? tu : tv) - o);
+          if (r.kw !== undefined) h = Math.min(h, r.kw + hsRoofProf(r, (r.ridge === "v" ? tv : tu) - o));
+        } else if (r.t === "mansard" && r.ridge) h = hsRoofProf(r, (r.ridge === "v" ? tu : tv) - o);
+        else h = hsRoofProf(r, Math.min(tu, tv) - o);
+        const i = C.gi(u, v); if (i < 0) continue;
+        if (yE + h > C.rf[i]) { C.rf[i] = yE + h; C.rb[i] = bi; }
+      }
+    });
+  }
+
+  // ---------- Fensterplan ----------
+  // Für jede Außenwandzelle eines Geschosses: Fenster ja oder nein. Fenster sitzen symmetrisch zur Mitte jeder Wandflucht im Rhythmus
+  // des Geschossstils (wp: 2 jede zweite Zelle, 1 durchgehend), nie an Ecken, vor Innenwänden oder neben der Haustür.
+  function hsWinPlan(C) {
+    const H = C.H;
+    C.doorCells = C.units.map(U => [U.door, C.fv(0)]);
+    C.fac = C.grids.map(() => new Map());
+    for (let k = 0; k < C.n; k++) {
+      const lines = new Map();
+      for (let v = C.gv0; v < C.gv0 + C.GD; v++) for (let u = C.gu0; u < C.gu0 + C.GW; u++) {
+        if (C.g(k, u, v) !== 1) continue;
+        for (const [du, dv] of HS_OD) {
+          if (C.g(k, u + du, v + dv) !== 0) continue;
+          const key = du + "," + dv + "," + (du ? u : v);
+          if (!lines.has(key)) lines.set(key, []);
+          lines.get(key).push({ u, v, du, dv, p: du ? v : u, cand: C.g(k, u - du, v - dv) === 2 });
+        }
+      }
+      for (const cells of lines.values()) {
+        cells.sort((a, b) => a.p - b.p);
+        // in zusammenhängende Fluchten zerlegen
+        let seg = [];
+        const flush = () => {
+          if (!seg.length) return;
+          const a = seg[0].p, b = seg[seg.length - 1].p, m2 = a + b;
+          for (const c of seg) {
+            const bx = C.boxAt(c.u, c.v, k), fl = C.fs(k, bx), step = C.isErker && C.isErker(k, c.u, c.v) ? 1 : fl.wp || (fl.fw ? 4 : 2);
+            const d2 = Math.abs(2 * c.p - m2), off = m2 % 2 === 0 ? d2 / 2 : (d2 - 1) / 2;
+            C.fac[k].set(C.gi(c.u, c.v), off);
+            if (!c.cand || off % step !== 0) continue;
+            if (H.blind && H.blind.includes((c.du ? (c.du < 0 ? "-u" : "+u") : (c.dv < 0 ? "-v" : "+v")))) continue;
+            if (k === 0 && C.doorCells.some(([du0, dv0]) => c.v === dv0 && c.dv === -1 && Math.abs(c.u - du0) <= (fl.dw !== undefined ? fl.dw : 1))) continue;
+            C.wins[k].set(C.gi(c.u, c.v), { u: c.u, v: c.v, du: c.du, dv: c.dv, rows: fl.rows || hsWinRows(H.fh[k]), fl: hsFlAt(C, k, c.u, c.v) });
+          }
+          seg = [];
+        };
+        for (const c of cells) { if (seg.length && c.p !== seg[seg.length - 1].p + 1) flush(); seg.push(c); }
+        flush();
+      }
+      // Jedes Zimmer mit Außenwand bekommt mindestens ein Fenster
+      for (const r of C.rooms) {
+        if (r.k !== k) continue;
+        let has = false, best = null, bd = 1e9;
+        const cu = (r.u0 + r.u1) / 2, cv = (r.v0 + r.v1) / 2;
+        for (let v = r.v0 - 1; v <= r.v1 + 1; v++) for (let u = r.u0 - 1; u <= r.u1 + 1; u++) {
+          const onEdge = (u === r.u0 - 1 || u === r.u1 + 1) !== (v === r.v0 - 1 || v === r.v1 + 1);
+          if (!onEdge || C.g(k, u, v) !== 1) continue;
+          if (C.wins[k].has(C.gi(u, v))) { has = true; break; }
+          const du = u < r.u0 ? -1 : u > r.u1 ? 1 : 0, dv = v < r.v0 ? -1 : v > r.v1 ? 1 : 0;
+          if (C.g(k, u + du, v + dv) !== 0) continue;
+          if (k === 0 && C.doorCells.some(([a, b]) => v === b && Math.abs(u - a) <= 1)) continue;
+          const d = Math.hypot(u - cu, v - cv);
+          if (d < bd) { bd = d; best = { u, v, du, dv }; }
+        }
+        if (!has && best) { const fl = C.fs(k, C.boxAt(best.u, best.v, k)); C.wins[k].set(C.gi(best.u, best.v), Object.assign(best, { rows: fl.rows || hsWinRows(H.fh[k]), fl })); }
+      }
+    }
+  }
+
+  // ---------- Rohbau: Sockel, Böden, Wände, Fenster, Decken ----------
+  // Geschossstil fl: w Außenwand, c Ecken, band Zeile auf Deckenhöhe außen, win Fenster, lin Sturz, sill Brüstung, rows Fensterzeilen,
+  // wp Fensterrhythmus, fw { b: Balken, p: Gefache } für Fachwerk.
+  // Hausstil S: fl [Geschosse von unten], iw Innenwand, iwb Sockelzeile der Innenwände, plinth Sockel, ceil Decke unterm Dach,
+  // floor { Zimmerart: Block oder [Block, Block] als Schachbrett }, beam Balken unter Vorkragungen.
+  const HS_FLOOR = { diele: [MARBLE, MARBLE_D], flur: PLANKS, kueche: [QUARTZ, SLATE], essen: HS_PARKETT, wohnen: HS_PARKETT, salon: HS_PARKETT,
+    schlafen: PLANKS, kind: BIRCH_PLANKS, bad: [QUARTZ, MARBLE], arbeit: HS_PARKETT, laden: DPLANK, gast: SPRUCE_PLANKS, bibliothek: HS_PARKETT };
+  function hsIndexRooms(C) {
+    C.ri = C.grids.map(() => new Int16Array(C.GW * C.GD).fill(-1));
+    C.rooms.forEach((r, n) => { for (let v = r.v0; v <= r.v1; v++) for (let u = r.u0; u <= r.u1; u++) C.ri[r.k][C.gi(u, v)] = n; });
+    C.roomAt = (k, u, v) => { const i = C.gi(u, v); return i < 0 || k < 0 || k >= C.n ? null : C.rooms[C.ri[k][i]] || null; };
+  }
+  function hsFloorBlock(C, r, u, v) {
+    const f = (C.S.floor && C.S.floor[r.type]) || HS_FLOOR[r.type] || PLANKS;
+    return Array.isArray(f) ? f[(u + v) & 1] : f;
+  }
+  function hsShell(C) {
+    const H = C.H, S = C.S, T = C.T;
+    hsIndexRooms(C);
+    // Sockel, falls das Erdgeschoss erhöht liegt
+    for (let v = C.gv0; v < C.gv0 + C.GD; v++) for (let u = C.gu0; u < C.gu0 + C.GW; u++)
+      if (C.g(0, u, v)) for (let y = G0; y < H.F; y++) T.set(u, y, v, S.plinth || COBBLE);
+    for (let k = 0; k < C.n; k++) {
+      const y0 = C.ys[k], y1 = C.ys[k + 1];
+      for (let v = C.gv0; v < C.gv0 + C.GD; v++) for (let u = C.gu0; u < C.gu0 + C.GW; u++) {
+        const t = C.g(k, u, v); if (!t) continue;
+        if (t === 2) {
+          const r = C.roomAt(k, u, v);
+          T.set(u, y0, v, k > 0 && !C.g(k - 1, u, v) ? (S.beam || DPLANK) : r ? hsFloorBlock(C, r, u, v) : PLANKS);
+          for (let y = y0 + 1; y < y1; y++) T.set(u, y, v, AIR);
+        } else if (HS_OD.some(([du, dv]) => C.g(k, u + du, v + dv) === 0)) hsExtWall(C, k, u, v);
+        else {
+          T.set(u, y0, v, k > 0 && !C.g(k - 1, u, v) ? (S.beam || DPLANK) : (S.thr || DPLANK));
+          for (let y = y0 + 1; y < y1; y++) T.set(u, y, v, y === y0 + 1 && S.iwb ? S.iwb : (S.iw || PLASTER_W));
+        }
+      }
+    }
+    // Durchgänge in den Innenwänden (zwei Blöcke hoch, in hohen Geschossen drei)
+    for (const d of C.doorways || []) { const h = H.fh[d.k] >= 6 ? 3 : 2; for (let y = 1; y <= h; y++) T.set(d.wu, C.ys[d.k] + y, d.wv, AIR); }
+    // Decke über dem obersten Geschoss jedes Baukörpers (wo darüber kein Geschoss mehr folgt)
+    for (const bx of C.boxes) {
+      const k = bx.n - 1, yc = C.ys[bx.n], fl = C.fs(k, bx);
+      for (let v = bx.v0 - bx.jet * k; v <= bx.v1; v++) for (let u = bx.u0; u <= bx.u1; u++) {
+        const t = C.g(k, u, v); if (!t || C.g(bx.n, u, v)) continue;
+        T.set(u, yc, v, t === 2 ? (S.ceil || PLANKS) : (fl.fw ? fl.fw.b : (fl.band || fl.c || fl.w)));
+      }
+    }
+  }
+  // Eine Außenwandzelle vom Boden bis unter die nächste Decke.
+  // Fachwerk: Schwelle (Balken) auf Deckenhöhe, Eckpfosten, Bundpfosten alle vier Zellen (Versatz 2 zur Fassadenmitte), unter den
+  // Fenstern Andreaskreuze, neben jedem Pfosten unten eine Fußstrebe („/|\“), sonst weiße Gefache.
+  function hsIsPost(C, k, u, v) {
+    if (C.g(k, u, v) !== 1) return false;
+    const outs = HS_OD.filter(([du, dv]) => C.g(k, u + du, v + dv) === 0).length;
+    if (!outs) return true;                                   // Innenwand stößt an
+    if (outs >= 2 || !HS_OD.some(([du, dv]) => C.g(k, u + du, v + dv) === 2)) return true;   // Ecke
+    if (C.wins[k].has(C.gi(u, v))) return false;
+    const off = C.fac[k].get(C.gi(u, v));
+    return off !== undefined && off % 4 === 2;
+  }
+  // Geschossstil an einer Stelle: Bänder (H.bands = [{ u0, u1, fl: {...} }]) überschreiben einzelne Angaben, etwa die Putzfarbe je Wohnung
+  function hsFlAt(C, k, u, v) {
+    let fl = C.fs(k, C.boxAt(u, v, k));
+    const bd = C.H.bands && C.H.bands.find(b => u >= b.u0 && u <= b.u1);
+    return bd ? Object.assign({}, fl, bd.fl) : fl;
+  }
+  // Block aus einer Liste zufällig (fest je Zelle) wählen, etwa Bruchstein gemischt mit Moos
+  const hsMix = (b, x, y, z) => Array.isArray(b) ? b[Math.floor(hash(x * 7 + y, z, 313) * b.length)] : b;
+  function hsExtWall(C, k, u, v) {
+    const T = C.T, y0 = C.ys[k], fh = C.H.fh[k], fl = hsFlAt(C, k, u, v);
+    const outs = HS_OD.filter(([du, dv]) => C.g(k, u + du, v + dv) === 0);
+    const corner = outs.length >= 2 || !HS_OD.some(([du, dv]) => C.g(k, u + du, v + dv) === 2);
+    const w = C.wins[k].get(C.gi(u, v));
+    const rows = w ? w.rows : null, rmin = rows ? rows[0] : 0, rmax = rows ? rows[rows.length - 1] : 0;
+    // rechts aus Sicht eines Betrachters draußen (lokal)
+    const [nx, nz] = T.dir(outs[0][0], outs[0][1]), [ru, rv] = T.loc(nz, -nx);
+    for (let r = 0; r < fh; r++) {
+      const y = y0 + r;
+      let b;
+      if (fl.fw) {
+        const B = fl.fw.b, Pz = fl.fw.p || PLASTER_W;
+        if (r === 0 || corner) b = B;
+        else if (w) b = r >= rmin && r <= rmax ? fl.win || HS_FENSTER : r < rmin ? (fl.fw.x || HS_FW_X) : Pz;
+        else if (hsIsPost(C, k, u, v)) b = B;
+        else if (r === 1) b = hsIsPost(C, k, u + ru, v + rv) ? HS_FW_A : hsIsPost(C, k, u - ru, v - rv) ? HS_FW_B : (fl.fw.x || HS_FW_X);
+        else b = Pz;
+      } else {
+        if (r === 0) b = fl.band || fl.c || fl.w;
+        else if (corner) b = fl.c || fl.w;
+        else if (w && r >= rmin && r <= rmax) b = fl.win || HS_FENSTER;
+        else if (w && r === rmax + 1 && fl.lin) b = fl.lin;
+        else if (w && r === rmin - 1 && fl.sill) b = fl.sill;
+        else b = fl.w;
+      }
+      T.set(u, y, v, hsMix(b, u, y, v));
+    }
+  }
+
+  // ---------- Treppen ----------
+  // Gerade Läufe im Flur: Lauf k beginnt bei v = s und hat ns = fh[k] - 1 Stufen (+1 je Block), das Podest bei v = s + ns liegt auf
+  // der Decke. Über jeder Stufe bleiben drei Blöcke frei (Loch in der Decke); das Loch bekommt oben ein Geländer.
+  // C.occ[k] merkt sich Zellen, auf die keine Möbel dürfen (Stufen, Antritt, Podest, Geländer).
+  function hsStairs(C) {
+    const T = C.T, S = C.S;
+    C.occ = C.grids.map(() => new Set());
+    for (const U of C.units) {
+      const st = U.stair; if (!st) continue;
+      const stepAt = new Set();   // Stufenzellen je Geschoss (k * 4096 + gi), damit Geländer nicht auf Stufen landen
+      for (const f of st.flights) for (let i = 0; i < f.ns; i++) stepAt.add(f.k * 65536 + C.gi(f.col, f.s + f.dir * i));
+      for (const f of st.flights) {
+        const yb = C.ys[f.k], yn = C.ys[f.k + 1], occ = C.occ[f.k], occN = C.occ[f.k + 1];
+        const i0 = Math.max(0, C.H.fh[f.k] - 4), u = f.col, other = u === st.rail ? st.sc[0] : st.rail;
+        occ.add(C.gi(u, f.s - f.dir)); occ.add(C.gi(other, f.s - f.dir));
+        occN.add(C.gi(u, f.s + f.dir * f.ns)); occN.add(C.gi(other, f.s + f.dir * f.ns));
+        for (let i = 0; i < f.ns; i++) {
+          const v = f.s + f.dir * i, yt = yb + 1 + i;
+          for (let y = yb + 1; y <= yt; y++) T.set(u, y, v, y === yt ? (S.step || DPLANK) : (S.stepFill || S.step || DPLANK));
+          for (let y = yt + 1; y <= yt + 3; y++) T.set(u, y, v, AIR);
+          occ.add(C.gi(u, v));
+          if (i >= i0) {
+            occN.add(C.gi(u, v));
+            // Geländer auf der Seite zur Nachbarspalte, außer dort liegen im oberen Geschoss Stufen des nächsten Laufs
+            if (!stepAt.has((f.k + 1) * 65536 + C.gi(other, v)) && C.g(f.k + 1, other, v) === 2) { T.set(other, yn + 1, v, S.rail || HS_BALU); occN.add(C.gi(other, v)); }
+          }
+        }
+        // Brüstung an der Stirnseite des Treppenlochs
+        const vf = f.s + f.dir * (i0 - 1);
+        if (C.g(f.k + 1, u, vf) === 2 && !stepAt.has((f.k + 1) * 65536 + C.gi(u, vf))) { T.set(u, yn + 1, vf, S.rail || HS_BALU); occN.add(C.gi(u, vf)); }
+      }
+    }
+  }
+
+  // ---------- Dach: Dachhaut, Giebel, Giebelfenster, Schornsteine ----------
+  function hsRoof(C) {
+    const T = C.T, S = C.S, { GW, GD } = C;
+    const inFoot = (bx, u, v) => u >= bx.u0 && u <= bx.u1 && v >= bx.v0 - bx.jet * (bx.n - 1) && v <= bx.v1;
+    // Giebelwände: Wandzellen des obersten Geschosses, über denen nichts mehr kommt, bis unter die Dachhaut
+    for (const bx of C.boxes) {
+      if (!bx.r || bx.r.t === "flach") continue;
+      const k = bx.n - 1, fl = C.fs(k, bx);
+      for (let v = bx.v0 - bx.jet * k; v <= bx.v1; v++) for (let u = bx.u0; u <= bx.u1; u++) {
+        if (C.g(k, u, v) !== 1 || C.g(bx.n, u, v)) continue;
+        const i = C.gi(u, v), top = C.rf[i];
+        for (let y = bx.yE + 1; y < top; y++) T.set(u, y, v, hsGableBlock(C, bx, fl, u, v, y, top));
+      }
+    }
+    // Dachhaut; bei steilen Dächern nach unten aufgefüllt, damit keine Lücken bleiben
+    for (let j = 0; j < GD; j++) for (let i0 = 0; i0 < GW; i0++) {
+      const i = i0 + j * GW, h = C.rf[i]; if (h < 0) continue;
+      const u = i0 + C.gu0, v = j + C.gv0, bx = C.boxes[C.rb[i]], r = bx.r, st = Math.max(1, Math.ceil(r.p || 1));
+      let lo = h;
+      for (const [du, dv] of HS_OD) { const n = C.gi(u + du, v + dv), nh = n < 0 ? -1 : C.rf[n]; if (nh >= 0) lo = Math.min(lo, nh + 1); }
+      lo = Math.max(lo, h - st + 1);
+      if (C.boxes.some(b => inFoot(b, u, v))) lo = Math.max(lo, bx.yE);
+      for (let y = lo; y <= h; y++) T.set(u, y, v, y === h && r.top && hsIsRidge(C, u, v) ? r.top : (r.m || ROOF_RED));
+      if (r.t === "flach" && (r.par !== false) && inFoot(bx, u, v) && HS_OD.some(([du, dv]) => !inFoot(bx, u + du, v + dv) && C.rf[C.gi(u + du, v + dv)] <= h))
+        T.set(u, h + 1, v, r.parB || r.m || QUARTZ);
+    }
+  }
+  // Schornsteine (aus H.chim, Kaminen und Küchenherden): an Außenwänden nach innen gerückt, bis zwei Blöcke über die höchste
+  // Dachstelle in der Nähe, mit Abdeckung; höchstens zwei je Haus
+  function hsChimneys(C) {
+    const T = C.T, S = C.S, done = [];
+    for (let [u, v] of (C.H.chim || []).concat(C.chim)) {
+      const k = C.n - 1;
+      const o = HS_OD.find(([du, dv]) => C.g(k, u + du, v + dv) === 0);
+      if (o) for (let i = 0; i < 3 && C.g(k, u - o[0], v - o[1]); i++) { u -= o[0]; v -= o[1]; }
+      if (done.some(([a, b]) => Math.abs(a - u) + Math.abs(b - v) < 3) || done.length >= 2 || C.rf[C.gi(u, v)] < 0) continue;
+      done.push([u, v]);
+      let top = 0;
+      for (let dv = -1; dv <= 1; dv++) for (let du = -1; du <= 1; du++) top = Math.max(top, C.rf[C.gi(u + du, v + dv)]);
+      const bx = C.boxAt(u, v, k);
+      for (let y = C.ys[bx.n] + 1; y <= top + 2; y++) T.set(u, y, v, S.chim || BRICK);
+      T.set(u, top + 3, v, S.chimTop || COBBLE);
+    }
+  }
+  // ---------- Anmelden: Wohnungen, Arbeitsplätze ----------
+  function hsRegister(C) {
+    const H = C.H;
+    for (const U of C.units) {
+      const beds = C.beds.filter(b => b.unit === U.idx).map(b => b.p), ch = C.chests.find(c => c.unit === U.idx);
+      const t = C.tables.find(q => q.unit === U.idx && q.kind === "essen") || C.tables.find(q => q.unit === U.idx);
+      const home = { name: U.name || H.name, zone: H.zone, kind: H.kind || "haus", door: U.dw, out: U.out, in: U.in, beds, chest: ch ? ch.p : null };
+      if (t) { home.table = t.p; home.seats = t.seats; }
+      if (U.work || H.work) home.work = U.work || H.work;
+      PLACES11.homes.push(home);
+      hsStat.homes = (hsStat.homes || 0) + 1; hsStat.beds = (hsStat.beds || 0) + beds.length; hsStat.chests = (hsStat.chests || 0) + (ch ? 1 : 0);
+    }
+    for (const w of C.works) PLACES11.work.push({ kind: w.kind, name: w.name, spot: w.spot, look: w.look, zone: H.zone });
+  }
+  const hsIsRidge = (C, u, v) => { const h = C.rf[C.gi(u, v)]; return HS_OD.every(([du, dv]) => C.rf[C.gi(u + du, v + dv)] <= h); };
+  // Ein Block der Giebelwand: Fachwerk mit Pfosten, Riegeln, Streben unter der Dachkante und Fenstern, oder Putz mit Fenstern
+  function hsGableBlock(C, bx, fl, u, v, y, top) {
+    const r = bx.r, gv = r.ridge === "v" ? u : v;   // Lage entlang des Giebels
+    const a = r.ridge === "v" ? bx.u0 : bx.v0 - bx.jet * (bx.n - 1), b = r.ridge === "v" ? bx.u1 : bx.v1, m2 = a + b;
+    const off2 = Math.abs(2 * gv - m2), off = m2 % 2 === 0 ? off2 / 2 : (off2 - 1) / 2, h = y - bx.yE, under = top - y;
+    const wide = b - a >= 8;
+    const win = r.gw !== false && h >= 1 && h <= 2 && under >= 2 && (off === 0 || (wide && off === 2 && m2 % 2 === 0) || (wide && off === 2 && m2 % 2 === 1));
+    const win2 = r.gw !== false && off === 0 && h === 4 && under >= 2;
+    if (win || win2) return fl.gwin || fl.win || HS_FENSTER;
+    if (!fl.fw) return hsMix(fl.gw || fl.w, u, y, v);
+    const B = fl.fw.b, Pz = fl.fw.p || PLASTER_W;
+    if (under === 1) {
+      // Strebe parallel zur Dachkante: links der Mitte „/“, rechts „\“ (aus Sicht von draußen)
+      const k = bx.n - 1, o = HS_OD.find(([du, dv]) => C.g(k, u + du, v + dv) === 0) || [0, -1];
+      const [nx, nz] = C.T.dir(o[0], o[1]), [ru, rv] = C.T.loc(nz, -nx);
+      const cu = r.ridge === "v" ? m2 / 2 : u, cv = r.ridge === "v" ? v : m2 / 2;
+      return (u - cu) * ru + (v - cv) * rv < 0 ? HS_FW_A : HS_FW_B;
+    }
+    if (h % 4 === 0 || off % 4 === 2) return B;
+    return Pz;
+  }
+
+  // ---------- Gauben, Balkone, Säulenvorbau ----------
+  // Gauben H.dorm = [{ u, side: "f" | "b" }] auf Dächern mit First entlang u: Front eine Zelle hinter der Traufe, Fenster in der Mitte,
+  // eigenes Satteldach, innen eine Laterne (nachts leuchtet das Fenster).
+  function hsDormers(C) {
+    const H = C.H, T = C.T, bx = C.boxes[0], r = bx.r;
+    if (!H.dorm || !r || (r.ridge !== "u" && r.t !== "mansard" && r.t !== "walm")) return;
+    const fl = C.fs(C.n - 1, bx), yE = bx.yE, yD = yE + 4;
+    for (const d of H.dorm) {
+      const dir = d.side === "b" ? -1 : 1, vw = d.side === "b" ? bx.v1 : bx.v0 - bx.jet * (bx.n - 1), vf = vw + dir, c = d.u;
+      const main = v => C.rf[C.gi(c, v)];
+      if (main(vf + dir * 6) < yD + 1) continue;             // Dach nicht hoch genug
+      let v = vf;
+      for (; main(v) < yD + 1; v += dir) {
+        for (let y = main(v); y > yE; y--) T.set(c, y, v, AIR);                         // Innenraum der Gaube
+        for (const sg of [-1, 1]) for (let y = main(v) + 1; y < yD; y++) T.set(c + sg, y, v, fl.gw || (fl.fw ? fl.fw.p : fl.w));
+      }
+      const vEnd = v;
+      for (let u = c - 1; u <= c + 1; u++) for (let y = yE + 1; y < yD; y++)
+        T.set(u, y, vf, u === c && (y === yE + 2 || y === yE + 3) ? (fl.win || HS_FENSTER) : fl.fw ? (u === c ? fl.fw.p : fl.fw.b) : (fl.gw || fl.w));
+      for (let vv = vf - dir; dir > 0 ? vv <= vEnd : vv >= vEnd; vv += dir) for (let u = c - 2; u <= c + 2; u++) {
+        const y = yD + 1 - Math.abs(u - c);
+        if (y > C.rf[C.gi(u, vv)]) T.set(u, y, vv, r.m || ROOF_RED);
+      }
+      T.set(c, yD, vf + dir, LANTERN_H);
+    }
+  }
+  // Balkone H.balc = [{ k, u0, u1, d }] vor der Front: Platte, Balustrade, Konsolen darunter
+  function hsBalconies(C) {
+    const T = C.T, S = C.S;
+    for (const b of C.H.balc || []) {
+      const vf = C.fv(b.k), y = C.ys[b.k], d = b.d || 1;
+      for (let v = vf - d; v < vf; v++) for (let u = b.u0; u <= b.u1; u++) {
+        if (C.g(b.k, u, v)) continue;
+        T.set(u, y, v, S.balc || QUARTZ);
+        if (v === vf - d || u === b.u0 || u === b.u1) T.set(u, y + 1, v, S.balu || HS_BALU);
+      }
+      for (const u of [b.u0, b.u1]) T.set(u, y - 1, vf - 1, S.consol || SBRICK);
+    }
+  }
+  // Säulenvorbau H.port = { u0, u1, d, ped }: Säulen vorn in jeder zweiten Zelle (die Türachse bleibt frei) und hinten an den Ecken,
+  // Gebälk, darüber eine Balustrade (Balkon) oder mit ped ein Dreiecksgiebel; Boden aus Quarz, Stufen bei erhöhtem Haus
+  function hsPortico(C) {
+    const P = C.H.port; if (!P) return;
+    const T = C.T, S = C.S, F = C.H.F, yT = C.ys[1], d = P.d || 2, roofM = (C.H.roof && C.H.roof.m) || SLATE;
+    for (let v = -d; v <= -1; v++) for (let u = P.u0; u <= P.u1; u++) {
+      T.set(u, F, v, (u + v) & 1 ? (S.portFloor || QUARTZ) : (S.portFloor2 || S.portFloor || QUARTZ));
+      for (let y = F + 1; y < yT; y++) T.set(u, y, v, AIR);
+      T.set(u, yT, v, S.portTop || QUARTZ);
+      if (!P.ped && (v === -d || u === P.u0 || u === P.u1)) T.set(u, yT + 1, v, S.balu || HS_BALU);
+    }
+    const cols = [], doorU = C.units.length ? C.units[0].door : -99;
+    for (let u = P.u0; u <= P.u1; u += 2) if (u !== doorU || u === P.u0 || u === P.u1) cols.push([u, -d]);
+    if ((P.u1 - P.u0) % 2) cols.push([P.u1, -d]);
+    if (d >= 2) cols.push([P.u0, -1], [P.u1, -1]);
+    for (const [u, v] of cols) { for (let y = F + 1; y < yT; y++) T.set(u, y, v, S.portPost || PILLAR); T.set(u, yT - 1, v, S.cap || GOLD_TRIM); }
+    for (let u = P.u0; u <= P.u1; u++) T.set(u, yT - 1, -d, S.portBeam || QUARTZ);
+    // Dreiecksgiebel: Giebelfeld aus Quarz vorn, Dach darüber bis zur Hauswand
+    if (P.ped) for (let u = P.u0; u <= P.u1; u++) {
+      const top = yT + 1 + Math.floor(Math.min(u - P.u0, P.u1 - u) * 0.7);
+      for (let y = yT + 1; y < top; y++) T.set(u, y, -d, QUARTZ);
+      for (let v = -d; v <= -1; v++) T.set(u, top, v, roofM);
+    }
+    T.set(Math.round((P.u0 + P.u1) / 2), yT - 1, -1 - Math.floor((d - 1) / 2), LANTERN_H);
+    // Stufen vor dem Vorbau, wenn das Haus erhöht steht
+    for (let j = 1; j <= F - G0; j++) for (let u = P.u0; u <= P.u1; u++) { for (let y = G0; y <= F - j; y++) T.set(u, y, -d - j, S.stairOut || QUARTZ); T.set(u, F - j + 1, -d - j, AIR); }
+  }
+
+  // Erker H.erker = [{ k0, k1, u0, u1 }]: Vorbau eine Zelle vor der Front über die Geschosse k0..k1 (nicht im Erdgeschoss).
+  // Im Raster wird die Erkerzeile zur Außenwand und die Frontwand dahinter zur Nische des Zimmers; Fenster dicht an dicht.
+  function hsErkerPlan(C) {
+    C.isErker = (k, u, v) => (C.H.erker || []).some(e => k >= e.k0 && k <= e.k1 && v === C.fv(k) - 1 && u > e.u0 && u < e.u1);
+    for (const e of C.H.erker || []) for (let k = e.k0; k <= e.k1; k++) {
+      const g = C.grids[k], fv = C.fv(k);
+      for (let u = e.u0; u <= e.u1; u++) { g[C.gi(u, fv - 1)] = 1; if (u > e.u0 && u < e.u1) g[C.gi(u, fv)] = 2; }
+    }
+  }
+  // Erkerdach (eine Reihe Dachziegel), Kragsteine darunter, Nischenboden
+  function hsErkerBau(C) {
+    const T = C.T, S = C.S, m = (C.H.roof && C.H.roof.m) || SLATE;
+    for (const e of C.H.erker || []) {
+      const fvT = C.fv(e.k1), fvB = C.fv(e.k0), yT = C.ys[e.k1 + 1], yB = C.ys[e.k0];
+      for (let u = e.u0; u <= e.u1; u++) {
+        if (T.get(u, yT, fvT - 1) === AIR) T.set(u, yT, fvT - 1, m);
+        if (u === e.u0 || u === e.u1 || u === Math.round((e.u0 + e.u1) / 2)) T.set(u, yB - 1, fvB - 1, S.consol || SBRICK);
+      }
+      for (let k = e.k0; k <= e.k1; k++) for (let u = e.u0 + 1; u < e.u1; u++) T.set(u, C.ys[k], C.fv(k), S.floorErker || HS_PARKETT);
+    }
+  }
+
+  // ---------- Haustüren mit Oberlicht und Freitreppe ----------
+  // Jede Einheit (Wohnung) hat ihre Tür vorne in der Front des Hauptbaus bei u = U.door. U.dw: Tür als Weltzelle, U.out/U.in Standplätze.
+  function hsDoors(C) {
+    const T = C.T, H = C.H, S = C.S, F = H.F;
+    for (const U of C.units) {
+      const u = U.door, v = C.fv(0);
+      U.dw = T.door(u, F + 1, v, 0, -1, U.style || S.door || "oak");
+      if (H.fh[0] >= 5) T.set(u, F + 3, v, S.transom || GLASS);
+      // Stufen vor erhöhten Häusern: eine Stufe je Block Höhe, drei breit
+      for (let j = 0; j < F - G0; j++) for (let du = -1; du <= 1; du++) {
+        for (let y = G0; y <= F - j; y++) T.set(u + du, y, v - 1 - j, S.stairOut || S.plinth || COBBLE);
+        for (let y = F - j + 1; y <= F - j + 3; y++) T.set(u + du, y, v - 1 - j, AIR);
+      }
+      for (let y = F + 1; y <= F + 2; y++) T.set(u, y, v - 1, AIR);
+      U.out = T.wp(u, F + 1, v - 1); U.in = T.wp(u, F + 1, v + 1); U.lu = [u, v];
+      C.keep[0].add(C.gi(u, v + 1)); C.occ[0].add(C.gi(u, v + 1));
+    }
+  }
+
+  // ---------- Einrichtung: Werkzeugkasten für ein Zimmer ----------
+  // Jede Zelle des Zimmers hat einen Zustand: 0 frei, 1 belegt (Möbel am Boden), 2 begehbar belegt (Teppich, Leuchter).
+  // Möbel werden in Gruppen gesetzt (K.begin ... K.done): danach müssen alle Durchgänge verbunden und jedes Möbel mit Zugang
+  // (acc) von einer begehbaren Nachbarzelle erreichbar sein, sonst wird die Gruppe zurückgenommen.
+  function hsKit(C, r) {
+    const T = C.T, y = C.ys[r.k] + 1, top = C.ys[r.k + 1] - 1;
+    const K = { C, r, T, y, top, h: top - y + 1, st: new Map(), log: [], acc: [], mark0: 0, rnd: C.rnd };
+    const key = (u, v) => u * 4096 + v;
+    K.in = (u, v) => u >= r.u0 && u <= r.u1 && v >= r.v0 && v <= r.v1;
+    K.keep = (u, v) => C.keep[r.k].has(C.gi(u, v)) || C.occ[r.k].has(C.gi(u, v));
+    K.state = (u, v) => K.st.get(key(u, v)) || 0;
+    K.free = (u, v) => K.in(u, v) && !K.state(u, v) && !K.keep(u, v);
+    K.walk = (u, v) => K.in(u, v) && K.state(u, v) !== 1 && !(C.occ[r.k].has(C.gi(u, v)) && T.get(u, y, v) !== AIR && solid(T.get(u, y, v)));
+    K.wallAt = (u, v) => C.g(r.k, u, v) === 1;
+    K.winAt = (u, v) => C.wins[r.k].has(C.gi(u, v));
+    K.dwAt = (u, v) => (C.doorways || []).some(d => d.k === r.k && d.wu === u && d.wv === v) || (r.k === 0 && C.units.some(U => U.lu && U.lu[0] === u && U.lu[1] === v));
+    // Wände um die Zelle (Richtungen, in denen eine Wand steht) und ob sie „ruhig“ ist (kein Fenster, kein Durchgang)
+    K.walls = (u, v) => HS_OD.filter(([du, dv]) => K.wallAt(u + du, v + dv));
+    K.plain = (u, v, du, dv) => K.wallAt(u + du, v + dv) && !K.winAt(u + du, v + dv) && !K.dwAt(u + du, v + dv);
+    K.set = (u, dy, v, b) => { K.log.push([u, y + dy, v, T.get(u, y + dy, v)]); T.set(u, y + dy, v, b); };
+    K.shape = (u, dy, v, id, du, dv) => K.set(u, dy, v, T.rid(id, du, dv));
+    K.occ = (u, v, s) => { K.log.push(["st", u, v, K.state(u, v)]); K.st.set(key(u, v), s === undefined ? 1 : s); };
+    K.need = (cells) => K.acc.push(cells);
+    K.begin = () => { K.mark0 = K.log.length; K.acc0 = K.acc.length; };
+    K.undoTo = (m, a) => {
+      while (K.log.length > m) { const e = K.log.pop(); if (e[0] === "st") K.st.set(key(e[1], e[2]), e[3]); else T.set(e[0], e[1], e[2], e[3]); }
+      K.acc.length = a;
+    };
+    K.undo = () => K.undoTo(K.mark0, K.acc0);
+    K.save = () => [K.log.length, K.acc.length];
+    // Erreichbarkeit: von allen Durchgängen und Treppenzugängen aus
+    K.ok = () => {
+      const seen = new Set(), q = [];
+      const starts = [];
+      for (let v = r.v0; v <= r.v1; v++) for (let u = r.u0; u <= r.u1; u++) if (C.keep[r.k].has(C.gi(u, v))) starts.push([u, v]);
+      if (!starts.length) return true;
+      for (const [u, v] of starts) if (!K.walk(u, v)) return false;
+      q.push(starts[0]); seen.add(key(...starts[0]));
+      while (q.length) {
+        const [u, v] = q.pop();
+        for (const [du, dv] of HS_OD) { const a = u + du, b = v + dv; if (!seen.has(key(a, b)) && K.walk(a, b)) { seen.add(key(a, b)); q.push([a, b]); } }
+      }
+      if (!starts.every(([u, v]) => seen.has(key(u, v)))) return false;
+      return K.acc.every(cells => cells.some(([u, v]) => HS_OD.some(([du, dv]) => seen.has(key(u + du, v + dv)))));
+    };
+    K.done = () => { if (K.ok()) return true; K.undo(); return false; };
+    // Mitte des Zimmers, Zellen an einer Wand, Blickrichtung weg von der Wand
+    K.cu = (r.u0 + r.u1) / 2; K.cv = (r.v0 + r.v1) / 2;
+    K.cells = () => { const a = []; for (let v = r.v0; v <= r.v1; v++) for (let u = r.u0; u <= r.u1; u++) a.push([u, v]); return a; };
+    // Zellen entlang einer Wandseite (du, dv) = Richtung zur Wand, von der Mitte nach außen sortiert
+    K.side = (du, dv) => {
+      const a = [];
+      if (du) { const u = du < 0 ? r.u0 : r.u1; for (let v = r.v0; v <= r.v1; v++) a.push([u, v]); }
+      else { const v = dv < 0 ? r.v0 : r.v1; for (let u = r.u0; u <= r.u1; u++) a.push([u, v]); }
+      return a.sort((p, q) => Math.abs(p[0] - K.cu) + Math.abs(p[1] - K.cv) - Math.abs(q[0] - K.cu) - Math.abs(q[1] - K.cv));
+    };
+    return K;
+  }
+
+  // ---------- Einrichtung: Bausteine ----------
+  // Ein Möbel an eine Wand stellen (Rückseite zur Wand). o: tall (zwei hoch, nicht vor Fenster), win (nur vor Fenster), plainOnly,
+  // corner (Ecken bevorzugen), near [u, v] (nah an einem Punkt), far [u, v], rot false (Vollblock), top (Block obendrauf), noacc, up (Block darüber)
+  const HS_MAXPER = { [HS_UHR]: 1, [POT_BOX]: 3, [HS_PALME]: 2, [HS_KLAVIER]: 1, [BENCH]: 2 };
+  function hsWallPut(K, id, o) {
+    o = o || {};
+    const cnt = K.C.cnt || (K.C.cnt = {});
+    if (HS_MAXPER[id] !== undefined && (cnt[id] || 0) >= HS_MAXPER[id]) return null;
+    const cand = [];
+    for (const [u, v] of K.cells()) {
+      if (!K.free(u, v)) continue;
+      if (o.avoid && o.avoid.some(([a, b]) => Math.abs(a - u) + Math.abs(b - v) <= 1)) continue;
+      for (const [du, dv] of HS_OD) {
+        const wu = u + du, wv = v + dv;
+        if (!K.wallAt(wu, wv) || K.dwAt(wu, wv)) continue;
+        if ((o.tall || o.plainOnly) && K.winAt(wu, wv)) continue;
+        if (o.win && !K.winAt(wu, wv)) continue;
+        if (o.side && (du !== o.side[0] || dv !== o.side[1])) continue;
+        let sc = K.rnd() * 0.5 + (o.corner ? -K.walls(u, v).length * 2 : K.walls(u, v).length);
+        if (o.near) sc += Math.hypot(u - o.near[0], v - o.near[1]);
+        if (o.far) sc -= Math.hypot(u - o.far[0], v - o.far[1]);
+        cand.push([sc, u, v, du, dv]);
+      }
+    }
+    cand.sort((a, b) => a[0] - b[0]);
+    for (const [, u, v, du, dv] of cand) {
+      K.begin();
+      if (o.rot === false) K.set(u, 0, v, id); else K.shape(u, 0, v, id, -du, -dv);
+      if (o.up) K.set(u, 1, v, o.up);
+      if (o.top) K.set(u, 1, v, o.top);
+      K.occ(u, v);
+      if (!o.noacc) K.need([[u, v]]);
+      if (K.done()) { cnt[id] = (cnt[id] || 0) + 1; return [u, v, du, dv]; }
+    }
+    return null;
+  }
+  // Betten: n Einzelbetten nebeneinander, Kopfteile an einer Wand ohne Durchgang, Nachttische außen daneben (für Paare n = 2)
+  function hsBedGroup(K, n, head, stand) {
+    const C = K.C, r = K.r, best = [];
+    for (const [du, dv] of HS_OD) {
+      const side = du ? r.v1 - r.v0 + 1 : r.u1 - r.u0 + 1, deep = du ? r.u1 - r.u0 + 1 : r.v1 - r.v0 + 1;
+      if (side < n || deep < 3) continue;
+      const au = du ? 0 : 1, av = du ? 1 : 0;           // entlang der Wand
+      const hu0 = du < 0 ? r.u0 : du > 0 ? r.u1 : r.u0, hv0 = dv < 0 ? r.v0 : dv > 0 ? r.v1 : r.v0;
+      for (let s = 0; s + n <= side; s++) {
+        const heads = [];
+        for (let i = 0; i < n; i++) heads.push([hu0 + au * (s + i), hv0 + av * (s + i)]);
+        if (!heads.every(([u, v]) => K.free(u, v) && K.free(u - du, v - dv) && K.wallAt(u + du, v + dv) && !K.dwAt(u + du, v + dv))) continue;
+        const mid = s + (n - 1) / 2 - (side - 1) / 2;
+        let sc = Math.abs(mid) * 1.5 + heads.filter(([u, v]) => K.winAt(u + du, v + dv)).length * 0.6 + K.rnd() * 0.3;
+        // Abstand zu den Durchgängen: je weiter weg, desto besser
+        for (const d of r.doors) sc -= Math.min(4, Math.hypot(d.u - (heads[0][0] + heads[n - 1][0]) / 2, d.v - (heads[0][1] + heads[n - 1][1]) / 2)) * 0.5;
+        best.push([sc, du, dv, heads, au, av]);
+      }
+    }
+    best.sort((a, b) => a[0] - b[0]);
+    for (const [, du, dv, heads, au, av] of best) {
+      K.begin();
+      for (const [u, v] of heads) {
+        K.shape(u, 0, v, head, -du, -dv); K.shape(u - du, 0, v - dv, head + 4, -du, -dv);
+        K.occ(u, v); K.occ(u - du, v - dv); K.need([[u, v], [u - du, v - dv]]);
+      }
+      if (!K.done()) continue;
+      for (const [u, v] of heads) K.C.beds.push({ unit: K.r.unit, p: K.T.wp(u, K.y, v) });
+      // Nachttische links und rechts, mit Kerze oder Laterne
+      const [fu, fv] = heads[0], [lu, lv] = heads[heads.length - 1];
+      let nst = 0;
+      for (const [u, v] of [[fu - au, fv - av], [lu + au, lv + av]]) {
+        if ((n === 1 && nst) || !K.free(u, v) || !K.wallAt(u + du, v + dv)) continue;
+        K.begin(); K.set(u, 0, v, HS_NACHTT); K.set(u, 1, v, stand || CANDLE); K.occ(u, v); if (K.done()) nst++;
+      }
+      return { heads, du, dv };
+    }
+    return null;
+  }
+  // Licht an der Decke: Kronleuchter (hoch genug) oder Hängelaterne, nicht über Treppen
+  function hsLight(K, id, at) {
+    const C = K.C;
+    let best = null, bd = 1e9;
+    for (const [u, v] of K.cells()) {
+      if (C.occ[K.r.k].has(C.gi(u, v)) || (C.occ[K.r.k + 1] && C.occ[K.r.k + 1].has(C.gi(u, v)))) continue;
+      const d = Math.hypot(u - (at ? at[0] : K.cu), v - (at ? at[1] : K.cv));
+      if (d < bd) { bd = d; best = [u, v]; }
+    }
+    if (!best) return null;
+    const b = id || (K.h >= 4 ? HS_LEUCHTER : LANTERN_H);
+    K.set(best[0], K.h - 1, best[1], b);
+    if (b === HS_LEUCHTER && K.h >= 5) K.set(best[0], K.h - 1, best[1], BARS), K.set(best[0], K.h - 2, best[1], b);
+    return best;
+  }
+  // Teppich im Boden (voller Block, kostet nichts): Rechteck um die Mitte oder um bestimmte Zellen
+  function hsRug(K, u0, v0, u1, v1, b) {
+    for (let v = v0; v <= v1; v++) for (let u = u0; u <= u1; u++) if (K.in(u, v) && !K.C.occ[K.r.k].has(K.C.gi(u, v))) K.T.set(u, K.y - 1, v, b);
+  }
+  // Kleine Gemälde (1 x 1) in Innenwände auf Augenhöhe
+  const HS_PICS = [PAINT.flower, PAINT.moon, PAINT.ship, PAINT.castle];
+  function hsPics(K, n) {
+    const C = K.C, T = K.T, done = [];
+    const cand = [];
+    for (const [u, v] of K.cells()) for (const [du, dv] of HS_OD) {
+      const wu = u + du, wv = v + dv;
+      if (!K.wallAt(wu, wv) || K.winAt(wu, wv) || K.dwAt(wu, wv)) continue;
+      if (HS_OD.some(([a, b]) => C.g(K.r.k, wu + a, wv + b) === 0)) continue;       // nur Innenwände
+      if (T.get(wu, K.y + 1, wv) === AIR || T.get(wu, K.y + 1, wv) >= 32 && T.get(wu, K.y + 1, wv) < 64) continue;
+      if (K.state(u, v) === 1 && SHAPE[T.get(u, K.y, v)] && [HS_SCHRANK, HS_UHR].some(id => T.get(u, K.y, v) >= id && T.get(u, K.y, v) < id + 4)) continue;
+      cand.push([Math.abs(u + du * 0.5 - K.cu) + Math.abs(v + dv * 0.5 - K.cv) + K.rnd(), wu, wv, du, dv]);
+    }
+    cand.sort((a, b) => a[0] - b[0]);
+    for (const [, wu, wv] of cand) {
+      if (done.length >= n) break;
+      if (done.some(([a, b]) => Math.abs(a - wu) + Math.abs(b - wv) < 3)) continue;
+      const p = HS_PICS[Math.floor(K.rnd() * HS_PICS.length)];
+      T.set(wu, K.y + 1, wv, p.base); done.push([wu, wv]);
+    }
+    return done.length;
+  }
+  // Wandlaterne innen, über Kopfhöhe
+  function hsWallLamp(K, near, dy) {
+    const T = K.T, h = dy || Math.min(2, K.h - 2), cand = [];
+    for (const [u, v] of K.cells()) for (const [du, dv] of HS_OD) {
+      const wu = u + du, wv = v + dv;
+      if (!K.wallAt(wu, wv) || K.winAt(wu, wv) || K.dwAt(wu, wv) || T.get(u, K.y + h, v) !== AIR || T.get(u, K.y + h - 1, v) !== AIR) continue;
+      if (K.C.occ[K.r.k].has(K.C.gi(u, v))) continue;
+      cand.push([Math.hypot(u - near[0], v - near[1]) + K.rnd() * 0.2, u, v, du, dv]);
+    }
+    cand.sort((a, b) => a[0] - b[0]);
+    if (!cand.length) return null;
+    const [, u, v, du, dv] = cand[0];
+    K.shape(u, h, v, HS_WLAMPE, -du, -dv);
+    return [u, v];
+  }
+
+  // Rechts aus Sicht einer Person, die in lokale Richtung (du, dv) schaut
+  function hsRight(T, du, dv) { const [fx, fz] = T.dir(du, dv); return T.loc(-fz, fx); }
+  // Esstisch der Länge n in der Mitte, Stühle an den Längsseiten (und an den Stirnseiten, wenn ends), jeder Stuhl einzeln geprüft
+  function hsTableGroup(K, n, table, chair, ends, at) {
+    const r = K.r, W = r.u1 - r.u0 + 1, D = r.v1 - r.v0 + 1, opts = [];
+    const cu = at ? at[0] : K.cu, cv = at ? at[1] : K.cv;
+    for (const au of [1, 0]) {
+      const av = 1 - au;
+      for (let v = r.v0; v <= r.v1; v++) for (let u = r.u0; u <= r.u1; u++) {
+        const cells = []; for (let i = 0; i < n; i++) cells.push([u + au * i, v + av * i]);
+        if (!cells.every(([a, b]) => K.free(a, b))) continue;
+        const x = u + au * (n - 1) / 2, z = v + av * (n - 1) / 2;
+        opts.push([Math.hypot(x - cu, z - cv) + ((au === 1) === (W >= D) ? 0 : 0.8), cells, au, av]);
+      }
+    }
+    opts.sort((a, b) => a[0] - b[0]);
+    for (const [, cells, au, av] of opts.slice(0, 12)) {
+      const [m, a] = K.save();
+      K.begin();
+      for (const [x, z] of cells) { K.set(x, 0, z, table); K.occ(x, z); }
+      if (!K.done()) continue;
+      const seats = [];
+      const spots = [];
+      for (const [x, z] of cells) { spots.push([x + av, z + au, -av, -au], [x - av, z - au, av, au]); }
+      if (ends) { const [x0, z0] = cells[0], [x1, z1] = cells[n - 1]; spots.push([x0 - au, z0 - av, au, av], [x1 + au, z1 + av, -au, -av]); }
+      for (const [x, z, du, dv] of spots) {
+        if (!K.free(x, z)) continue;
+        K.begin(); K.shape(x, 0, z, chair, du, dv); K.occ(x, z); K.need([[x, z]]);
+        if (K.done()) seats.push([x, z]);
+      }
+      if (seats.length < Math.min(2, spots.length)) { K.undoTo(m, a); continue; }
+      return { cells, seats, au, av };
+    }
+    return null;
+  }
+  // Kamin: Kaminvorsprung (3 oder 5 breit, 1 tief) an einer ruhigen Wand, Feuer in der Mitte, Sims, darüber ein Bild; Schornstein aufs Dach
+  function hsFireplace(K, mat, mantel, wantWide) {
+    const C = K.C, T = K.T, r = K.r, cand = [];
+    for (const [du, dv] of HS_OD) {
+      const au = du ? 0 : 1, av = du ? 1 : 0;
+      for (const hw of wantWide ? [2, 1] : [1]) for (const [u, v] of K.side(du, dv)) {
+        const cells = []; for (let i = -hw; i <= hw; i++) cells.push([u + au * i, v + av * i]);
+        if (!cells.every(([a, b]) => K.free(a, b) && K.plain(a, b, du, dv))) continue;
+        if (!K.free(u - du, v - dv)) continue;
+        const inner = !HS_OD.some(([a, b]) => C.g(r.k, u + du + a, v + dv + b) === 0);
+        cand.push([(inner ? 0 : 2) - hw + Math.hypot(u - K.cu, v - K.cv) * 0.3 + K.rnd() * 0.2, u, v, du, dv, hw, au, av]);
+      }
+    }
+    cand.sort((a, b) => a[0] - b[0]);
+    for (const [, u, v, du, dv, hw, au, av] of cand) {
+      K.begin();
+      for (let i = -hw; i <= hw; i++) {
+        const x = u + au * i, z = v + av * i;
+        for (let dy = 0; dy < K.h; dy++) K.set(x, dy, z, i === 0 && dy === 0 ? HS_FEUER : i === 0 && dy === 1 ? (mantel || mat) : mat);
+        K.occ(x, z);
+      }
+      K.occ(u - du, v - dv, 2);
+      if (!K.done()) continue;
+      // Bild über dem Sims: bei breitem Kamin das Abendrot (3 x 2), sonst ein kleines Bild
+      if (hw === 2 && K.h >= 4) C.T.paint(PAINT.sunset, -du, -dv, u, K.y + 2, v);
+      else if (K.h >= 3) T.set(u, K.y + 2, v, HS_PICS[Math.floor(K.rnd() * 4)].base);
+      C.chim.push([u + du, v + dv]);
+      return { u, v, du, dv, hw, au, av };
+    }
+    return null;
+  }
+
+  // ---------- Einrichtung je Zimmerart ----------
+  const hsPick = (K, list) => list[Math.floor(K.rnd() * list.length)];
+  // Elternschlafzimmer: zwei Einzelbetten nebeneinander mit Nachttischen und Laternen, Schrank, Kommode, Sessel, Teppich, Leuchter
+  function hsFSchlafen(K) {
+    const S = K.C.S, bed = S.bed || hsPick(K, [BED_R, BED_B]);
+    const g = hsBedGroup(K, 2, bed, LANTERN_S);
+    if (g) {
+      const us = g.heads.map(p => p[0]), vs = g.heads.map(p => p[1]);
+      const fu = -g.du * 2, fv = -g.dv * 2;
+      hsRug(K, Math.min(...us, ...us.map(u => u + fu)) - (g.du ? 0 : 1), Math.min(...vs, ...vs.map(v => v + fv)) - (g.dv ? 0 : 1),
+        Math.max(...us, ...us.map(u => u + fu)) + (g.du ? 0 : 1), Math.max(...vs, ...vs.map(v => v + fv)) + (g.dv ? 0 : 1), S.rug || HS_RUG_B);
+    }
+    hsWallPut(K, HS_SCHRANK, { tall: true, far: g ? g.heads[0] : null });
+    hsWallPut(K, HS_KOMMODE, { top: CANDLE, plainOnly: true });
+    if (K.r.w * K.r.d >= 20) hsWallPut(K, HS_SESSEL, { corner: true });
+    hsWallPut(K, POT_BOX, { corner: true, noacc: true });
+    hsLight(K);
+    hsPics(K, 1);
+  }
+  // Kinderzimmer: ein bis drei Betten, Spielzeugtruhe, Tischchen mit Hocker, Regal, Teppich
+  function hsFKind(K, n) {
+    const S = K.C.S;
+    n = n || (K.r.w * K.r.d >= 24 ? 3 : 2);
+    let got = 0;
+    for (let i = 0; i < n; i++) if (hsBedGroup(K, 1, i % 2 ? BED_R : BED_B, i === 0 ? LANTERN_S : CANDLE)) got++;
+    hsWallPut(K, CHEST, { rot: false, plainOnly: true });
+    const t = hsWallPut(K, TABLE_O, { rot: false, win: true }) || hsWallPut(K, TABLE_O, { rot: false });
+    if (t) { const [u, v, du, dv] = t; if (K.free(u - du, v - dv)) { K.begin(); K.shape(u - du, 0, v - dv, CHAIR_O, du, dv); K.occ(u - du, v - dv); K.need([[u - du, v - dv]]); K.done(); } K.set(u, 1, v, CANDLE); }
+    hsWallPut(K, SHELF, { rot: false, tall: true, up: SHELF, noacc: true });
+    const rc = [Math.round(K.cu), Math.round(K.cv)];
+    hsRug(K, rc[0] - 1, rc[1] - 1, rc[0] + 1, rc[1] + 1, S.rugK || HS_RUG_R);
+    hsLight(K);
+    hsPics(K, 1);
+    return got;
+  }
+  // Küche: Herd mit gemauerter Haube und Schornstein, Anrichten mit Hängeborden, Spülstein am Fenster, Vorratsregal, Fass,
+  // die Haushaltstruhe (für die Ernte) und ein Küchentisch, wenn Platz ist
+  function hsFKueche(K, withTable) {
+    const C = K.C, T = K.T;
+    // Wohnküche: der Tisch kommt zuerst in die Mitte, sonst ist kein Platz mehr
+    if (withTable) {
+      const tg = hsTableGroup(K, 1, C.S.table === TABLE_W ? TABLE_W : TABLE_O, C.S.chair === CHAIR_W ? CHAIR_W : CHAIR_O, false);
+      if (tg) { C.tables.push({ unit: K.r.unit, p: T.wp(tg.cells[0][0], K.y, tg.cells[0][1]), seats: tg.seats.map(([u, v]) => T.wp(u, K.y, v)), kind: "essen" }); C.feats.push({ kind: "tisch", p: T.wp(tg.cells[0][0], K.y, tg.cells[0][1]) }); }
+    }
+    const st = hsWallPut(K, HS_HERD, { plainOnly: true });
+    if (st) {
+      const [u, v, du, dv] = st, au = du ? 0 : 1, av = du ? 1 : 0;
+      for (let dy = 2; dy < K.h; dy++) K.set(u, dy, v, K.C.S.hood || BRICK);
+      C.chim.push([u + du, v + dv]);
+      for (const s of [-1, 1, -2, 2, -3, 3]) {
+        const x = u + au * s, z = v + av * s;
+        if (!K.free(x, z) || !K.wallAt(x + du, z + dv) || K.dwAt(x + du, z + dv)) continue;
+        if (Math.abs(s) > 1 && K.state(u + au * (s - Math.sign(s)), v + av * (s - Math.sign(s))) !== 1) continue;
+        K.begin(); K.set(x, 0, z, COUNTER); K.occ(x, z); K.need([[x, z]]);
+        if (K.h >= 4 && !K.winAt(x + du, z + dv)) K.set(x, 2, z, PANTRY);
+        if (K.done()) C.feats.push({ kind: "theke", p: T.wp(x, K.y, z) });
+      }
+    }
+    hsWallPut(K, HS_SPUELE, { win: true }) || hsWallPut(K, HS_SPUELE, {});
+    const ch = hsWallPut(K, CHEST, { rot: false, corner: true });
+    if (ch) C.chests.push({ unit: K.r.unit, p: T.wp(ch[0], K.y, ch[1]) });
+    hsWallPut(K, BARREL, { rot: false, near: ch || null, noacc: true });
+    hsWallPut(K, PANTRY, { rot: false, tall: true, up: PANTRY, corner: true });
+    hsLight(K, LANTERN_H);
+    hsWallLamp(K, [K.r.u0, K.r.v0]);
+  }
+  // Esszimmer: langer Tisch mit Stühlen ringsum, Teppich darunter, Kronleuchter darüber, Anrichte mit Kerzen, Standuhr, Pflanzen, Bilder
+  function hsFEssen(K) {
+    const C = K.C, T = K.T, S = C.S, r = K.r;
+    const long = Math.max(r.w, r.d), n = Math.max(1, Math.min(3, long - 3));
+    const tg = hsTableGroup(K, n, S.table || TABLE_D, S.chair || CHAIR_D, true);
+    if (tg) {
+      const us = tg.cells.map(p => p[0]), vs = tg.cells.map(p => p[1]);
+      hsRug(K, Math.min(...us) - 1, Math.min(...vs) - 1, Math.max(...us) + 1, Math.max(...vs) + 1, S.rugE || HS_RUG_R);
+      const mid = tg.cells[Math.floor((n - 1) / 2)];
+      C.tables.push({ unit: r.unit, p: T.wp(mid[0], K.y, mid[1]), seats: tg.seats.map(([u, v]) => T.wp(u, K.y, v)), kind: "essen" });
+      for (const [u, v] of tg.cells) C.feats.push({ kind: "tisch", p: T.wp(u, K.y, v) });
+      hsLight(K, HS_LEUCHTER, [(Math.min(...us) + Math.max(...us)) / 2, (Math.min(...vs) + Math.max(...vs)) / 2]);
+    } else hsLight(K);
+    hsWallPut(K, HS_KOMMODE, { top: LANTERN_S, plainOnly: true });
+    hsWallPut(K, HS_UHR, { tall: true, corner: true, noacc: true });
+    hsWallPut(K, HS_PALME, { corner: true, noacc: true });
+    hsPics(K, 2);
+  }
+
+  // Sofa aus zwei Hälften mit Rücken an einer Wand; A sitzt rechts vom Sitzenden. Gibt die beiden Zellen und die Blickrichtung zurück.
+  function hsSofaWall(K, far) {
+    const T = K.T, cand = [];
+    for (const [u, v] of K.cells()) for (const [du, dv] of HS_OD) {
+      const [ru, rv] = hsRight(T, -du, -dv), B = [u - ru, v - rv];
+      if (!K.free(u, v) || !K.free(...B)) continue;
+      if (!K.wallAt(u + du, v + dv) || !K.wallAt(B[0] + du, B[1] + dv) || K.dwAt(u + du, v + dv) || K.dwAt(B[0] + du, B[1] + dv)) continue;
+      const win = (K.winAt(u + du, v + dv) ? 1 : 0) + (K.winAt(B[0] + du, B[1] + dv) ? 1 : 0);
+      cand.push([win * 0.7 - (far ? Math.hypot(u - far[0], v - far[1]) : 0) + Math.abs((u + B[0]) / 2 - K.cu) * 0.3 + Math.abs((v + B[1]) / 2 - K.cv) * 0.3 + K.rnd() * 0.2, u, v, du, dv, B]);
+    }
+    cand.sort((a, b) => a[0] - b[0]);
+    for (const [, u, v, du, dv, B] of cand) {
+      K.begin();
+      K.shape(u, 0, v, HS_SOFA_L, -du, -dv); K.shape(B[0], 0, B[1], HS_SOFA_R, -du, -dv);
+      K.occ(u, v); K.occ(...B); K.need([[u, v], B]);
+      if (K.done()) return { a: [u, v], b: B, du: -du, dv: -dv };
+    }
+    return null;
+  }
+  // Wohnzimmer (Salon): Kamin mit Bild, Sessel davor, Sofa mit Couchtisch, Klavier mit Hocker, Bücherregale, Palme, Uhr, Teppich
+  function hsFWohnen(K) {
+    const C = K.C, S = C.S, T = K.T, r = K.r;
+    const fp = hsFireplace(K, S.fire || BRICK, S.mantel || QUARTZ, Math.max(r.w, r.d) >= 6);
+    if (fp) {
+      const gu = -fp.du, gv = -fp.dv, [ru, rv] = hsRight(T, fp.du, fp.dv);
+      for (const sgn of [1, -1]) {
+        const x = fp.u + gu * 2 + ru * sgn, z = fp.v + gv * 2 + rv * sgn;
+        if (!K.free(x, z)) continue;
+        K.begin(); K.shape(x, 0, z, HS_SESSEL, fp.du, fp.dv); K.occ(x, z); K.need([[x, z]]); K.done();
+      }
+    }
+    const so = hsSofaWall(K, fp ? [fp.u, fp.v] : null);
+    if (so) {
+      for (const [x, z] of [so.a, so.b]) {
+        const tu = x + so.du, tv = z + so.dv;
+        if (!K.free(tu, tv)) continue;
+        K.begin(); K.set(tu, 0, tv, HS_COUCHT); K.occ(tu, tv); if (K.done()) break;
+      }
+      const us = [so.a[0], so.b[0]], vs = [so.a[1], so.b[1]];
+      hsRug(K, Math.min(...us) - 1 + (so.du > 0 ? 1 : 0), Math.min(...vs) - 1 + (so.dv > 0 ? 1 : 0), Math.max(...us) + 1 - (so.du < 0 ? 1 : 0), Math.max(...vs) + 1 - (so.dv < 0 ? 1 : 0), S.rugW || HS_RUG_B);
+    }
+    const pi = hsWallPut(K, HS_KLAVIER, { plainOnly: true });
+    if (pi) { const [u, v, du, dv] = pi; if (K.free(u - du, v - dv)) { K.begin(); K.set(u - du, 0, v - dv, STOOL); K.occ(u - du, v - dv); K.need([[u - du, v - dv]]); K.done(); } }
+    for (let i = 0; i < 2; i++) hsWallPut(K, SHELF, { rot: false, tall: true, up: SHELF, noacc: true });
+    hsWallPut(K, HS_PALME, { corner: true, noacc: true });
+    hsWallPut(K, HS_UHR, { tall: true, corner: true, noacc: true });
+    hsLight(K);
+    hsPics(K, 2);
+  }
+  // Bad: Wanne aus zwei Hälften an der Wand, Waschtisch, Buchsbaum, Hocker
+  function hsFBad(K) {
+    const T = K.T, cand = [];
+    for (const [u, v] of K.cells()) for (const [du, dv] of HS_OD) {
+      const au = du ? 0 : 1, av = du ? 1 : 0, B = [u + au, v + av];
+      if (!K.free(u, v) || !K.free(...B) || !K.plain(u, v, du, dv) || !K.wallAt(B[0] + du, B[1] + dv) || K.dwAt(B[0] + du, B[1] + dv)) continue;
+      cand.push([K.walls(u, v).length + K.walls(...B).length > 2 ? 0 : 1 + K.rnd(), u, v, au, av, B]);
+    }
+    cand.sort((a, b) => a[0] - b[0]);
+    for (const [, u, v, au, av, B] of cand) {
+      K.begin(); K.shape(u, 0, v, HS_WANNE, au, av); K.shape(B[0], 0, B[1], HS_WANNE, -au, -av); K.occ(u, v); K.occ(...B); K.need([[u, v], B]);
+      if (K.done()) break;
+    }
+    hsWallPut(K, HS_SPUELE, { plainOnly: true }) || hsWallPut(K, HS_SPUELE, {});
+    hsWallPut(K, POT_BOX, { corner: true, noacc: true });
+    hsWallPut(K, HS_KOMMODE, { top: CANDLE });
+    hsLight(K, LANTERN_H);
+  }
+  // Diele und Flur: Standuhr, Garderobe (Schrank), Bank, Pflanzen, Läufer, Wandlaternen
+  function hsFHall(K) {
+    const C = K.C, r = K.r;
+    if (r.k === 0) hsWallPut(K, HS_SCHRANK, { tall: true });
+    hsWallPut(K, HS_UHR, { tall: true, noacc: true });
+    hsWallPut(K, BENCH, {});
+    hsWallPut(K, POT_BOX, { corner: true, noacc: true });
+    hsWallPut(K, POT_BOX, { corner: true, noacc: true });
+    const U = C.units.find(t => t.idx === r.unit);
+    if (U && U.lu) for (let v = r.v0 + 1; v <= r.v1; v++) if (K.walk(U.lu[0], v)) hsRug(K, U.lu[0], v, U.lu[0], v, C.S.runner || HS_RUG_R);
+    hsWallLamp(K, [r.u0, r.v0]);
+    hsWallLamp(K, [r.u1, r.v1]);
+    hsPics(K, 1);
+  }
+  // Arbeitszimmer: Schreibtisch am Fenster mit Stuhl, Bücherregale, Sessel, Laterne
+  function hsFArbeit(K) {
+    const C = K.C, T = K.T;
+    const d = hsWallPut(K, TABLE_D, { rot: false, win: true }) || hsWallPut(K, TABLE_D, { rot: false });
+    if (d) {
+      const [u, v, du, dv] = d; K.set(u, 1, v, LANTERN_S);
+      if (K.free(u - du, v - dv)) { K.begin(); K.shape(u - du, 0, v - dv, CHAIR_D, du, dv); K.occ(u - du, v - dv); K.need([[u - du, v - dv]]); K.done(); }
+      C.feats.push({ kind: "schreibtisch", p: T.wp(u, K.y, v) });
+    }
+    for (let i = 0; i < 3; i++) hsWallPut(K, SHELF, { rot: false, tall: true, up: SHELF, noacc: true });
+    hsWallPut(K, HS_SESSEL, { corner: true });
+    hsWallPut(K, HS_UHR, { tall: true, corner: true, noacc: true });
+    hsRug(K, Math.round(K.cu) - 1, Math.round(K.cv) - 1, Math.round(K.cu) + 1, Math.round(K.cv) + 1, C.S.rugW || HS_RUG_B);
+    hsLight(K);
+    hsPics(K, 1);
+  }
+  // Laden oder Werkstatt: Theke in der Mitte mit Hockern (einer davon ist der Arbeitsplatz), Regale und Fässer an den Wänden.
+  // work = { kind, name } meldet den Arbeitsplatz in PLACES11.work an.
+  function hsFLaden(K, work) {
+    const C = K.C, T = K.T, r = K.r;
+    const t = hsTableGroup(K, Math.min(3, Math.max(1, Math.max(r.w, r.d) - 4)), COUNTER, STOOL, false);
+    if (t) {
+      K.set(t.cells[0][0], 1, t.cells[0][1], CANDLE);
+      for (const [u, v] of t.cells.slice(1)) C.feats.push({ kind: "laden", p: T.wp(u, K.y, v), work: work && work.kind });
+      // Arbeitsplatz: eine freie Zelle an der Theke (bleibt frei), Blick auf die Theke
+      let sp = null;
+      for (const [u, v] of t.cells) for (const [du, dv] of HS_OD) if (!sp && K.in(u + du, v + dv) && !K.state(u + du, v + dv) && !K.C.occ[r.k].has(C.gi(u + du, v + dv))) sp = [u + du, v + dv, u, v];
+      if (work && sp) { K.occ(sp[0], sp[1], 2); C.works.push(Object.assign({ spot: T.wp(sp[0], K.y, sp[1]), look: [T.x(sp[2], sp[3]), T.z(sp[2], sp[3])] }, work)); }
+    }
+    for (let i = 0; i < 4; i++) hsWallPut(K, hsPick(K, [PANTRY, SHELF, PANTRY]), { rot: false, tall: true, up: PANTRY, noacc: true });
+    hsWallPut(K, BARREL, { rot: false, corner: true, noacc: true });
+    hsWallPut(K, BARREL, { rot: false, corner: true, noacc: true });
+    hsWallPut(K, CHEST, { rot: false, corner: true, noacc: true });
+    hsLight(K, LANTERN_H);
+    hsWallLamp(K, [r.u0, r.v0]);
+  }
+  // Alle Zimmer eines Hauses einrichten
+  function hsFurnish(C) {
+    for (const r of C.rooms) {
+      const K = hsKit(C, r);
+      r.K = K;
+      switch (r.type) {
+        case "diele": case "flur": hsFHall(K); break;
+        case "kueche": hsFKueche(K, !C.rooms.some(q => q.type === "essen" && q.unit === r.unit)); break;
+        case "essen": hsFEssen(K); break;
+        case "wohnen": case "salon": hsFWohnen(K); break;
+        case "schlafen": hsFSchlafen(K); break;
+        case "kind": case "gast": hsFKind(K, r.beds); break;
+        case "bad": hsFBad(K); break;
+        case "arbeit": case "bibliothek": hsFArbeit(K); break;
+        case "laden": hsFLaden(K, r.work || C.H.shop); break;
+      }
+    }
+    // Jede Wohnung braucht eine Truhe: fehlt sie, kommt sie in die Diele oder in irgendein Zimmer der Wohnung
+    for (const U of C.units) {
+      if (C.chests.some(c => c.unit === U.idx)) continue;
+      for (const r of C.rooms.filter(q => q.unit === U.idx).sort((a, b) => (a.hall ? 0 : 1) - (b.hall ? 0 : 1))) {
+        const ch = hsWallPut(r.K, CHEST, { rot: false, corner: true });
+        if (ch) { C.chests.push({ unit: U.idx, p: C.T.wp(ch[0], r.K.y, ch[1]) }); break; }
+      }
+    }
+  }
+
+  // ---------- Außen: Fensterläden, Blumenkästen, Laternen an der Haustür ----------
+  // Geschossstil: sh Fensterläden (true oder "alle" für alle Seiten), fb Blumenkästen (true oder "alle"). Hausstil: doorLamp.
+  function hsFacade(C) {
+    const T = C.T, S = C.S;
+    for (let k = 0; k < C.n; k++) for (const w of C.wins[k].values()) {
+      const fl = w.fl, front = w.dv === -1 && w.du === 0;
+      const y0 = C.ys[k] + w.rows[0], ox = w.u + w.du, ov = w.v + w.dv, au = w.du ? 0 : 1, av = w.du ? 1 : 0;
+      if (fl.fb && (front || fl.fb === "alle") && T.get(ox, y0 - 1, ov) === AIR && T.get(ox, y0, ov) === AIR) T.shape(ox, y0 - 1, ov, HS_BLUMENK, w.du, w.dv);
+      if (fl.sh && (front || fl.sh === "alle") && w.rows.length >= 2)
+        for (const sg of [-1, 1]) {
+          const wu = w.u + au * sg, wv = w.v + av * sg, cu = ox + au * sg, cv = ov + av * sg;
+          if (C.wins[k].has(C.gi(wu, wv)) || C.g(k, wu, wv) !== 1) continue;
+          if (T.get(cu, y0, cv) !== AIR || T.get(cu, y0 + 1, cv) !== AIR) continue;
+          T.shape(cu, y0, cv, HS_LADEN, w.du, w.dv);
+        }
+    }
+    // Laternen links und rechts der Haustür (oder eine darüber)
+    for (const U of C.units) {
+      const [u, v] = U.lu, y = C.H.F + 2;
+      let n = 0;
+      for (const sg of [-1, 1]) {
+        if (C.g(0, u + sg, v) !== 1 || C.wins[0].has(C.gi(u + sg, v)) || T.get(u + sg, y, v - 1) !== AIR) continue;
+        if (S.doorLamp === 1 && n) break;
+        T.shape(u + sg, y, v - 1, HS_WLAMPE, 0, -1); n++;
+      }
+      if (!n && T.get(u, C.H.F + 4, v - 1) === AIR) T.shape(u, C.H.F + 4, v - 1, HS_WLAMPE, 0, -1);
+    }
+  }
+
+  // ---------- Requisiten (kleine 3D-Modelle): gedeckte Tische, Brot und Käse in Küchen und Läden ----------
+  // Beim Bauen gesammelt, in V11.spawn je Art mit einem einzigen addProps-Aufruf gezeichnet.
+  const hsProps = { plate: [], goblet: [], roast: [], cake: [], fruit: [], bread: [], wine: [], cheese: [], carrots: [], pot: [] };
+  function hsPropsOf(C) {
+    const cells = C.feats.filter(f => f.kind === "tisch").map(f => f.p);
+    for (const t of C.tables) {
+      if (t.kind !== "essen") continue;
+      const top = t.p[1] + 1.02;
+      for (const s of t.seats) {
+        const c = cells.find(q => Math.abs(q[0] - s[0]) + Math.abs(q[2] - s[2]) === 1); if (!c) continue;
+        const dx = s[0] - c[0], dz = s[2] - c[2];
+        hsProps.plate.push([c[0] + 0.5 + dx * 0.24, top, c[2] + 0.5 + dz * 0.24, 0, 1]);
+        hsProps.goblet.push([c[0] + 0.5 + dx * 0.2 + dz * 0.3, top, c[2] + 0.5 + dz * 0.2 - dx * 0.3, 0, 1]);
+      }
+      const h = hash(t.p[0], t.p[2], 97), kinds = ["roast", "cake", "fruit", "bread"];
+      hsProps[kinds[Math.floor(h * 4)]].push([t.p[0] + 0.5, top, t.p[2] + 0.5, h * 6, 1.1]);
+      const other = cells.find(q => (q[0] !== t.p[0] || q[2] !== t.p[2]) && Math.abs(q[0] - t.p[0]) + Math.abs(q[2] - t.p[2]) <= 2);
+      if (other) hsProps.wine.push([other[0] + 0.5, top, other[2] + 0.5, 0, 1]);
+    }
+    // Küchen: auf jeder zweiten Theke etwas zu essen
+    C.feats.filter(f => f.kind === "theke").forEach((f, i) => {
+      if (i % 2) return;
+      const k = ["bread", "cheese", "carrots", "fruit", "pot"][Math.floor(hash(f.p[0], f.p[2], 98) * 5)];
+      hsProps[k].push([f.p[0] + 0.5, f.p[1] + 1, f.p[2] + 0.5, hash(f.p[0], f.p[2], 99) * 6, 1]);
+    });
+    // Läden: Ware auf der Theke
+    for (const f of C.feats.filter(q => q.kind === "laden")) {
+      const k = f.work === "baecker" ? "bread" : f.work === "schneider" ? null : hash(f.p[0], f.p[2], 96) < 0.5 ? "cheese" : "fruit";
+      if (k) hsProps[k].push([f.p[0] + 0.5, f.p[1] + 1, f.p[2] + 0.5, hash(f.p[0], f.p[2], 95) * 6, 1.1]);
+    }
+  }
+
+  // ---------- Ein ganzes Haus ----------
+  function hsHouse(H) {
+    const C = hsCtx(H);
+    C.S = H.sty;
+    hsPlan(C); hsErkerPlan(C); hsRoofField(C); hsWinPlan(C); hsShell(C); hsStairs(C); hsRoof(C); hsDormers(C); hsDoors(C); hsBalconies(C); hsPortico(C); hsErkerBau(C);
+    hsFurnish(C); hsFacade(C); hsChimneys(C); hsRegister(C); hsPropsOf(C);
+    // Grundfläche samt Dachüberstand merken
+    for (let j = 0; j < C.GD; j++) for (let i = 0; i < C.GW; i++) {
+      const u = i + C.gu0, v = j + C.gv0;
+      if (C.rf[i + j * C.GW] < 0 && !C.g(0, u, v)) continue;
+      const x = C.T.x(u, v), z = C.T.z(u, v); if (x >= 0 && z >= 0 && x < W && z < D) hsHouseMask[x + z * W] = 1;
+    }
+    hsStat.houses++;
+    return C;
+  }
+
+  // =====================================================================================================
+  // ---------- Straßenraum: Pflaster, Laternen, Bänke, Bäume, Hecken, Zäune, Beete, Brunnen ----------
+  // =====================================================================================================
+  const Y0 = G0 + 1;   // Standhöhe auf dem Boden
+  // Pflaster: ersetzt Gras (und Pflanzen darüber); pat(x, z) liefert den Block oder null
+  function hsPave(x0, z0, x1, z1, pat) {
+    for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+      if (!hsOk(x, z)) continue;
+      const g = get(x, G0, z); if (g !== GRASS && g !== DIRT && g !== PATH && g !== GRAVEL) continue;
+      const b = typeof pat === "function" ? pat(x, z) : pat; if (!b) continue;
+      hsSet(x, G0, z, b); if (PLANT[get(x, Y0, z)]) hsSet(x, Y0, z, AIR);
+    }
+  }
+  const hsFreeCell = (x, z) => hsOk(x, z) && get(x, Y0, z) === AIR && solid(get(x, G0, z));
+  // Laternenmast aus Gusseisen mit Laterne obendrauf
+  function hsLampPost(x, z) { if (!hsFreeCell(x, z)) return false; hsSet(x, Y0, z, HS_MAST); hsSet(x, Y0 + 2, z, LANTERN_S); return true; }
+  function hsBench(x, z, dx, dz) { if (!hsFreeCell(x, z)) return false; hsSet(x, Y0, z, rotId(BENCH, dx, dz)); return true; }
+  // Bäume (nur in meinem Gebiet): Linde mit großer runder Krone, Obstbaum, kleiner Zierbaum, Birke
+  function hsTree(x, z, kind, rnd) {
+    if (!hsOk(x, z) || hsHouseMask[x + z * W]) return;
+    const y = Y0;
+    const hsSet = (x, y, z, b) => { if (hsOk(x, z) && !hsHouseMask[x + z * W]) setB(x, y, z, b); };   // Laub nur draußen
+    if (kind === "linde") {
+      const th = 6 + Math.floor(rnd() * 2);
+      for (let i = 0; i < th; i++) hsSet(x, y + i, z, LOG);
+      for (const [dx, dz] of HS_OD) { hsSet(x + dx, y, z + dz, LOG); if (rnd() < 0.5) hsSet(x + dx, y + 1, z + dz, LOG); }
+      for (const [a, len] of [[0.3, 3], [2.2, 3], [4.1, 3], [5.5, 2]]) for (let s2 = 1; s2 <= len; s2++) hsSet(Math.round(x + Math.cos(a) * s2), y + th - 2 + s2, Math.round(z + Math.sin(a) * s2), LOG);
+      const cy = y + th + 2, R = 5.2;
+      for (let dy = -4; dy <= 5; dy++) for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) {
+        const d = Math.hypot(dx, dz, dy * 1.25);
+        if (d > R + (hash(x + dx, z + dz, 777 + dy) - 0.5) * 1.2) continue;
+        if (get(x + dx, cy + dy, z + dz) === AIR) hsSet(x + dx, cy + dy, z + dz, LEAVES);
+      }
+    } else if (kind === "obst" || kind === "zier") {
+      const th = kind === "obst" ? 3 : 2 + Math.floor(rnd() * 2), leaf = kind === "obst" ? APPLE_LEAVES : (rnd() < 0.5 ? BIRCH_LEAVES : LEAVES);
+      for (let i = 0; i < th; i++) hsSet(x, y + i, z, kind === "obst" ? LOG : BIRCH_LOG);
+      for (let dy = 0; dy <= 3; dy++) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+        const d = Math.hypot(dx, dz, (dy - 1.2) * 1.3);
+        if (d > 2.3 + (hash(x + dx, z + dz, 91 + dy) - 0.5) * 0.8) continue;
+        if (get(x + dx, y + th - 1 + dy, z + dz) === AIR) hsSet(x + dx, y + th - 1 + dy, z + dz, leaf);
+      }
+    } else if (kind === "fichte") {
+      const th = 6 + Math.floor(rnd() * 3);
+      for (let i = 0; i < th; i++) hsSet(x, y + i, z, SPRUCE_LOG);
+      hsSet(x, y + th, z, SPRUCE_LEAVES); hsSet(x, y + th + 1, z, SPRUCE_LEAVES);
+      for (let i = 0; i < th - 1; i++) { const rr = Math.max(1, Math.round((th - 1 - i) / 2.2)) - (i % 2); for (let dz = -rr; dz <= rr; dz++) for (let dx = -rr; dx <= rr; dx++) if ((dx || dz) && dx * dx + dz * dz <= rr * rr + 0.5 && get(x + dx, y + 2 + i, z + dz) === AIR) hsSet(x + dx, y + 2 + i, z + dz, SPRUCE_LEAVES); }
+    }
+  }
+  // Hecke, Zaun (mit Toren), Beet
+  function hsLine(x0, z0, x1, z1, b) {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(z1 - z0));
+    for (let i = 0; i <= n; i++) { const x = x0 + Math.sign(x1 - x0) * i, z = z0 + Math.sign(z1 - z0) * i; if (hsFreeCell(x, z)) hsSet(x, Y0, z, b); }
+  }
+  // Zaunrechteck um einen Garten; gates: [[x, z, ox, oz], ...] Tore (ox, oz zeigt nach draußen)
+  function hsFenceRect(x0, z0, x1, z1, b, gates, skip) {
+    const gs = new Set((gates || []).map(g => g[0] + "," + g[1]));
+    const put = (x, z) => { if (gs.has(x + "," + z) || (skip && skip(x, z))) return; if (hsFreeCell(x, z)) hsSet(x, Y0, z, b); };
+    for (let x = x0; x <= x1; x++) { put(x, z0); put(x, z1); }
+    for (let z = z0 + 1; z < z1; z++) { put(x0, z); put(x1, z); }
+    for (const [x, z, ox, oz] of gates || []) if (hsFreeCell(x, z)) { if (b === FENCE) addGate(x, Y0, z, ox, oz); }
+  }
+  const HS_FLOWERS = [FLOWER_R, FLOWER_Y, FLOWER_B, FLOWER_W, TULIP];
+  function hsFlowerBed(x0, z0, x1, z1, rnd, mix) {
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      if (!hsFreeCell(x, z) || get(x, G0, z) !== GRASS) continue;
+      const r = rnd();
+      hsSet(x, Y0, z, r < 0.12 ? ROSEBUSH : (mix || HS_FLOWERS)[Math.floor(rnd() * (mix || HS_FLOWERS).length)]);
+    }
+  }
+  // Ziehbrunnen: Brunnenkranz aus Stein, Wasser, zwei Pfosten mit Dach und Eimerwinde; wird als Brunnen angemeldet
+  function hsWell(x, z, name) {
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      hsSet(x + dx, G0 - 1, z + dz, STONE);
+      if (dx || dz) { hsSet(x + dx, G0, z + dz, SBRICK); hsSet(x + dx, Y0, z + dz, (dx && dz) ? SBRICK : MOSSY_COBBLE); }
+    }
+    hsSet(x, G0 - 1, z, WATER); hsSet(x, G0, z, WATER); hsSet(x, Y0, z, AIR);
+    for (const dx of [-1, 1]) { hsSet(x + dx, Y0 + 1, z, SPRUCE_LOG); hsSet(x + dx, Y0 + 2, z, SPRUCE_LOG); }
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -2; dx <= 2; dx++) hsSet(x + dx, Y0 + 3 + (dz === 0 ? 1 : 0), z + dz, ROOF_RED);
+    hsSet(x, Y0 + 2, z, SPRUCE_PLANKS); hsSet(x, Y0 + 1, z, LANTERN_H);
+    const spots = [[x, Y0, z - 2], [x, Y0, z + 2], [x - 2, Y0, z], [x + 2, Y0, z]];
+    PLACES11.wells.push({ name, spots, water: [x, G0, z] });
+    return spots;
+  }
+
+  // ---------- Grundriss-Vorlagen ----------
+  // Flur (3 breit) links, rechts oder in der Mitte; Zimmer in Spalten, die Tiefe wird bei cut (v) geteilt.
+  // hsCols(w, "l" | "r" | "m", [cut...]) -> Spaltenliste für H.plan.cols; die Tür liegt in der mittleren Flurzelle.
+  function hsCols(w, side, cuts) {
+    const cr = cuts || [];
+    if (side === "l") return [{ u0: 1, u1: 3, hall: true }, { u0: 5, u1: w - 2, cross: cr }];
+    if (side === "r") return [{ u0: 1, u1: w - 6, cross: cr }, { u0: w - 4, u1: w - 2, hall: true }];
+    const a = Math.floor((w - 3) / 2);
+    return [{ u0: 1, u1: a - 1, cross: cr }, { u0: a + 1, u1: a + 3, hall: true }, { u0: a + 5, u1: w - 2, cross: cr }];
+  }
+  const hsDoorU = cols => { const h = cols.find(c => c.hall); return h.u0 + 1; };
+  // Ein Haus aus Kurzangaben: { face, x0, z0, w, d, fh, side, cut, use, ... } -> hsHouse
+  function hsBuild(o) {
+    const cols = o.cols || hsCols(o.w, o.side || "l", o.cut);
+    const H = Object.assign({ zone: "oststadt", kind: "haus", F: G0, jet: 0, seed: 1 }, o);
+    H.plan = Object.assign({ cols, door: o.door !== undefined ? o.door : hsDoorU(cols), ss: o.ss || (o.side === "r" ? "b" : "a"), sv: o.sv || 3, use: o.use }, o.plan || {});
+    return hsHouse(H);
+  }
+
+  // ---------- Stile ----------
+  // Altstadt: Erdgeschoss aus Bruchstein mit Ecken aus Steinziegeln, darüber Fachwerk mit weißen Gefachen und Butzenscheiben
+  const HS_ST_ALT = {
+    fl: [{ w: HS_SANDST, c: SBRICK, band: MOSSY_COBBLE, win: HS_BUTZ, lin: SPRUCE_LOG, sill: SBRICK, wp: 3 },
+      { fw: { b: SPRUCE_LOG, p: PLASTER_W }, win: HS_BUTZ, fb: true, sh: true }],
+    iw: PLASTER_W, iwb: HS_PANEEL, plinth: MOSSY_COBBLE, ceil: DPLANK, beam: DPLANK, step: DPLANK, rail: FENCE, door: "oak", chim: BRICK,
+  };
+
+  const hsSty = (base, over) => Object.assign({}, base, over || {});
+  const hsFl = (base, over) => Object.assign({}, base, over || {});
+  // Fachwerk-Geschoss mit Gefachfarbe p und Fensterart win
+  const hsFW = (p, win, extra) => Object.assign({ fw: { b: SPRUCE_LOG, p }, win: win || HS_BUTZ, fb: true, sh: true }, extra || {});
+  // Steinernes Erdgeschoss
+  const hsStein = (w, extra) => Object.assign({ w, c: SBRICK, band: MOSSY_COBBLE, win: HS_BUTZ, lin: SPRUCE_LOG, sill: SBRICK, wp: 3 }, extra || {});
+  // Altstadt-Stile
+  const HS_ST_ALT2 = hsSty(HS_ST_ALT, { fl: [{ w: PLASTER_Y, c: SBRICK, band: COBBLE, win: HS_FENSTER, lin: SBRICK, sill: SBRICK, wp: 3, fb: true }, hsFW(HS_P_OCKER, HS_FENSTER)],
+    iw: PLASTER_Y, iwb: HS_PANEEL, bed: BED_B, rug: HS_RUG_R, door: "green" });
+  const HS_ST_ALT3 = hsSty(HS_ST_ALT, { fl: [hsFW(PLASTER_W, HS_BUTZ, { sh: false }), hsFW(PLASTER_W, HS_BUTZ)], plinth: COBBLE, iw: PLASTER_W, iwb: null, door: "spruce" });
+  const HS_ST_STEIN = hsSty(HS_ST_ALT, { fl: [{ w: HS_SANDST, c: SBRICK, band: SBRICK, win: HS_FENSTER, lin: SBRICK, sill: SBRICK, wp: 2 }, { w: HS_SANDST, c: SBRICK, band: HS_STUCK, win: HS_FENSTER, lin: SBRICK, sill: SBRICK, wp: 2, fb: true }],
+    plinth: SBRICK, iw: HS_TAP_G, iwb: HS_PANEEL, ceil: DPLANK, door: "oak", table: TABLE_W, chair: CHAIR_W, fire: SBRICK, mantel: QUARTZ, floor: { diele: [QUARTZ, MARBLE_D] } });
+  const HS_ST_ROSA = hsSty(HS_ST_ALT, { fl: [hsStein(HS_SANDST), hsFW(PLASTER_R, HS_BUTZ)], iw: PLASTER_W, bed: BED_R, door: "red", rugW: HS_RUG_R });
+  const HS_ST_APRI = hsSty(HS_ST_ALT, { fl: [{ w: HS_P_APRI, c: HS_SANDST, band: SBRICK, win: HS_FENSTER, lin: HS_SANDST, sill: HS_SANDST, wp: 2 }, { w: HS_P_APRI, c: HS_SANDST, band: HS_SANDST, win: HS_FENSTER, lin: HS_SANDST, sill: HS_SANDST, wp: 2, sh: true, fb: true }],
+    plinth: SBRICK, iw: HS_TAP_B, iwb: HS_PANEEL, door: "white", table: TABLE_D, chair: CHAIR_D });
+
+  // =====================================================================================================
+  // ---------- Die Oststadt (Altstadt): Fachwerkhäuser an der Oststraße, an der Gasse und am Lindenplatz ----------
+  // =====================================================================================================
+  function hsOststadt() {
+    const rnd = mulberry32(20261930), Z = "oststadt";
+    // Gehsteige an der Oststraße und entlang der Gasse, Gassen und Plätze
+    const kopf = (x, z) => hash(x, z, 41) < 0.18 ? MOSSY_COBBLE : hash(x, z, 42) < 0.5 ? SBRICK : COBBLE;
+    hsPave(158, 199, 206, 201, kopf); hsPave(158, 192, 201, 194, kopf); hsPave(199, 158, 201, 191, kopf);
+    hsPave(184, 199, 186, 221, (x, z) => (x + z) % 2 ? GRAVEL : COBBLE);          // Durchgang zur Lindengasse
+    hsPave(158, 218, 206, 220, kopf);                                            // Lindengasse
+    // ---- Häuser südlich der Oststraße (Front nach Norden) ----
+    hsBuild({ name: "Haus zum Goldenen Löwen", face: "n", x0: 159, z0: 202, w: 11, d: 14, fh: [5, 5, 5], jet: 1, sty: HS_ST_ALT,
+      roof: { t: "sattel", ridge: "v", p: 1.5, m: ROOF_RED }, cut: [7], use: [["laden", "kueche"], ["essen", "schlafen"], ["wohnen", "kind"]], seed: 11, work: "schneider",
+      shop: { kind: "schneider", name: "Schneiderei zum Goldenen Löwen" } });
+    hsBuild({ name: "Ockerhaus an der Oststraße", face: "n", x0: 172, z0: 202, w: 12, d: 11, fh: [5, 5], sty: HS_ST_ALT2,
+      roof: { t: "sattel", ridge: "u", p: 1, m: SLATE }, cut: [5], use: [["kueche", "essen"], ["schlafen", "kind"]], seed: 12, work: "haendler" });
+    hsBuild({ name: "Schmales Giebelhaus", face: "n", x0: 187, z0: 202, w: 9, d: 13, fh: [5, 5, 4], jet: 1, sty: HS_ST_ROSA,
+      roof: { t: "sattel", ridge: "v", p: 2, m: HS_DACH }, side: "r", cut: [6], use: [["laden", "kueche"], ["essen", "schlafen"], ["kind", "kind"]], seed: 13, work: "baecker",
+      shop: { kind: "baecker", name: "Backstube im Schmalen Giebelhaus" } });
+    hsBuild({ name: "Eckhaus an der Gasse", face: "n", x0: 197, z0: 202, w: 9, d: 12, fh: [5, 5], jet: 1, sty: HS_ST_ALT3,
+      roof: { t: "walm", p: 1, m: ROOF_RED }, cut: [6], use: [["kueche", "essen"], ["schlafen", "kind"]], seed: 14, work: "schreiner" });
+    // ---- Häuser nördlich der Oststraße (Front nach Süden) ----
+    const brw = hsBuild({ name: "Fachwerkhaus am Brunnenweg", face: "s", x0: 159, z0: 179, w: 11, d: 13, fh: [5, 5], jet: 1, sty: HS_ST_ALT3,
+      roof: { t: "sattel", ridge: "v", p: 1.5, m: ROOF_RED, kw: 6 }, side: "r", cut: [7], use: [["kueche", "essen"], ["schlafen", "kind"]], seed: 15, work: "bauer" });
+    const web = hsBuild({ name: "Steinhaus der Familie Weber", face: "s", x0: 172, z0: 180, w: 11, d: 12, fh: [5, 5, 4], sty: HS_ST_STEIN,
+      roof: { t: "sattel", ridge: "u", p: 1, m: SLATE }, erker: [{ k0: 1, k1: 1, u0: 5, u1: 9 }], cut: [6], use: [["kueche", "essen"], ["wohnen", "schlafen"], ["kind", "bad"]], seed: 16, work: "haendler" });
+    hsBuild({ name: "Apothekerhaus", face: "s", x0: 185, z0: 180, w: 13, d: 12, fh: [5, 5, 5], sty: HS_ST_APRI,
+      roof: { t: "walm", p: 1, m: ROOF_RED }, erker: [{ k0: 1, k1: 2, u0: 6, u1: 10 }], side: "l", cut: [6], use: [["kueche", "essen"], ["wohnen", "schlafen"], ["kind", "arbeit"]], seed: 17, work: "gaertner" });
+    // ---- An der Gasse (Front nach Osten) ----
+    hsBuild({ name: "Haus zum Einhorn", face: "e", x0: 187, z0: 159, w: 11, d: 11, fh: [5, 5, 5], jet: 1, sty: HS_ST_ALT,
+      roof: { t: "sattel", ridge: "v", p: 1.5, m: SLATE }, cut: [6], use: [["kueche", "essen"], ["wohnen", "schlafen"], ["kind", "kind"]], seed: 18, work: "holzfaeller" });
+    // ---- Am Lindenplatz und an der Lindengasse ----
+    hsBuild({ name: "Haus am Lindenplatz", face: "w", x0: 177, z0: 223, w: 11, d: 11, fh: [5, 5], jet: 1, sty: HS_ST_ALT2,
+      roof: { t: "sattel", ridge: "v", p: 1.5, m: ROOF_RED }, cut: [6], use: [["kueche", "essen"], ["schlafen", "kind"]], seed: 19, work: "waescherin" });
+    hsBuild({ name: "Patrizierhaus an der Lindengasse", face: "n", x0: 191, z0: 222, w: 15, d: 12, fh: [5, 5, 5], sty: HS_ST_STEIN,
+      roof: { t: "sattel", ridge: "u", p: 1, m: SLATE }, erker: [{ k0: 1, k1: 2, u0: 6, u1: 10 }], side: "m", cut: [6], use: [["kueche", "essen", "arbeit", "wohnen"], ["schlafen", "kind", "wohnen", "kind"], ["kind", "bad", "gast", "kind"]], seed: 20, work: "kutscher" });
+    // ---- Kräutergasse (z 171–173) im Nordwesten: Haus zur Rose, Fischerhaus, Kräutergarten der Apotheke ----
+    hsPave(158, 171, 198, 173, kopf);
+    const rose = hsBuild({ name: "Haus zur Rose", face: "s", x0: 160, z0: 160, w: 11, d: 11, fh: [5, 5], jet: 1, sty: hsSty(HS_ST_ALT, { fl: [hsStein(HS_SANDST), hsFW(HS_P_GRUEN, HS_BUTZ)], door: "red" }),
+      roof: { t: "sattel", ridge: "v", p: 1.5, m: ROOF_RED }, side: "l", cut: [6], use: [["kueche", "essen"], ["schlafen", "kind"]], seed: 21, work: "gaertner" });
+    const fisch = hsBuild({ name: "Fischerhaus an der Kräutergasse", face: "s", x0: 173, z0: 161, w: 11, d: 10, fh: [5, 5, 4], sty: hsSty(HS_ST_ALT, { fl: [hsStein(COBBLE), hsStein(HS_SANDST, { fb: true, sh: true }), hsFW(PLASTER_W, HS_BUTZ)], door: "spruce" }),
+      roof: { t: "sattel", ridge: "u", p: 1, m: SLATE }, dorm: [{ u: 3, side: "f" }, { u: 7, side: "f" }], side: "r", cut: [5], use: [["kueche", "essen"], ["wohnen", "schlafen"], ["kind", "kind"]], seed: 22, work: "fischer" });
+    hsBackGarden(rose, 2, { trees: 0 }); hsBackGarden(fisch, 2, { trees: 0, hof: true });
+    hsBackGarden(brw, 5, { trees: 1, hof: true }); hsBackGarden(web, 5, { trees: 1, hof: true });
+    hsBeetReihen(186, 175, 197, 178, [FERN, FLOWER_B, FLOWER_W, FERN, TALLGRASS, FLOWER_Y]);
+    hsTree(184, 176, "obst", rnd);
+    for (const [x, z] of [[171, 172], [185, 172], [159, 172]]) hsLampPost(x, z);
+    // ---- Lindenplatz: große Linde, Bänke im Kreis, Ziehbrunnen, Beete, Laternen ----
+    hsPave(158, 221, 175, 241, (x, z) => { const d = Math.hypot(x - 166, z - 231); return d < 2.5 ? null : d < 8.5 ? ((x + z) % 3 === 0 ? SBRICK : COBBLE) : null; });
+    hsTree(166, 231, "linde", rnd);
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (Math.hypot(dx, dz) < 2.5 && get(166 + dx, G0, 231 + dz) === GRASS) hsFlowerBed(166 + dx, 231 + dz, 166 + dx, 231 + dz, rnd, [FLOWER_W, FLOWER_Y, TULIP]);
+    for (let dz = -10; dz <= 10; dz++) for (let dx = -10; dx <= 10; dx++) {
+      const d = Math.hypot(dx, dz), x = 166 + dx, z = 231 + dz;
+      if (d >= 8.6 && d < 9.6 && Math.abs(dx) > 1 && Math.abs(dz) > 1 && hsFreeCell(x, z) && get(x, G0, z) === GRASS) hsSet(x, Y0, z, (dx + dz) % 3 ? HEDGE : ROSEBUSH);
+    }
+    for (const [x, z] of [[160, 227], [160, 232]]) { if (hsFreeCell(x, z)) { hsSet(x, Y0, z, TABLE_O); hsSet(x, Y0 + 1, z, CANDLE);
+      for (const [dx, dz] of [[0, -1], [0, 1]]) if (hsFreeCell(x + dx, z + dz)) hsSet(x + dx, Y0, z + dz, rotId(CHAIR_O, -dx, -dz)); } }
+    for (const [dx, dz] of [[0, -3], [0, 3], [-3, 0], [3, 0]]) hsBench(166 + dx, 231 + dz, -Math.sign(dx), -Math.sign(dz));
+    hsWell(171, 223, "Brunnen am Lindenplatz");
+    for (const [x, z] of [[160, 223], [160, 239], [173, 239], [175, 221], [183, 219], [168, 219], [197, 219], [160, 200], [172, 200], [186, 200], [197, 200], [165, 193], [178, 193], [191, 193], [200, 186], [200, 172], [200, 162]]) hsLampPost(x, z);
+    hsFlowerBed(158, 236, 161, 241, rnd); hsFlowerBed(171, 236, 175, 241, rnd);
+    PLACES11.sights.push({ name: "Lindenplatz", kind: "platz", x: 166, z: 231 });
+  }
+
+  // =====================================================================================================
+  // ---------- Stile der Neustadt ----------
+  // =====================================================================================================
+  // Bürgerhaus: farbiger Putz, Ecken, Fensterrahmen und Gesimse aus Sandstein oder Quarz, Stuckfries, Sprossenfenster
+  function hsBuerger(col, trim, over) {
+    trim = trim || HS_SANDST;
+    const g0 = { w: col, c: trim, band: trim, win: HS_FENSTER, lin: null, sill: trim, wp: 2 };
+    const g1 = { w: col, c: trim, band: HS_STUCK, win: HS_FENSTER, lin: trim, sill: null, wp: 2, fb: true };
+    return hsSty(HS_ST_ALT, Object.assign({ fl: [g0, g1], plinth: SBRICK, iw: HS_TAP_B, iwb: HS_PANEEL, ceil: PLANKS, door: "white", table: TABLE_D, chair: CHAIR_D,
+      fire: QUARTZ, mantel: MARBLE, step: DPLANK, rail: HS_BALU, bed: BED_B, rug: HS_RUG_R, rugW: HS_RUG_B, floor: { diele: [QUARTZ, MARBLE_D], flur: HS_PARKETT } }, over || {}));
+  }
+  // Villa (barock/klassizistisch): weißer Putz, Quarzecken, hohe Fenster, Stuckfriese, Marmor innen
+  const HS_ST_VILLA = hsSty(HS_ST_ALT, { fl: [{ w: PLASTER_W, c: QUARTZ, band: QUARTZ, win: HS_FENSTER, lin: HS_STUCK, sill: QUARTZ, wp: 2 },
+      { w: PLASTER_W, c: QUARTZ, band: HS_STUCK, win: HS_FENSTER, lin: QUARTZ, sill: QUARTZ, wp: 2 }],
+    plinth: QUARTZ, iw: HS_TAP_G, iwb: HS_PANEEL, ceil: QUARTZ, door: "white", table: TABLE_W, chair: CHAIR_W, fire: MARBLE, mantel: GOLD_TRIM, step: QUARTZ, stepFill: QUARTZ,
+    rail: HS_BALU, bed: BED_R, rug: HS_RUG_B, rugE: HS_RUG_B, rugW: HS_RUG_R, runner: HS_RUG_R,
+    floor: { diele: [MARBLE, MARBLE_D], flur: HS_PARKETT, kueche: [QUARTZ, SLATE], bad: [MARBLE, QUARTZ], schlafen: HS_PARKETT, kind: PLANKS } });
+  // Moderne Villa: weiße Kuben, raumhohe Glasfronten, Holzband, Flachdach mit Attika
+  const HS_ST_MODERN = hsSty(HS_ST_ALT, { fl: [{ w: QUARTZ, c: QUARTZ, band: MARBLE_D, win: GLASS, wp: 1, rows: [1, 2, 3], dw: 1 },
+      { w: QUARTZ, c: QUARTZ, band: SPRUCE_PLANKS, win: GLASS, wp: 1, rows: [1, 2, 3, 4] }],
+    plinth: MARBLE_D, iw: QUARTZ, iwb: null, ceil: QUARTZ, door: "white", table: TABLE_W, chair: CHAIR_W, fire: MARBLE_D, mantel: MARBLE_D, step: SPRUCE_PLANKS, stepFill: QUARTZ,
+    rail: GLASS, transom: QUARTZ, bed: BED_B, rug: HS_RUG_B, rugE: HS_RUG_B, rugW: HS_RUG_B, runner: null, hood: QUARTZ, balc: QUARTZ, balu: GLASS,
+    floor: { diele: QUARTZ, flur: QUARTZ, kueche: QUARTZ, essen: SPRUCE_PLANKS, wohnen: SPRUCE_PLANKS, schlafen: SPRUCE_PLANKS, kind: SPRUCE_PLANKS, bad: MARBLE, arbeit: SPRUCE_PLANKS } });
+  // Schwedenhaus: falunrote Bretter, weiße Ecken und Fensterrahmen, Grasdach
+  const HS_ST_SCHWEDEN = hsSty(HS_ST_ALT, { fl: [{ w: HS_FALU, c: BIRCH_PLANKS, band: SPRUCE_PLANKS, win: HS_FENSTER, lin: null, sill: null, wp: 3, fb: true },
+      { w: HS_FALU, c: BIRCH_PLANKS, band: BIRCH_PLANKS, win: HS_FENSTER, lin: null, sill: null, wp: 3, fb: true }],
+    plinth: COBBLE, iw: BIRCH_PLANKS, iwb: null, ceil: SPRUCE_PLANKS, beam: SPRUCE_LOG, door: "white", table: TABLE_O, chair: CHAIR_O, fire: COBBLE, mantel: SPRUCE_PLANKS,
+    step: SPRUCE_PLANKS, stepFill: SPRUCE_PLANKS, rail: FENCE, bed: BED_B, rug: HS_RUG_B, runner: null,
+    floor: { diele: SPRUCE_PLANKS, flur: SPRUCE_PLANKS, kueche: [BIRCH_PLANKS, SPRUCE_PLANKS], essen: SPRUCE_PLANKS, wohnen: SPRUCE_PLANKS, schlafen: BIRCH_PLANKS, kind: BIRCH_PLANKS, bad: [QUARTZ, BIRCH_PLANKS] } });
+  // Steinhäuschen: Bruchstein gemischt mit Moos, Fensterläden, Reetdach (Heu)
+  const HS_ST_COTTAGE = hsSty(HS_ST_ALT, { fl: [{ w: [COBBLE, COBBLE, MOSSY_COBBLE, STONE], c: STONE, band: MOSSY_COBBLE, win: HS_FENSTER, lin: SPRUCE_LOG, sill: STONE, wp: 3, fb: true, sh: "alle" },
+      { w: [COBBLE, MOSSY_COBBLE, COBBLE], c: STONE, band: STONE, win: HS_FENSTER, lin: SPRUCE_LOG, sill: STONE, wp: 3, fb: true, sh: "alle" }],
+    plinth: MOSSY_COBBLE, iw: PLASTER_W, iwb: HS_PANEEL, ceil: SPRUCE_PLANKS, door: "green", table: TABLE_O, chair: CHAIR_O, fire: COBBLE, mantel: SPRUCE_LOG, step: SPRUCE_PLANKS, rail: FENCE,
+    floor: { diele: [STONE, COBBLE], flur: PLANKS, kueche: [STONE, SBRICK], essen: PLANKS, wohnen: PLANKS } });
+  // Reihenhäuser aus Backstein mit weißen Fensterrahmen
+  const HS_ST_REIHE = hsSty(HS_ST_ALT, { fl: [{ w: BRICK, c: QUARTZ, band: SBRICK, win: HS_FENSTER, lin: QUARTZ, sill: QUARTZ, wp: 2, fb: true },
+      { w: BRICK, c: QUARTZ, band: QUARTZ, win: HS_FENSTER, lin: QUARTZ, sill: QUARTZ, wp: 2, fb: true }],
+    plinth: SBRICK, iw: PLASTER_W, iwb: HS_PANEEL, ceil: PLANKS, table: TABLE_O, chair: CHAIR_O, fire: BRICK, mantel: QUARTZ, step: DPLANK, rail: HS_BALU,
+    floor: { diele: [QUARTZ, SLATE], flur: PLANKS } });
+
+  // Vorgarten vor einer Front (lokal): Zaun oder Hecke an der Straßenseite mit Tor, Weg zur Tür, Beete links und rechts
+  function hsFrontGarden(C, depth, o) {
+    o = o || {};
+    const T = C.T, rnd = C.rnd, fv = -1, vEnd = -depth, W = C.H.w;
+    const doors = C.units.map(U => U.lu[0]);
+    for (let v = vEnd; v <= fv; v++) for (let u = -1; u <= W; u++) {
+      const x = T.x(u, v), z = T.z(u, v);
+      if (!hsOk(x, z) || get(x, Y0, z) !== AIR) continue;
+      const onPath = doors.some(d => Math.abs(u - d) <= (o.wide ? 1 : 0));
+      if (onPath) { const g = get(x, G0, z); if (g === GRASS || g === DIRT) hsSet(x, G0, z, o.path || GRAVEL); continue; }
+      if (v === vEnd) { hsSet(x, Y0, z, o.fence || HEDGE); continue; }
+      if (u === -1 || u === W) { if (o.sides !== false) hsSet(x, Y0, z, o.fence || HEDGE); continue; }
+      if (v === vEnd + 1 || v === fv) hsFlowerBed(x, z, x, z, rnd, o.flowers);
+      else if (o.lawn !== false && hash(x, z, 5) < 0.12) hsSet(x, Y0, z, ROSEBUSH);
+    }
+    // Tore im Zaun
+    if ((o.fence || HEDGE) === FENCE) for (const d of doors) { const x = T.x(d, vEnd), z = T.z(d, vEnd), [ox, oz] = T.dir(0, -1); if (hsOk(x, z)) { hsSet(x, G0, z, o.path || GRAVEL); addGate(x, Y0, z, ox, oz); } }
+    for (const d of doors) for (const sg of [-1, 1]) { const x = T.x(d + sg * 2, vEnd + 1), z = T.z(d + sg * 2, vEnd + 1); if (o.posts !== false && hsOk(x, z) && get(x, Y0, z) !== AIR) { hsSet(x, Y0, z, POT_BOX); } }
+  }
+  // Garten hinter dem Haus: Zaun, Obstbäume, Gemüsebeete (mit Kohl- und Blumenreihen), Bank
+  function hsBackGarden(C, depth, o) {
+    o = o || {};
+    const T = C.T, rnd = C.rnd, W = C.H.w, v0 = C.H.d, v1 = C.H.d + depth - 1;
+    for (let v = v0; v <= v1; v++) for (let u = -1; u <= W; u++) {
+      const x = T.x(u, v), z = T.z(u, v);
+      if (!hsOk(x, z) || get(x, Y0, z) !== AIR || get(x, G0, z) !== GRASS) continue;
+      if (u === -1 || u === W || v === v1) { hsSet(x, Y0, z, o.fence || FENCE); continue; }
+    }
+    const trees = o.trees || 2;
+    for (let i = 0; i < trees; i++) { const u = Math.round((i + 0.5) * W / trees), v = v1 - 2; hsTree(T.x(u, v), T.z(u, v), o.tree || "obst", rnd); }
+    if (depth >= 6) for (let u = 1; u < W - 1; u++) { const v = v0 + 1, x = T.x(u, v), z = T.z(u, v); if (hsFreeCell(x, z) && u % 4 !== 0) hsSet(x, Y0, z, u % 2 ? FERN : [FLOWER_Y, FLOWER_W, TULIP][u % 3]); }
+    const bx = T.x(1, v0 + 2), bz = T.z(1, v0 + 2), [dx, dz] = T.dir(1, 0); hsBench(bx, bz, dx, dz);
+    if (o.hof) {
+      // Hinterhof: Holzstapel am Zaun, Regentonne und Blumentöpfe an der Hauswand
+      for (let u = W - 3; u <= W - 1; u++) for (let y = Y0; y <= Y0 + (u === W - 2 ? 1 : 0); y++) { const x = T.x(u, v1 - 1), z = T.z(u, v1 - 1); if (hsOk(x, z) && get(x, y, z) === AIR && get(x, G0, z) === GRASS) hsSet(x, y, z, LOG); }
+      for (const [u, b] of [[3, BARREL], [5, POT_BOX], [W - 4, POT_BOX]]) { const x = T.x(u, v0), z = T.z(u, v0); if (hsFreeCell(x, z) && get(x, G0, z) === GRASS) hsSet(x, Y0, z, b); }
+    }
+  }
+
+  // =====================================================================================================
+  // ---------- Die Neustadt: bunte Bürgerhäuser an der Querstraße, Gassen als Fortsetzung der Marktgassen,
+  //            Villen mit Gärten, Schwedenhaus, Steinhäuschen, Reihenhäuser, Stadtpark ----------
+  // =====================================================================================================
+  const hsKopf = (x, z) => hash(x, z, 41) < 0.18 ? MOSSY_COBBLE : hash(x, z, 42) < 0.5 ? SBRICK : COBBLE;       // Kopfsteinpflaster
+  const hsGehweg = (x, z) => hash(x, z, 43) < 0.2 ? STONE : SBRICK;                                          // Gehwegplatten
+  const hsKies = (x, z) => hash(x, z, 44) < 0.25 ? PATH : GRAVEL;                                              // Kiesweg
+  // Laternen in gleichen Abständen entlang einer Linie (nur auf freien Zellen)
+  function hsLamps(x0, z0, x1, z1, step) {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(z1 - z0));
+    for (let i = 0; i <= n; i += step) hsLampPost(x0 + Math.sign(x1 - x0) * i, z0 + Math.sign(z1 - z0) * i);
+  }
+  // Trennzaun zwischen Gärten (lokal: Linie bei u von v0 bis v1)
+  function hsGardenSplit(C, u, v0, v1, b) { for (let v = v0; v <= v1; v++) { const x = C.T.x(u, v), z = C.T.z(u, v); if (hsFreeCell(x, z)) hsSet(x, Y0, z, b || FENCE); } }
+  // Gemüsebeet: Ackerboden mit Reihen aus Karotten, Kartoffeln, Roter Bete, Kohl (Farn) und Kürbissen, Wasserrinne in der Mitte
+  function hsVeggie(x0, z0, x1, z1) {
+    const crops = [CARROTS, POTATOES, BEETS, CARROTS, WHEAT];
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      if (!hsFreeCell(x, z) || get(x, G0, z) !== GRASS) continue;
+      if (x === Math.floor((x0 + x1) / 2) && x1 - x0 >= 4) { hsSet(x, G0, z, WATER); continue; }
+      hsSet(x, G0, z, FARMLAND); hsSet(x, Y0, z, crops[(z - z0) % crops.length]);
+    }
+  }
+
+  // ---------- Neustadt West (x 30–59): Birkengasse, Querstraße, Rosengasse ----------
+  function hsNeuWest(rnd) {
+    const Z = "neustadt";
+    // Gehwege an der Querstraße, Birkengasse (z 265–267) und Rosengasse (z 305–307) als Fortsetzung der Marktgassen, Fußwege
+    hsPave(30, 283, 59, 284, hsGehweg); hsPave(30, 289, 59, 290, hsGehweg);
+    hsPave(30, 265, 59, 267, hsKopf); hsPave(30, 305, 59, 307, hsKopf);
+    hsPave(43, 268, 45, 282, hsKies); hsPave(43, 291, 45, 304, hsKies);
+    // ---- An der Querstraße, Nordseite (Front nach Süden) ----
+    const wn1 = hsBuild({ name: "Gelbes Bürgerhaus", zone: Z, face: "s", x0: 31, z0: 272, w: 12, d: 11, fh: [5, 5, 5], sty: hsBuerger(PLASTER_Y, HS_SANDST, { door: "green", bed: BED_R }),
+      roof: { t: "mansard", ridge: "u", mk: 2, p: 2, p2: 0.5, m: SLATE }, dorm: [{ u: 2, side: "f" }, { u: 6, side: "f" }, { u: 9, side: "f" }],
+      side: "r", cut: [5], use: [["kueche", "essen"], ["wohnen", "schlafen"], ["kind", "bad"]], seed: 31, work: "schneider" });
+    const wn2 = hsBuild({ name: "Blaues Haus an der Querstraße", zone: Z, face: "s", x0: 46, z0: 272, w: 12, d: 11, fh: [5, 5], sty: hsBuerger(PLASTER_B, QUARTZ, { door: "white" }),
+      roof: { t: "walm", p: 1, m: SLATE }, balc: [{ k: 1, u0: 5, u1: 9, d: 1 }],
+      side: "l", cut: [5], use: [["kueche", "essen"], ["schlafen", "kind"]], seed: 32, work: "haendler" });
+    // ---- An der Querstraße, Südseite (Front nach Norden) ----
+    const ws1 = hsBuild({ name: "Rosa Haus", zone: Z, face: "n", x0: 31, z0: 291, w: 12, d: 11, fh: [5, 5, 4], sty: hsBuerger(PLASTER_R, QUARTZ, { door: "white", bed: BED_R, rug: HS_RUG_B }),
+      roof: { t: "sattel", ridge: "u", p: 1, m: ROOF_RED }, dorm: [{ u: 3, side: "f" }, { u: 8, side: "f" }],
+      side: "l", cut: [5], use: [["kueche", "essen"], ["wohnen", "schlafen"], ["kind", "kind"]], seed: 33, work: "koechin" });
+    const ws2 = hsBuild({ name: "Grünes Giebelhaus", zone: Z, face: "n", x0: 46, z0: 291, w: 12, d: 11, fh: [5, 5], sty: hsBuerger(HS_P_GRUEN, HS_SANDST, { door: "oak" }),
+      roof: { t: "sattel", ridge: "v", p: 1.5, m: SLATE }, side: "r", cut: [5], use: [["kueche", "wohnen"], ["schlafen", "kind"]], seed: 34, work: "gaertner" });
+    // ---- Nördlich der Birkengasse: Schwedenhaus und Steinhäuschen (Front nach Süden), Vorgärten ----
+    const swe = hsBuild({ name: "Schwedenhaus", zone: Z, face: "s", x0: 33, z0: 251, w: 11, d: 11, fh: [5, 4],
+      sty: hsSty(HS_ST_SCHWEDEN, { portPost: SPRUCE_LOG, cap: SPRUCE_LOG, portTop: SPRUCE_PLANKS, portFloor: SPRUCE_PLANKS, portBeam: BIRCH_PLANKS, balu: FENCE }),
+      roof: { t: "sattel", ridge: "u", p: 1, m: GRASS }, port: { u0: 0, u1: 4, d: 2 },
+      side: "l", cut: [5], use: [["kueche", "wohnen"], ["schlafen", "kind"]], seed: 35, work: "holzfaeller" });
+    const cot = hsBuild({ name: "Steinhäuschen am Birkenweg", zone: Z, face: "s", x0: 47, z0: 254, w: 10, d: 8, fh: [4, 4], sty: HS_ST_COTTAGE,
+      roof: { t: "sattel", ridge: "u", p: 1.5, m: ROOF_RED, kw: 5 }, side: "r", use: [["kueche"], ["schlafen"]], seed: 36, work: "gaertner" });
+    hsFrontGarden(swe, 3, { fence: FENCE, flowers: [FLOWER_W, FLOWER_B, FLOWER_Y] });
+    hsFrontGarden(cot, 2, { fence: FENCE, flowers: [FLOWER_R, FLOWER_Y, TULIP, FLOWER_W, ROSEBUSH] });
+    hsBackGarden(swe, 5, { trees: 2, tree: "zier" }); hsBackGarden(cot, 8, { trees: 2 });
+    hsVeggie(49, 249, 54, 251);
+    for (const C of [wn1, wn2]) hsBackGarden(C, 4, { trees: 0, hof: true });
+    for (const C of [ws1, ws2]) hsBackGarden(C, 3, { trees: 0, hof: true });
+    // ---- Rosengasse: Reihe aus drei Backsteinhäusern (Front nach Norden), Vorgärten, lange Gärten bis zum Stadtrand ----
+    const rc = [{ u0: 1, u1: 3, hall: true, unit: 0, door: 2, style: "green", name: "Reihenhaus Rosengasse 1", work: "schreiner" }, { u0: 5, u1: 8, cross: [5], unit: 0 },
+      { u0: 10, u1: 12, hall: true, unit: 1, door: 11, style: "red", name: "Reihenhaus Rosengasse 2", work: "waescherin" }, { u0: 14, u1: 17, cross: [5], unit: 1 },
+      { u0: 19, u1: 21, hall: true, unit: 2, door: 20, style: "oak", name: "Reihenhaus Rosengasse 3", work: "kutscher" }, { u0: 23, u1: 26, cross: [5], unit: 2 }];
+    const reihe = hsBuild({ name: "Reihenhäuser an der Rosengasse", zone: Z, face: "n", x0: 31, z0: 310, w: 28, d: 10, fh: [5, 5], sty: HS_ST_REIHE, cols: rc,
+      bands: [{ u0: 10, u1: 18, fl: { w: PLASTER_W, c: SBRICK, lin: SBRICK, sill: SBRICK } }],
+      roof: { t: "sattel", ridge: "u", p: 1, m: SLATE }, dorm: [{ u: 6, side: "f" }, { u: 15, side: "f" }, { u: 24, side: "f" }], chim: [[9, 5], [18, 5]],
+      use: [["kueche", "essen", "essen", "kueche", "kueche", "essen"], ["schlafen", "kind", "kind", "schlafen", "schlafen", "kind"]], seed: 37 });
+    hsFrontGarden(reihe, 2, { fence: HEDGE, lawn: false });
+    hsBackGarden(reihe, 15, { trees: 3 });
+    for (const u of [9, 18]) hsGardenSplit(reihe, u, 10, 23);
+    hsVeggie(34, 322, 38, 325); hsVeggie(43, 322, 47, 325); hsVeggie(52, 322, 56, 325);
+    for (const [x, z] of [[32, 249], [32, 256], [32, 262], [45, 250]]) hsTree(x, z, "zier", rnd);
+    return wn2;
+  }
+
+  // ---------- Neustadt Ost (x 133–206): Gartenstraße, Querstraße, Parkstraße, Villenweg ----------
+  function hsNeuOst(rnd) {
+    const Z = "neustadt";
+    // Gehwege an der Querstraße, Gartenstraße (z 265–267) und Parkstraße (z 305–307) bis zum Villenweg (x 176–178)
+    hsPave(133, 283, 206, 284, hsGehweg); hsPave(133, 289, 206, 290, hsGehweg);
+    hsPave(133, 265, 175, 267, hsKopf); hsPave(133, 305, 175, 307, hsKopf);
+    hsPave(176, 246, 178, 282, hsKopf); hsPave(176, 291, 178, 334, hsKopf);
+    // ---- Querstraße Nordseite (Front nach Süden) ----
+    const en1 = hsBuild({ name: "Apricothaus", zone: Z, face: "s", x0: 134, z0: 272, w: 12, d: 11, fh: [5, 5, 5], sty: hsBuerger(HS_P_APRI, QUARTZ, { door: "green", bed: BED_R }),
+      roof: { t: "mansard", ridge: "u", mk: 2, p: 2, p2: 0.5, m: ROOF_RED }, dorm: [{ u: 3, side: "f" }, { u: 8, side: "f" }],
+      side: "r", cut: [5], use: [["kueche", "essen"], ["wohnen", "schlafen"], ["kind", "bad"]], seed: 41, work: "baecker" });
+    const en2 = hsBuild({ name: "Fliederhaus", zone: Z, face: "s", x0: 148, z0: 272, w: 12, d: 11, fh: [5, 5], sty: hsBuerger(HS_P_FLIEDER, QUARTZ, { door: "white", rug: HS_RUG_B }),
+      roof: { t: "sattel", ridge: "u", p: 1, m: SLATE }, dorm: [{ u: 3, side: "f" }, { u: 8, side: "f" }], balc: [{ k: 1, u0: 6, u1: 9, d: 1 }],
+      side: "l", cut: [5], use: [["kueche", "essen"], ["schlafen", "kind"]], seed: 42, work: "schneider" });
+    const kfl = [{ w: PLASTER_W, c: SBRICK, band: SBRICK, win: HS_FENSTER, sill: SBRICK, wp: 2 }, { w: PLASTER_W, c: SBRICK, band: HS_STUCK, win: HS_FENSTER, lin: SBRICK, wp: 2, sh: true, fb: true }];
+    const en3 = hsBuild({ name: "Kaufmannshaus Brenner", zone: Z, face: "s", x0: 162, z0: 272, w: 12, d: 11, fh: [5, 5, 5], sty: hsBuerger(PLASTER_W, SBRICK, { fl: kfl, door: "green" }),
+      roof: { t: "walm", p: 1, m: SLATE }, side: "l", cut: [5], use: [["laden", "kueche"], ["essen", "wohnen"], ["schlafen", "kind"]], seed: 43, work: "haendler",
+      shop: { kind: "haendler", name: "Kolonialwarenladen Brenner" } });
+    // ---- Querstraße Südseite (Front nach Norden) ----
+    const es1 = hsBuild({ name: "Ockerhaus mit Giebel", zone: Z, face: "n", x0: 134, z0: 291, w: 12, d: 11, fh: [5, 5, 4], sty: hsBuerger(HS_P_OCKER, QUARTZ, { door: "red" }),
+      roof: { t: "sattel", ridge: "v", p: 1.5, m: ROOF_RED }, side: "l", cut: [5], use: [["kueche", "essen"], ["wohnen", "schlafen"], ["kind", "kind"]], seed: 44, work: "metzger" });
+    const es2 = hsBuild({ name: "Ochsenblutrotes Haus", zone: Z, face: "n", x0: 148, z0: 291, w: 12, d: 11, fh: [5, 5, 5], sty: hsBuerger(HS_P_ROT, HS_SANDST, { door: "white", bed: BED_B }),
+      roof: { t: "mansard", ridge: "u", mk: 2, p: 2, p2: 0.5, m: ROOF_GREEN }, dorm: [{ u: 2, side: "f" }, { u: 6, side: "f" }, { u: 9, side: "f" }],
+      side: "r", cut: [5], use: [["kueche", "essen"], ["wohnen", "schlafen"], ["kind", "arbeit"]], seed: 45, work: "wirt" });
+    const es3 = hsBuild({ name: "Doktorhaus", zone: Z, face: "n", x0: 162, z0: 291, w: 12, d: 11, fh: [5, 5], sty: hsBuerger(PLASTER_B, QUARTZ, { door: "white", table: TABLE_W, chair: CHAIR_W }),
+      roof: { t: "walm", p: 1, m: SLATE }, balc: [{ k: 1, u0: 1, u1: 4, d: 1 }], side: "r", cut: [5], use: [["arbeit", "kueche"], ["schlafen", "wohnen"]], seed: 46, work: "koechin" });
+    // ---- Nördlich der Gartenstraße: Doppelhaus und Stadtvilla (Front nach Süden), Vor- und Hintergärten ----
+    const dfl = [{ w: PLASTER_W, c: BRICK, band: BRICK, win: HS_FENSTER, sill: BRICK, wp: 2, sh: true }, { w: PLASTER_W, c: BRICK, band: BRICK, win: HS_FENSTER, lin: BRICK, wp: 2, sh: true, fb: true }];
+    const dc = [{ u0: 1, u1: 3, hall: true, unit: 0, door: 2, style: "green", name: "Doppelhaus am Gartenweg, links", work: "gaertner" }, { u0: 5, u1: 9, cross: [5], unit: 0 },
+      { u0: 11, u1: 15, cross: [5], unit: 1 }, { u0: 17, u1: 19, hall: true, unit: 1, door: 18, style: "red", name: "Doppelhaus am Gartenweg, rechts", work: "schreiner", ss: "b" }];
+    const dop = hsBuild({ name: "Doppelhaus am Gartenweg", zone: Z, face: "s", x0: 135, z0: 253, w: 21, d: 10, fh: [5, 5, 4], sty: hsBuerger(PLASTER_W, BRICK, { fl: dfl, door: "green", iw: PLASTER_W }), cols: dc,
+      roof: { t: "sattel", ridge: "u", p: 1, m: ROOF_RED }, dorm: [{ u: 7, side: "f" }, { u: 13, side: "f" }], chim: [[10, 5]],
+      use: [["kueche", "essen", "essen", "kueche"], ["wohnen", "schlafen", "schlafen", "wohnen"], ["kind", "kind", "kind", "kind"]], seed: 47 });
+    const sv = hsBuild({ name: "Weiße Stadtvilla", zone: Z, face: "s", x0: 160, z0: 251, w: 13, d: 12, fh: [5, 5], sty: HS_ST_VILLA,
+      roof: { t: "walm", p: 1, m: SLATE }, dorm: [{ u: 6, side: "f" }], balc: [{ k: 1, u0: 4, u1: 8, d: 1 }],
+      side: "l", cut: [6], use: [["kueche", "essen"], ["schlafen", "kind"]], seed: 48, work: "haendler" });
+    hsFrontGarden(dop, 2, { fence: FENCE }); hsFrontGarden(sv, 2, { fence: HEDGE, wide: true, path: GRAVEL });
+    hsBackGarden(dop, 7, { trees: 3 }); hsBackGarden(sv, 5, { trees: 2, tree: "zier" });
+    hsGardenSplit(dop, 10, 10, 15);
+    for (const C of [en1, en2, en3]) hsBackGarden(C, 4, { trees: 0, hof: true });
+    for (const C of [es1, es2, es3]) hsBackGarden(C, 3, { trees: 0, hof: true });
+    hsVeggie(138, 248, 142, 250); hsVeggie(149, 248, 153, 250);
+  }
+
+  // ---------- Gartenkunst: Springbrunnen, Parterre, Schwimmbecken, Pavillon, Teich ----------
+  // Springbrunnen: runder Beckenrand aus Quarz, Wasser, Säule mit Wasserschale in der Mitte
+  function hsFountain(x, z, r) {
+    for (let dz = -r - 1; dz <= r + 1; dz++) for (let dx = -r - 1; dx <= r + 1; dx++) {
+      const d = Math.hypot(dx, dz); if (d > r + 0.5 || !hsOk(x + dx, z + dz)) continue;
+      if (d > r - 0.5) { hsSet(x + dx, G0, z + dz, QUARTZ); hsSet(x + dx, Y0, z + dz, QUARTZ); }
+      else { hsSet(x + dx, G0 - 1, z + dz, QUARTZ); hsSet(x + dx, G0, z + dz, WATER); hsSet(x + dx, Y0, z + dz, AIR); }
+    }
+    hsSet(x, G0, z, QUARTZ); hsSet(x, Y0, z, PILLAR); hsSet(x, Y0 + 1, z, PILLAR); hsSet(x, Y0 + 2, z, WATER);
+    for (const [dx, dz] of HS_OD) hsSet(x + dx, Y0 + 2, z + dz, QUARTZ);
+  }
+  // Parterre: Beet mit Heckenrand und Blumen (Rosen und Tulpen im Wechsel), Formschnitt an den Ecken
+  function hsParterre(x0, z0, x1, z1, rnd, mix) {
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      if (!hsFreeCell(x, z)) continue;
+      const edge = x === x0 || x === x1 || z === z0 || z === z1;
+      if (edge) { hsSet(x, Y0, z, HEDGE); if ((x === x0 || x === x1) && (z === z0 || z === z1)) hsSet(x, Y0 + 1, z, HEDGE); }
+      else hsSet(x, Y0, z, (mix || [ROSEBUSH, TULIP, FLOWER_W, TULIP])[(x + z) % (mix || [0, 0, 0, 0]).length]);
+    }
+  }
+  // Beetreihen entlang x mit Kieswegen dazwischen (jede dritte Reihe), Buchsbaum an den Reihenenden
+  function hsBeetReihen(x0, z0, x1, z1, mix) {
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      if (!hsOk(x, z) || get(x, Y0, z) !== AIR || get(x, G0, z) !== GRASS) continue;
+      if ((z - z0) % 3 === 2) { hsSet(x, G0, z, GRAVEL); continue; }
+      hsSet(x, Y0, z, x === x0 || x === x1 ? HEDGE : mix[Math.floor(hash(x, z, 77) * mix.length)]);
+    }
+  }
+  // Schwimmbecken mit Quarzrand und Holzdeck
+  function hsPool(x0, z0, x1, z1) {
+    for (let z = z0 - 2; z <= z1 + 2; z++) for (let x = x0 - 2; x <= x1 + 2; x++) {
+      if (!hsOk(x, z)) continue;
+      const inner = x >= x0 && x <= x1 && z >= z0 && z <= z1, rim = !inner && x >= x0 - 1 && x <= x1 + 1 && z >= z0 - 1 && z <= z1 + 1;
+      if (inner) { hsSet(x, G0 - 2, z, QUARTZ); hsSet(x, G0 - 1, z, WATER); hsSet(x, G0, z, WATER); }
+      else if (rim) hsSet(x, G0, z, QUARTZ);
+      else hsSet(x, G0, z, SPRUCE_PLANKS);
+      if (get(x, Y0, z) !== AIR && !SHAPE[get(x, Y0, z)]) hsSet(x, Y0, z, AIR);
+    }
+  }
+  // Eiserner Gartenzaun mit Quarzpfeilern (alle 4 Zellen) entlang einer Linie; open: Zellen ohne Zaun (Einfahrt)
+  function hsIronFence(x0, z0, x1, z1, open) {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(z1 - z0));
+    for (let i = 0; i <= n; i++) {
+      const x = x0 + Math.sign(x1 - x0) * i, z = z0 + Math.sign(z1 - z0) * i;
+      if (open && open(x, z)) continue;
+      if (!hsFreeCell(x, z)) continue;
+      if (i % 4 === 0 || i === n) { hsSet(x, Y0, z, QUARTZ); hsSet(x, Y0 + 1, z, CANDLE); } else hsSet(x, Y0, z, BARS);
+    }
+  }
+
+  // ---------- Neustadt Ost Teil 2: die Villen ----------
+  function hsVillen(rnd) {
+    const Z = "neustadt";
+    // ---- Barockvilla Rosenhof (Front nach Süden), Parterre mit Springbrunnen bis zur Querstraße, Obstgarten dahinter ----
+    const gelb = hsSty(HS_ST_VILLA, { fl: [{ w: PLASTER_Y, c: QUARTZ, band: QUARTZ, win: HS_FENSTER, lin: HS_STUCK, sill: QUARTZ, wp: 2 },
+      { w: PLASTER_Y, c: QUARTZ, band: HS_STUCK, win: HS_FENSTER, lin: QUARTZ, sill: QUARTZ, wp: 2, fb: true }], door: "white" });
+    const rc = [{ u0: 1, u1: 6, cross: [6] }, { u0: 8, u1: 10, hall: true }, { u0: 12, u1: 17, cross: [6] }];
+    const ros = hsBuild({ name: "Barockvilla Rosenhof", zone: Z, kind: "villa", face: "s", x0: 184, z0: 258, w: 19, d: 13, F: G0 + 1, fh: [6, 6], sty: gelb, cols: rc, door: 9,
+      roof: { t: "mansard", ridge: "u", mk: 2, p: 2, p2: 0.5, m: SLATE }, dorm: [{ u: 3, side: "f" }, { u: 15, side: "f" }, { u: 3, side: "b" }, { u: 9, side: "b" }, { u: 15, side: "b" }],
+      port: { u0: 6, u1: 12, d: 3 }, use: [["wohnen", "kueche", "essen", "bibliothek"], ["schlafen", "bad", "kind", "gast"]], seed: 51, work: "haendler" });
+    hsPave(192, 275, 194, 282, hsKies); hsPave(188, 276, 198, 280, (x, z) => Math.hypot(x - 193, z - 278) < 4.6 ? GRAVEL : null);
+    hsFountain(193, 278, 2);
+    PLACES11.sights.push({ name: "Barockvilla Rosenhof", kind: "villa", x: 193, z: 264 }, { name: "Springbrunnen am Rosenhof", kind: "brunnen", x: 193, z: 278 });
+    hsParterre(180, 274, 187, 281, rnd); hsParterre(199, 274, 206, 281, rnd);
+    for (const [x, z] of [[190, 275], [196, 275], [190, 281], [196, 281]]) { hsSet(x, Y0, z, HEDGE); hsSet(x, Y0 + 1, z, HEDGE); hsSet(x, Y0 + 2, z, HEDGE); }
+    hsIronFence(179, 282, 206, 282, (x) => x >= 192 && x <= 194);
+    for (const x of [191, 195]) { hsSet(x, Y0, 282, QUARTZ); hsSet(x, Y0 + 1, 282, QUARTZ); hsSet(x, Y0 + 2, 282, LANTERN_S); }
+    hsIronFence(179, 246, 179, 281, () => false); hsIronFence(206, 246, 206, 281, () => false);
+    hsBackGarden(ros, 11, { trees: 4 });
+    // ---- Moderne Villa (Front nach Norden zur Querstraße): weiße Kuben, Glasfronten, Atelierflügel, Schwimmbecken ----
+    const mod = hsBuild({ name: "Moderne Villa", zone: Z, kind: "villa", face: "n", x0: 188, z0: 293, w: 14, d: 11, fh: [5, 5], sty: HS_ST_MODERN,
+      roof: { t: "flach", o: 0, m: QUARTZ, parB: QUARTZ }, cols: [{ u0: 1, u1: 3, hall: true }, { u0: 5, u1: 8, cross: [5] }, { u0: 10, u1: 12, cross: [5] }],
+      wings: [{ u0: 13, u1: 19, v0: 2, v1: 10, n: 1, use: [["wohnen"]], roof: { t: "flach", o: 0, m: QUARTZ, parB: GLASS } }],
+      balc: [{ k: 1, u0: 5, u1: 12, d: 1 }], use: [["kueche", "essen", "arbeit", "bad"], ["schlafen", "bad", "kind", "kind"]], seed: 52, work: "haendler" });
+    hsPave(191, 291, 191, 292, GRAVEL);
+    hsPool(189, 307, 199, 311);
+    for (const x of [190, 193, 196]) hsBench(x, 314, 0, -1);
+    for (const [x, z] of [[187, 307], [201, 307], [187, 311], [201, 311]]) if (hsFreeCell(x, z)) hsSet(x, Y0, z, HS_PALME);
+    hsLine(181, 291, 187, 291, HEDGE); hsLine(193, 291, 206, 291, HEDGE);
+    // ---- Villa Sonnenhof (Front nach Westen zum Villenweg): Säulenvorbau, Kupferdach, Garten mit Obstbäumen ----
+    const son = hsBuild({ name: "Villa Sonnenhof", zone: Z, kind: "villa", face: "w", x0: 182, z0: 317, w: 15, d: 12, F: G0 + 1, fh: [5, 5], sty: HS_ST_VILLA,
+      roof: { t: "walm", p: 1, m: ROOF_GREEN }, dorm: [{ u: 2, side: "f" }, { u: 14, side: "f" }], port: { u0: 5, u1: 11, d: 2, ped: true },
+      side: "m", cut: [5], use: [["wohnen", "kueche", "essen", "arbeit"], ["schlafen", "bad", "kind", "kind"]], seed: 53, work: "kutscher" });
+    hsFrontGarden(son, 3, { fence: HEDGE, flowers: [ROSEBUSH, FLOWER_R, FLOWER_W], wide: true });
+    hsBackGarden(son, 12, { trees: 3, fence: HEDGE });
+  }
+
+  // Weg entlang einer Linie aus Punkten (Zellmitten), halbe Breite hw
+  function hsWegLinie(pts, hw, pat) {
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (const [x, z] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+    hsPave(Math.floor(x0 - hw - 1), Math.floor(z0 - hw - 1), Math.ceil(x1 + hw + 1), Math.ceil(z1 + hw + 1), (x, z) => {
+      for (let i = 0; i + 1 < pts.length; i++) if (segDist(x, z, pts[i], pts[i + 1]) < hw) return typeof pat === "function" ? pat(x, z) : pat;
+      return null;
+    });
+  }
+  // Teich: Wasser (in der Mitte zwei tief), Kiesgrund, Ufer mit Schilf
+  function hsPond(cx, cz, rx, rz) {
+    for (let z = Math.floor(cz - rz - 2); z <= Math.ceil(cz + rz + 2); z++) for (let x = Math.floor(cx - rx - 2); x <= Math.ceil(cx + rx + 2); x++) {
+      if (!hsOk(x, z)) continue;
+      const e = ((x - cx) / rx) ** 2 + ((z - cz) / rz) ** 2 + (hash(x, z, 71) - 0.5) * 0.25;
+      if (e < 1) { hsSet(x, Y0, z, AIR); hsSet(x, G0, z, WATER); hsSet(x, G0 - 1, z, e < 0.45 ? WATER : GRAVEL); if (e < 0.45) hsSet(x, G0 - 2, z, GRAVEL); }
+      else if (e < 1.5 && get(x, Y0, z) === AIR && get(x, G0, z) === GRASS && hash(x, z, 72) < 0.45) hsSet(x, Y0, z, hash(x, z, 73) < 0.7 ? REEDS : FERN);
+    }
+  }
+  // Musikpavillon: achteckiger Sockel, Säulen, Balustrade, gestufte Kupferkuppel mit goldener Spitze, Kronleuchter
+  function hsPavilion(cx, cz, r) {
+    const oct = (dx, dz) => Math.max(Math.abs(dx), Math.abs(dz), (Math.abs(dx) + Math.abs(dz)) / 1.4142);
+    const post = new Set();
+    for (let a = 0; a < 8; a++) { const t = (a + 0.5) * Math.PI / 4; post.add(Math.round(Math.cos(t) * r) + "," + Math.round(Math.sin(t) * r)); }
+    for (let dz = -r - 1; dz <= r + 1; dz++) for (let dx = -r - 1; dx <= r + 1; dx++) {
+      const o = oct(dx, dz), x = cx + dx, z = cz + dz;
+      if (o <= r + 0.3) {
+        hsSet(x, G0, z, SBRICK); hsSet(x, Y0, z, o > r - 0.7 ? QUARTZ : (dx + dz) & 1 ? MARBLE : MARBLE_D);
+        for (let y = Y0 + 1; y <= Y0 + 4; y++) hsSet(x, y, z, AIR);
+        if (post.has(dx + "," + dz)) for (let y = Y0 + 1; y <= Y0 + 3; y++) hsSet(x, y, z, PILLAR);
+        else if (o > r - 0.7 && dx !== 0 && dz !== 0) hsSet(x, Y0 + 1, z, HS_BALU);
+      }
+    }
+    // Kuppel
+    for (let i = 0; i <= r + 1; i++) for (let dz = -r - 1; dz <= r + 1; dz++) for (let dx = -r - 1; dx <= r + 1; dx++) {
+      const o = oct(dx, dz), R = r + 1 - i;
+      if (o <= R + 0.3 && (i === 0 || o > R - 1.2 || i === r + 1)) hsSet(cx + dx, Y0 + 4 + i, cz + dz, i === 0 && o > R - 0.7 ? GOLD_TRIM : ROOF_GREEN);
+    }
+    hsSet(cx, Y0 + 6 + r, cz, GOLD_TRIM); hsSet(cx, Y0 + 7 + r, cz, GOLD_TRIM);
+    hsSet(cx, Y0 + 3, cz, HS_LEUCHTER);
+  }
+
+  // ---------- Stadtpark (x 133–175, z 308–334): Teich, Musikpavillon, Kieswege, Bäume, Bänke, Beete ----------
+  function hsStadtpark(rnd) {
+    const P = { x0: 133, x1: 175, z0: 308, z1: 334 };
+    hsPond(146, 323, 8, 5);
+    hsPavilion(166, 318, 3);
+    // Wege: Eingänge von der Parkstraße und vom Villenweg, Rundweg um den Teich, Weg zum Pavillon
+    const ring = [];
+    for (let a = 0; a <= 24; a++) { const t = a / 24 * Math.PI * 2; ring.push([146 + Math.cos(t) * 11, 323 + Math.sin(t) * 7.6]); }
+    hsWegLinie(ring, 1.1, hsKies);
+    hsWegLinie([[145, 308], [145, 315.4]], 1.2, hsKies);
+    hsWegLinie([[164, 308], [165, 313]], 1.2, hsKies);
+    hsWegLinie([[157, 323], [162, 320], [170, 321], [175.5, 321]], 1.1, hsKies);
+    // Hecke rundherum mit Durchlässen
+    const gap = (x, z) => (z === P.z0 && (Math.abs(x - 145) <= 1 || Math.abs(x - 164) <= 1)) || (x === P.x1 && Math.abs(z - 321) <= 1);
+    for (let x = P.x0; x <= P.x1; x++) for (const z of [P.z0, P.z1]) if (!gap(x, z) && hsFreeCell(x, z)) hsSet(x, Y0, z, HEDGE);
+    for (let z = P.z0; z <= P.z1; z++) for (const x of [P.x0, P.x1]) if (!gap(x, z) && hsFreeCell(x, z)) hsSet(x, Y0, z, HEDGE);
+    // Bäume, Beete, Bänke, Laternen
+    hsTree(137, 312, "linde", rnd); hsTree(170, 330, "linde", rnd);
+    for (const [x, z] of [[155, 311], [137, 330], [156, 331], [172, 311], [160, 327]]) hsTree(x, z, "zier", rnd);
+    for (const [x, z] of [[135, 322], [137, 325]]) hsTree(x, z, "fichte", rnd);
+    for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) {
+      const o = Math.max(Math.abs(dx), Math.abs(dz), (Math.abs(dx) + Math.abs(dz)) / 1.4142);
+      if (o > 4.6 && o <= 5.6 && get(166 + dx, G0, 318 + dz) === GRASS) hsFlowerBed(166 + dx, 318 + dz, 166 + dx, 318 + dz, rnd);
+    }
+    hsFlowerBed(148, 309, 154, 310, rnd); hsFlowerBed(136, 309, 142, 310, rnd);
+    for (const [x, z, dx, dz] of [[146, 314, 0, 1], [140, 315, 0, 1], [152, 315, 0, 1], [146, 332, 0, -1], [134, 323, 1, 0], [158, 324, -1, 0]]) hsBench(x, z, dx, dz);
+    for (const [x, z] of [[143, 309], [166, 309], [174, 319], [135, 318], [157, 318], [135, 328], [157, 328], [146, 333], [161, 322]]) hsLampPost(x, z);
+    PLACES11.sights.push({ name: "Stadtpark", kind: "park", x: 150, z: 321 }, { name: "Musikpavillon", kind: "pavillon", x: 166, z: 318 });
+  }
+
+  // ---------- Südtor (x 60–132, z 321–334) und Nordeingang (z 246–251) ----------
+  function hsSuedtor(rnd) {
+    const Z = "neustadt";
+    hsPave(91, 321, 92, 334, hsGehweg); hsPave(100, 321, 101, 334, hsGehweg);
+    const bst = hsSty(HS_ST_REIHE, { fl: [{ w: BRICK, c: SBRICK, band: SBRICK, win: HS_FENSTER, lin: QUARTZ, sill: SBRICK, wp: 2 },
+      { w: BRICK, c: SBRICK, band: QUARTZ, win: HS_FENSTER, lin: QUARTZ, sill: QUARTZ, wp: 2, fb: true }], door: "green", doorLamp: 1 });
+    hsBuild({ name: "Backsteinhaus am Südtor, West", zone: Z, face: "e", x0: 80, z0: 323, w: 11, d: 11, fh: [5, 5, 4], sty: bst,
+      roof: { t: "sattel", ridge: "v", p: 1.5, m: ROOF_RED }, side: "l", cut: [5], use: [["laden", "kueche"], ["essen", "schlafen"], ["kind", "kind"]],
+      seed: 61, work: "schneider", shop: { kind: "schneider", name: "Schneiderei am Südtor" } });
+    hsBuild({ name: "Backsteinhaus am Südtor, Ost", zone: Z, face: "w", x0: 102, z0: 323, w: 11, d: 11, fh: [5, 5, 4], sty: hsSty(bst, { door: "red" }),
+      roof: { t: "sattel", ridge: "v", p: 1.5, m: ROOF_RED }, side: "r", cut: [5], use: [["laden", "kueche"], ["essen", "schlafen"], ["kind", "bad"]],
+      seed: 62, work: "haendler", shop: { kind: "haendler", name: "Tuchhandlung am Südtor" } });
+    // Obstwiese im Westen, Rosengarten im Osten
+    for (const [x, z] of [[64, 325], [70, 324], [76, 326], [66, 331], [73, 331]]) hsTree(x, z, "obst", rnd);
+    hsBench(69, 328, 0, -1); hsFenceRect(61, 322, 78, 334, FENCE, [[78, 328, 1, 0]]);
+    hsBeetReihen(116, 323, 130, 333, [ROSEBUSH, ROSEBUSH, FLOWER_R, FLOWER_W, TULIP]);
+    for (const [x, z] of [[114, 324], [114, 332], [131, 322]]) hsLampPost(x, z);
+    hsBench(123, 334, 0, -1); hsBench(117, 334, 0, -1);
+    for (const [x, z] of [[92, 322], [92, 330], [100, 322], [100, 330]]) hsLampPost(x, z);
+    // Nordeingang: Kiesweg hinter den Marktbauten mit Bäumchen, Laternen und Bänken
+    hsPave(60, 247, 92, 248, hsKies); hsPave(100, 247, 132, 248, hsKies);
+    for (let x = 63; x <= 130; x += 9) if (x < 90 || x > 102) hsTree(x, 250, "zier", rnd);
+    for (let x = 67; x <= 128; x += 9) if (x < 91 || x > 101) hsLampPost(x, 249);
+    for (const [x, z] of [[92, 250], [100, 250]]) hsLampPost(x, z);
+    hsFlowerBed(88, 249, 91, 251, rnd); hsFlowerBed(101, 249, 104, 251, rnd);
+  }
+
+  // ---------- Laternen an allen Gehwegen und Gassen der Neustadt (nicht vor Haustüren) ----------
+  function hsNeuLampen() {
+    const doors = PLACES11.homes.filter(h => h.zone === "neustadt").map(h => h.out);
+    const nearDoor = (x, z) => doors.some(o => Math.abs(o[0] - x) <= 1 && Math.abs(o[2] - z) <= 2);
+    const line = (x0, z0, x1, z1, step) => {
+      const n = Math.max(Math.abs(x1 - x0), Math.abs(z1 - z0));
+      let last = -99;
+      for (let i = 0; i <= n; i++) {
+        if (i - last < step) continue;
+        const x = x0 + Math.sign(x1 - x0) * i, z = z0 + Math.sign(z1 - z0) * i;
+        if (nearDoor(x, z) || !hsFreeCell(x, z)) continue;
+        hsLampPost(x, z); last = i;
+      }
+    };
+    for (const z of [284, 289]) { line(31, z, 59, z, 8); line(134, z, 206, z, 8); }
+    line(31, 265, 59, 265, 9); line(31, 307, 59, 307, 9);
+    line(134, 265, 175, 265, 9); line(134, 307, 175, 307, 9);
+    line(176, 247, 176, 282, 9); line(176, 292, 176, 334, 9);
+    for (const [x, z] of [[43, 275], [45, 298]]) hsLampPost(x, z);
+  }
+
+  // ---------- Namen, die beim Betreten erscheinen (oben in der Liste, vor „Die Oststadt“ und „Die Neustadt“) ----------
+  AREAS.push(
+    ["Musikpavillon", "im Stadtpark", 162, 170, G0, G0 + 12, 314, 322],
+    ["Stadtpark", "Teich, Musikpavillon und alte Linden", 133, 175, G0 - 4, G0 + 20, 308, 334],
+    ["Barockvilla Rosenhof", "Parterre, Springbrunnen und Mansarddach", 179, 206, G0 - 4, G0 + 24, 246, 282],
+    ["Moderne Villa", "Glas, Licht und ein Schwimmbecken", 180, 206, G0 - 4, G0 + 16, 291, 314],
+    ["Villa Sonnenhof", "mit Säulenvorbau und Kupferdach", 179, 206, G0 - 4, G0 + 20, 315, 334],
+    ["Kaufmannshaus Brenner", "Kolonialwaren aus aller Welt", 162, 173, G0, G0 + 20, 272, 282],
+    ["Schneiderei am Südtor", "", 80, 90, G0, G0 + 20, 323, 333],
+    ["Tuchhandlung am Südtor", "", 102, 112, G0, G0 + 20, 323, 333],
+    ["Schwedenhaus", "rote Bretter und ein Grasdach", 33, 43, G0, G0 + 16, 253, 263],
+    ["Steinhäuschen am Birkenweg", "", 47, 56, G0, G0 + 14, 254, 263],
+    ["Reihenhäuser an der Rosengasse", "", 31, 58, G0, G0 + 16, 308, 319],
+    ["Rosengarten am Südtor", "", 113, 132, G0 - 2, G0 + 10, 321, 334],
+    ["Obstwiese am Südtor", "", 60, 78, G0 - 2, G0 + 10, 321, 334],
+    ["Schneiderei zum Goldenen Löwen", "", 159, 169, G0, G0 + 20, 201, 215],
+    ["Backstube im Schmalen Giebelhaus", "", 187, 195, G0, G0 + 20, 201, 214],
+    ["Apothekerhaus", "mit Kräutergarten", 185, 197, G0 - 2, G0 + 20, 175, 191],
+    ["Patrizierhaus an der Lindengasse", "", 191, 205, G0, G0 + 22, 222, 233],
+    ["Fischerhaus an der Kräutergasse", "", 173, 183, G0, G0 + 18, 161, 170],
+    ["Haus zur Rose", "", 160, 170, G0, G0 + 16, 160, 171],
+    ["Lindenplatz", "Die alte Linde der Oststadt", 158, 176, G0 - 2, G0 + 30, 221, 242],
+    ["Kräutergasse", "", 158, 198, G0 - 1, G0 + 6, 171, 173],
+    ["Lindengasse", "", 158, 206, G0 - 1, G0 + 6, 218, 220],
+    ["Birkengasse", "", 30, 59, G0 - 1, G0 + 6, 265, 267],
+    ["Rosengasse", "", 30, 59, G0 - 1, G0 + 6, 305, 307],
+    ["Gartenstraße", "", 133, 175, G0 - 1, G0 + 6, 265, 267],
+    ["Parkstraße", "", 133, 175, G0 - 1, G0 + 6, 305, 307],
+    ["Villenweg", "", 176, 178, G0 - 1, G0 + 6, 246, 334],
+  );
+
+  V11.build.push(() => {
+    const t0 = performance.now();
+    hsMaskInit();
+    hsOststadt();
+    hsNeuWest(mulberry32(20261931));
+    hsNeuOst(mulberry32(20261932));
+    hsVillen(mulberry32(20261933));
+    hsStadtpark(mulberry32(20261934));
+    hsSuedtor(mulberry32(20261935));
+    hsNeuLampen();
+    hsStat.ms = Math.round(performance.now() - t0);
+  });
+  V11.spawn.push(() => {
+    for (const k in hsProps) if (hsProps[k].length) addProps(k, hsProps[k], k === "plate" ? { noShadow: true } : undefined);
+    hsStat.props = Object.fromEntries(Object.entries(hsProps).map(([k, v]) => [k, v.length]));
+  });
   // ==================== Version 11, Teil 2: Marktplatz mit Brunnen (H3) und Felder mit Windmühle (H4) – Anfang ====================
   // Gebaut in einer eigenen Sitzung auf dem Branch claude/hallo-3zyiof (Kopie von main, Stand 14c177a), während der Bau-Thread pausiert war.
   // Alles steht zwischen „Anfang“ und „Ende“ dieses Abschnitts. Außerhalb gibt es nur einen kleinen Haken in updateEnts (e.think).
@@ -6806,13 +9058,14 @@
     ["Der Königswald", "Birken, Fichten und alte Eichen", WALD.x0, WALD.x1, G0 - 12, G0 + 40, WALD.z0, WALD.z1],
     ["Die Oststadt", "", EAST.x0, EAST.x1, G0 - 4, G0 + 30, EAST.z0, EAST.z1],
     ["Der Marktplatz", "", MARKT.x0, MARKT.x1, G0 - 4, G0 + 30, MARKT.z0, MARKT.z1],
+    ["Am Marktplatz", "", 60, 132, G0 - 4, G0 + 30, 252, 320],   // Rahmen um den Platz: Rathaus, Gasthaus, Bäckerei, Schmiede, Läden
     ["Die Neustadt", "", NEU.x0, NEU.x1, G0 - 4, G0 + 30, NEU.z0, NEU.z1],
     ["Der Gutshof", "Pferde, Kühe, Schafe und das Gutshaus", GUT.x0, GUT.x1, G0 - 4, G0 + 30, GUT.z0, GUT.z1],
     ["Die Felder", "", FELD.x0, FELD.x1, G0 - 4, G0 + 30, FELD.z0, FELD.z1],
   );
   // Solange in einem Gebiet noch nichts steht (der Teil des Helfers fehlt noch), heißt es dort „Bauplatz“.
   // Sobald ein Teil dort Häuser, Arbeitsplätze, Weiden, Felder oder Sehenswürdigkeiten einträgt, verschwindet das.
-  const AREA_BAU = AREAS.slice(-5);
+  const AREA_BAU = AREAS.slice(-6);
   V11.build.push(() => {
     const pts = [];
     for (const h of PLACES11.homes) pts.push([h.door[0], h.door[2]]);
@@ -7298,10 +9551,10 @@
   // "Auto" misst die Bildrate beim Spielen und wählt die schönste Stufe, die noch flüssig läuft.
   // Texturen und weiche Ecken-Schatten sind in jeder Stufe an, sie kosten fast nichts.
   const LEVELS = [
-    { name: "Schnell", pr: 0.65, shadow: 0, view: 90 },
-    { name: "Ausgewogen", pr: 0.85, shadow: 1024, view: 115 },
-    { name: "Gut", pr: 1, shadow: 2048, view: 145 },
-    { name: "Ultra", pr: 2, shadow: 2048, view: 190 },
+    { name: "Schnell", pr: 0.65, shadow: 0, view: 90, inner: 40 },
+    { name: "Ausgewogen", pr: 0.85, shadow: 1024, view: 115, inner: 56 },
+    { name: "Gut", pr: 1, shadow: 2048, view: 145, inner: 72 },
+    { name: "Ultra", pr: 2, shadow: 2048, view: 190, inner: 110 },
   ];
   let level = 1, auto = true, viewDist = 115;
   const qBtn = document.getElementById("quality");
@@ -7338,7 +9591,9 @@
     else if (fps > 57 && level < LEVELS.length - 2 && !upTried) applyLevel(level + 1);
   }
   function cullChunks() {
-    for (const ms of chunks.values()) for (const m of ms) if (m) m.visible = Math.hypot(m.userData.c[0] - P.x, m.userData.c[1] - P.z) < viewDist + CS;
+    // Das Innenleben der Häuser (Möbel tief drinnen) nur in der Nähe zeigen, je nach Grafikstufe
+    const inner = Math.min(viewDist, LEVELS[level].inner);
+    for (const ms of chunks.values()) for (const m of ms) if (m) m.visible = Math.hypot(m.userData.c[0] - P.x, m.userData.c[1] - P.z) < (m.userData.d ? inner : viewDist) + CS;
   }
 
   // ---------- Hauptschleife ----------
