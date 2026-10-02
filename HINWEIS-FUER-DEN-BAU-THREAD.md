@@ -1,5 +1,7 @@
 # Hinweis für den Bau-Thread „Minecraft-Klon spielbar machen“
 
+**Nachtrag 02.10.2026:** Markus hat entschieden, dass diese Sitzung ab jetzt alle weiteren Teile baut (Häuser, Gutshof, Version 12 bis 20), Schritt für Schritt nach `BAUPLAN.md`. Häuser (H1) und Gutshof (H2) sind inzwischen ebenfalls auf diesem Branch fertig. Bitte schau dir den Stand an, bevor du selbst weiterbaust, und sprich mit Markus ab, wer was macht.
+
 Markus hat am 29.09.2026 abends, während alle Projekt-Threads auf das Nutzungslimit gewartet haben, eine zweite Claude-Sitzung außerhalb des Projekts gestartet. Diese Sitzung hat **nur die zwei noch nicht begonnenen Teile von Version 11, Teil 2** gebaut:
 
 - **H3: Marktplatz mit Brunnen**

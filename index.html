@@ -6790,6 +6790,496 @@
       if (a[0] === "Die Felder") a[1] = "Weizen, Sonnenblumen, Lavendel und die Windmühle";
     }
   });
+
+
+  // ==================== Version 11, Teil 2: Häuser der Oststadt und der Neustadt ====================
+  // Rund 50 zweistöckige Häuser an den Straßen. Unten: Küche mit Ofen, Esstisch, Regal, Treppe nach oben.
+  // Oben: Schlafzimmer mit Betten, Truhe (für die Ernte und später die Abgaben), Kommode, Teppich.
+  // Oststadt: Fachwerk mit weißem Putz. Neustadt: Bürgerhäuser mit farbigem Putz, Sockel aus Steinziegeln, Gesims aus Quarz.
+  const HB = 700;   // Blöcke 700 bis 759
+  const BLUMENKASTEN = HB, KOMMODE = HB + 4;
+  defShape(BLUMENKASTEN, { name: "Blumenkasten", rot: true, mat: "wood", icon: 16, boxes: [
+    { f: [0.5, 8, 0], t: [15.5, 12.5, 5.5], tex: 130 }, { f: [1, 12.5, 0.5], t: [15, 13, 5], tex: 2 },
+    { f: [1, 12.5, 0.6], t: [15, 15, 4.6], tex: 7 },
+    ...[[2.5, 16], [5.5, 17], [8.5, 23], [11.5, 16], [14, 141]].map(([x, t]) => ({ f: [x - 1.1, 14.5, 1.4], t: [x + 1.1, 16.5, 3.6], tex: t })),
+    { f: [3.5, 6, 0], t: [4.5, 8, 4], tex: 130 }, { f: [11.5, 6, 0], t: [12.5, 8, 4], tex: 130 }] });
+  defShape(KOMMODE, { name: "Kommode", rot: true, mat: "wood", icon: 15, boxes: [
+    { f: [1, 0, 4], t: [15, 12, 15.5], tex: 15 }, { f: [0.5, 12, 3.5], t: [15.5, 13, 16], tex: 15 },
+    { f: [1.5, 1, 15.5], t: [14.5, 5.3, 15.8], tex: 9 }, { f: [1.5, 6, 15.5], t: [14.5, 10.8, 15.8], tex: 9 },
+    { f: [7, 3, 15.8], t: [9, 3.8, 16.3], tex: 17 }, { f: [7, 8, 15.8], t: [9, 8.8, 16.3], tex: 17 },
+    { f: [5, 13, 7], t: [11, 13.4, 13], tex: 22 }] });
+  const HOUSES11 = [], GARDENS11 = [];
+  const facingOf = (dx, dz) => dz > 0 ? "+z" : dz < 0 ? "-z" : dx > 0 ? "+x" : "-x";
+  // Ein Haus: o = { x0, z0, w, d, side (Tür nach n, s, e, w), wall, beam, band, plinth, roof, fach, floor, door, zone, name }
+  function townHouse(o, rnd) {
+    const { x0, z0, w, d, side } = o, x1 = x0 + w - 1, z1 = z0 + d - 1, F = G0 + 1;
+    const ns = side === "n" || side === "s", IW = ns ? w - 2 : d - 2, ID = ns ? d - 2 : w - 2;
+    // Örtliche Lage: a läuft an der Vorderwand entlang, b von vorn (0) nach hinten (ID - 1); -1 und IW/ID sind die Wände
+    const L = (a, b) => side === "s" ? [x0 + 1 + a, z1 - 1 - b] : side === "n" ? [x1 - 1 - a, z0 + 1 + b] : side === "e" ? [x1 - 1 - b, z1 - 1 - a] : [x0 + 1 + b, z0 + 1 + a];
+    const out = { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }[side], inn = [-out[0], -out[1]];
+    const p0 = L(0, 0), p1 = L(1, 0), ax = p1[0] - p0[0], az = p1[1] - p0[1];
+    const put = (a, b, y, blk) => { const [x, z] = L(a, b); setB(x, y, z, blk); };
+    const wall = o.wall, beam = o.beam || DPLANK, plinth = o.plinth || COBBLE, floorB = o.floor || SPRUCE_PLANKS, stairB = o.stair || SPRUCE_PLANKS;
+    // Grund, Wände, Zwischendecke
+    fill(x0, G0, z0, x1, G0, z1, plinth);
+    fill(x0 + 1, G0, z0 + 1, x1 - 1, G0, z1 - 1, floorB);
+    for (let y = F; y <= F + 8; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const edge = x === x0 || x === x1 || z === z0 || z === z1;
+      if (!edge) { setB(x, y, z, AIR); continue; }
+      const corner = (x === x0 || x === x1) && (z === z0 || z === z1);
+      let b = wall;
+      if (y === F && o.plinthRow) b = plinth;
+      else if (corner) b = beam;
+      else if (y === F + 4) b = o.band || beam;
+      else if (o.fach && ((x - x0) % 3 === 0 && (z === z0 || z === z1) || (z - z0) % 3 === 0 && (x === x0 || x === x1))) b = beam;
+      setB(x, y, z, b);
+    }
+    fill(x0 + 1, F + 4, z0 + 1, x1 - 1, F + 4, z1 - 1, floorB);
+    // Fenster: vorn, hinten und an den Seiten, unten zwei hoch, oben zwei hoch
+    const doorA = IW - 2;
+    const win = (a, b, y) => { put(a, b, y, GLASS); put(a, b, y + 1, GLASS); };
+    const frontUp = [1, doorA].concat(IW >= 7 ? [Math.floor(IW / 2) - 1] : []);
+    for (const a of [1].concat(IW >= 8 ? [3] : [])) if (a !== doorA && a !== doorA - 1) win(a, -1, F + 1);
+    for (const a of frontUp) win(a, -1, F + 6);
+    for (const a of [doorA, 1]) win(a, ID, F + 6);
+    win(IW - 1, ID, F + 1);
+    for (const a of [-1, IW]) { win(a, Math.floor(ID / 2), F + 1); win(a, Math.floor(ID / 2), F + 6); }
+    // Blumenkästen unter den oberen Fenstern vorn
+    for (const a of frontUp) { const [x, z] = L(a, -2); if (get(x, F + 5, z) === AIR) setB(x, F + 5, z, rotId(BLUMENKASTEN, out[0], out[1])); }
+    // Tür, davor ein Pflasterstein bis zur Straße
+    const [dx_, dz_] = L(doorA, -1);
+    addDoor(dx_, F, dz_, out[0], out[1], o.door || "oak");
+    // Gehweg vor dem Haus (auch in der Lücke zum Nachbarn), von der Tür ein Stein bis zur Straße
+    for (let a = -2; a <= IW + 1; a++) { const [x, z] = L(a, -2); if (roadMask[x + z * W] !== 1 && get(x, G0, z) === GRASS) { setB(x, G0, z, o.walk || COBBLE); if (PLANT[get(x, F, z)]) setB(x, F, z, AIR); } }
+    { const [x, z] = L(doorA, -3); if (roadMask[x + z * W] !== 1 && get(x, G0, z) === GRASS) setB(x, G0, z, o.walk || COBBLE); }
+    // Dach: First parallel zur Straße, Giebel an den Seiten
+    const top = F + 9, roof = o.roof;
+    for (let i = 0; ; i++) {
+      const y = top + i;
+      if (ns) {
+        const za = z0 - 1 + i, zb = z1 + 1 - i; if (za > zb) break;
+        for (let x = x0 - 1; x <= x1 + 1; x++) { setB(x, y, za, roof); setB(x, y, zb, roof); if (zb - za <= 1) for (let z = za; z <= zb; z++) setB(x, y, z, roof); }
+        for (let z = za + 1; z < zb; z++) for (const x of [x0, x1]) setB(x, y, z, o.gable || wall);
+      } else {
+        const xa = x0 - 1 + i, xb = x1 + 1 - i; if (xa > xb) break;
+        for (let z = z0 - 1; z <= z1 + 1; z++) { setB(xa, y, z, roof); setB(xb, y, z, roof); if (xb - xa <= 1) for (let x = xa; x <= xb; x++) setB(x, y, z, roof); }
+        for (let x = xa + 1; x < xb; x++) for (const z of [z0, z1]) setB(x, y, z, o.gable || wall);
+      }
+    }
+    // Dachboden: Zwischendecke über dem Obergeschoss
+    fill(x0 + 1, F + 9, z0 + 1, x1 - 1, F + 9, z1 - 1, floorB);
+    // Treppe an der Rückwand: vier Stufen, oben das Loch in der Decke mit Geländer
+    for (let k = 0; k < 4; k++) { const [x, z] = L(k, ID - 1); fill(x, F, z, x, F + k, z, stairB); }
+    for (let k = 1; k < 4; k++) put(k, ID - 1, F + 4, AIR);
+    for (let k = 0; k < 4; k++) put(k, ID - 2, F + 5, FENCE);
+    // Erdgeschoss: Küche hinten rechts, Esstisch, Regal, Fass, Teppich, Laterne
+    put(IW - 1, ID - 1, F, OVEN); put(IW - 2, ID - 1, F, COUNTER); put(IW - 1, ID - 2, F, PANTRY);
+    put(1, 2, F, o.table || TABLE_O);
+    put(1, 1, F, rotId(o.chair || CHAIR_O, inn[0], inn[1])); put(1, 3, F, rotId(o.chair || CHAIR_O, out[0], out[1])); put(2, 2, F, rotId(o.chair || CHAIR_O, -ax, -az));
+    put(0, 0, F, SHELF); put(0, 0, F + 1, SHELF); put(IW - 1, 0, F, BARREL);
+    put(doorA, 1, F, o.carpet || CARPET_R); put(doorA - 1, 1, F, o.carpet || CARPET_R);
+    put(Math.floor(IW / 2), Math.floor(ID / 2), F + 3, LANTERN_H);
+    // Schornstein über dem Ofen
+    const roofH = Math.ceil(((ns ? d : w) + 2) / 2);
+    { const [x, z] = L(IW - 1, ID - 1); fill(x, F + 1, z, x, top + roofH, z, BRICK); }
+    // Obergeschoss: Betten, Truhe, Kommode, Teppich, Laterne, Bild
+    const U = F + 5;
+    { const [x, z] = L(0, 0); bed2(x, U, z, ax, az, o.bed || BED_R); }
+    const beds = [L(2, 0)];
+    if (ID >= 5) { const [x, z] = L(0, 2); bed2(x, U, z, ax, az, BED_B); beds.push(L(2, 2)); }
+    put(IW - 1, 0, U, CHEST);
+    put(IW - 1, 1, U, rotId(KOMMODE, -ax, -az));
+    if (IW - 2 > 4) put(IW - 2, ID - 1, U, POT_BOX); else put(IW - 1, ID - 2, U, POT_BOX);
+    put(3, 1, U, o.carpet2 || CARPET_W); if (IW > 5) put(4, 1, U, o.carpet2 || CARPET_W);
+    put(Math.floor(IW / 2), Math.floor(ID / 2) - 1, U + 3, LANTERN_H);
+    { const [x, z] = L(IW, 2); painting([PAINT.flower, PAINT.moon, PAINT.ship, PAINT.castle][Math.floor(rnd() * 4)], facingOf(-ax, -az), x, U + 1, z); }
+    const [cx, cz] = L(IW - 1, 0);
+    const home = { name: o.name || "Wohnhaus", zone: o.zone, door: [...(([x, z]) => [x + 0.5, F, z + 0.5])(L(doorA, -2))], beds: beds.map(([x, z]) => [x + 0.5, U, z + 0.5]), chest: [cx, U, cz], size: beds.length + (ID >= 5 ? 2 : 1), box: [x0, z0, x1, z1] };
+    PLACES11.homes.push(home); HOUSES11.push(home);
+    // Laterne an der linken Ecke vorn, Garten hinter dem Haus
+    { const [x, z] = L(-2, -2); if (roadMask[x + z * W] !== 1 && get(x, F, z) === AIR && get(x, G0, z) !== AIR) lampPost(x, z); }
+    GARDENS11.push(() => backGarden(L, IW, ID, rnd, o));
+    return home;
+  }
+  // Garten hinter dem Haus: Zaun mit Tor, Blumen oder Gemüsebeete, ein Apfelbaum, wenn Platz ist
+  function backGarden(L, IW, ID, rnd, o) {
+    const F = G0 + 1, depth = 4, cells = [];
+    for (let b = ID + 1; b <= ID + depth; b++) for (let a = -1; a <= IW; a++) {
+      const [x, z] = L(a, b);
+      if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2 || roadMask[x + z * W] || get(x, G0, z) !== GRASS || get(x, F, z) !== AIR && !PLANT[get(x, F, z)]) return;
+      cells.push([a, b, x, z]);
+    }
+    const veg = rnd() < 0.5;
+    for (const [a, b, x, z] of cells) {
+      const edge = a === -1 || a === IW || b === ID + depth;
+      if (edge) { setB(x, F, z, FENCE); continue; }
+      const r = hash(x, z, 2701);
+      if (veg && b >= ID + 2 && a % 2 === 0) { setB(x, G0, z, FARMLAND); setB(x, F, z, [CARROTS, POTATOES, BEETS, KOHL][(a / 2 | 0) % 4]); }
+      else if (r < 0.3) setB(x, F, z, [FLOWER_R, FLOWER_Y, FLOWER_B, TULIP, FLOWER_W, ROSEBUSH][Math.floor(r * 20) % 6]);
+      else if (r < 0.4) setB(x, F, z, TALLGRASS);
+    }
+    const [gx, gz] = L(Math.floor(IW / 2), ID + depth);
+    setB(gx, F, gz, AIR); addGate(gx, F, gz, ...(() => { const [x2, z2] = L(Math.floor(IW / 2), ID + depth + 1); return [x2 - gx, z2 - gz]; })());
+    if (!veg && IW >= 6) { const [tx, tz] = L(IW - 1, ID + 2); setB(tx, F, tz, AIR); plantApple(tx, G0, tz, rnd); }
+  }
+  // Wo die Häuser stehen
+  const OST_STYLE = rnd => ({ wall: PLASTER_W, beam: DPLANK, fach: true, plinth: COBBLE, plinthRow: true, roof: rnd() < 0.6 ? ROOF_RED : SLATE, floor: SPRUCE_PLANKS, door: ["oak", "green", "spruce"][Math.floor(rnd() * 3)], zone: "oststadt" });
+  const NEU_STYLE = rnd => {
+    const c = [PLASTER_Y, PLASTER_R, PLASTER_B, PLASTER_W][Math.floor(rnd() * 4)];
+    return { wall: c, beam: QUARTZ, band: QUARTZ, plinth: SBRICK, plinthRow: true, roof: [SLATE, ROOF_RED, ROOF_GREEN][Math.floor(rnd() * 3)], floor: rnd() < 0.5 ? BIRCH_PLANKS : DPLANK, stair: DPLANK,
+      door: ["white", "red", "oak"][Math.floor(rnd() * 3)], table: rnd() < 0.5 ? TABLE_D : TABLE_W, chair: rnd() < 0.5 ? CHAIR_D : CHAIR_W, carpet: rnd() < 0.5 ? CARPET_R : CARPET_B, zone: "neustadt", gable: c, walk: PFLASTER_H };
+  };
+  const HOUSE_LIST = [];
+  // Oststadt: an der Oststraße, an der Gasse nach Norden und an einer neuen Wohngasse nach Süden
+  for (const x of [159, 169, 179, 189]) HOUSE_LIST.push(["o", x, 186, 9, 8, "s"]);
+  for (const z of [161, 172]) HOUSE_LIST.push(["o", 193, z, 8, 8, "e"]);
+  for (const x of [159, 193]) HOUSE_LIST.push(["o", x, 200, 9, 8, "n"]);
+  for (const z of [200, 210, 220, 230]) { HOUSE_LIST.push(["o", 170, z, 8, 8, "e"]); HOUSE_LIST.push(["o", 183, z, 8, 8, "w"]); }
+  // Neustadt: an der Hauptstraße nördlich und südlich vom Markt, an der Querstraße im Westen und im Osten
+  for (const z of [248, 258]) { HOUSE_LIST.push(["n", 84, z, 8, 8, "e"]); HOUSE_LIST.push(["n", 101, z, 8, 8, "w"]); }
+  for (const z of [307, 316, 325]) { HOUSE_LIST.push(["n", 84, z, 8, 8, "e"]); HOUSE_LIST.push(["n", 101, z, 8, 8, "w"]); }
+  for (const x of [33, 43, 53, 63]) { HOUSE_LIST.push(["n", x, 276, 9, 8, "s"]); HOUSE_LIST.push(["n", x, 290, 9, 8, "n"]); }
+  for (const x of [117, 128, 139, 150, 161, 172, 183, 194]) { HOUSE_LIST.push(["n", x, 276, 10, 8, "s"]); HOUSE_LIST.push(["n", x, 290, 10, 8, "n"]); }
+  function buildHouses11() {
+    const rnd = mulberry32(20261103);
+    // Die neue Wohngasse der Oststadt
+    for (let z = 199; z <= 238; z++) for (let x = 179; x <= 181; x++) { setB(x, G0, z, COBBLE); for (let y = G0 + 1; y <= G0 + 6; y++) if (PLANT[get(x, y, z)]) setB(x, y, z, AIR); }
+    for (const z of [208, 218, 228, 238]) lampPost(178, z);
+    let n = 0;
+    for (const [t, x0, z0, w, d, side] of HOUSE_LIST) {
+      const st = t === "o" ? OST_STYLE(rnd) : NEU_STYLE(rnd);
+      townHouse(Object.assign(st, { x0, z0, w, d, side, name: (t === "o" ? "Haus in der Oststadt " : "Bürgerhaus in der Neustadt ") + (++n) }), rnd);
+    }
+    // Gärten erst, wenn alle Häuser stehen (sonst könnte ein Zaun in einem Nachbarhaus landen)
+    for (const g of GARDENS11) g();
+  }
+  V11.build.push(buildHouses11);
+
+  // ==================== Version 11, Teil 2: der Gutshof ====================
+  // Gutshaus (gelber Putz, Quarz, Schieferdach) am Hof, Pferdestall mit Boxen, große Scheune, Allee von der Oststraße,
+  // Reitplatz mit Hindernissen, Weiden für Kühe, Schafe, Schweine und Hühner. Pferde in fünf Farben.
+  const GH = { x0: 256, x1: 279, z0: 189, z1: 204 };          // Gutshaus
+  const STALL = { x0: 226, x1: 253, z0: 163, z1: 176 };       // Pferdestall
+  const SCHEUNE = { x0: 226, x1: 253, z0: 218, z1: 232 };     // Scheune
+  const HOF = { x0: 226, x1: 255, z0: 177, z1: 217 };         // gepflasterter Hof
+  const ARENA = { x0: 284, x1: 314, z0: 166, z1: 200 };       // Reitplatz
+  const WEIDE_KUH = { x0: 218, x1: 262, z0: 238, z1: 296 }, WEIDE_SCHAF = { x0: 284, x1: 314, z0: 208, z1: 262 };
+  const WEIDE_SCHWEIN = { x0: 266, x1: 290, z0: 270, z1: 296 }, HUEHNER = { x0: 294, x1: 314, z0: 270, z1: 296 };
+  const GUT_PENS = [];   // [Rechteck innen, Tierart, Anzahl]
+  const GUT_SPOTS = { stall: [], hof: [], kuh: [], schaf: [], schwein: [], huhn: [], arena: [], haus: [] };
+  // Zaun um ein Rechteck mit Toren; gibt das Innere zurück
+  function fencePen(r, gates) {
+    const F = G0 + 1;
+    for (let x = r.x0; x <= r.x1; x++) for (const z of [r.z0, r.z1]) setB(x, F, z, FENCE);
+    for (let z = r.z0; z <= r.z1; z++) for (const x of [r.x0, r.x1]) setB(x, F, z, FENCE);
+    for (const [x, z, ox, oz] of gates || []) { setB(x, F, z, AIR); addGate(x, F, z, ox, oz); }
+    return { x0: r.x0 + 1, x1: r.x1 - 1, z0: r.z0 + 1, z1: r.z1 - 1 };
+  }
+  function buildGutshof11() {
+    const F = G0 + 1, rnd = mulberry32(20261104), { x0, x1, z0, z1 } = GUT;
+    // Alles eben, Gras, Pflanzen und Bäume weg
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      if (roadMask[x + z * W] === 1) continue;
+      setB(x, G0, z, GRASS); for (let y = F; y <= G0 + 16; y++) setB(x, y, z, AIR);
+    }
+    // Allee von der Oststraße zum Hof: Kies, Linden zu beiden Seiten; Weg von der Querstraße und vom Feldweg herauf
+    for (let x = 214; x <= 225; x++) for (let z = 195; z <= 199; z++) setB(x, G0, z, GRAVEL);
+    for (const x of [216, 220, 224]) for (const z of [193, 201]) plantLinden(x, G0, z);
+    for (let z = 233; z <= 300; z++) for (let x = 263; x <= 265; x++) setB(x, G0, z, PATH);
+    for (let x = 214; x <= 265; x++) for (let z = 286; z <= 288; z++) if (!inRect(WEIDE_KUH, x, z)) setB(x, G0, z, PATH);
+    for (let x = 214; x <= 217; x++) for (let z = 286; z <= 288; z++) setB(x, G0, z, PATH);
+    for (let z = 297; z <= 300; z++) for (let x = 226; x <= 229; x++) setB(x, G0, z, PATH);
+    for (let x = 226; x <= 265; x++) for (let z = 297; z <= 299; z++) setB(x, G0, z, PATH);
+    // Hof: Pflaster, in der Mitte ein runder Pferdebrunnen mit Trog, eine große Linde
+    for (let z = HOF.z0; z <= HOF.z1; z++) for (let x = HOF.x0; x <= HOF.x1; x++) setB(x, G0, z, (x + z) % 7 === 0 ? MOSSY_COBBLE : COBBLE);
+    for (let z = 233; z <= 237; z++) for (let x = 262; x <= 266; x++) setB(x, G0, z, COBBLE);
+    { const cx = 239, cz = 197;
+      for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const d = Math.hypot(dx, dz); if (d > 2.6) continue; if (d > 1.6) setB(cx + dx, F, cz + dz, SBRICK); else { setB(cx + dx, G0, cz + dz, WATER); setB(cx + dx, F, cz + dz, WATER); setB(cx + dx, G0 - 1, cz + dz, SBRICK); } }
+      fill(cx, F, cz, cx, F + 2, cz, PILLAR); setB(cx, F + 3, cz, LANTERN_S);
+      PLACES11.wells.push({ name: "Pferdebrunnen am Gutshof", water: [cx + 0.5, F, cz + 0.5], stand: [[cx + 3.5, F, cz + 0.5], [cx - 2.5, F, cz + 0.5]] });
+      PLACES11.sights.push({ name: "Gutshof", x: cx + 0.5, z: cz + 0.5 });
+      GUT_SPOTS.hof.push([cx + 3.5, F, cz + 0.5, -Math.PI / 2, "look"], [cx - 2.5, F, cz + 0.5, Math.PI / 2, "water"], [cx + 0.5, F, cz - 3.5, 0, "look"]);
+    }
+    plantLinden(231, G0, 209);
+    for (const [x, z] of [[227, 178], [253, 178], [227, 216], [253, 216], [255, 188], [255, 205]]) lampPost(x, z);
+    buildManor11(rnd);
+    AREAS.unshift(["Der Reitplatz", "", ARENA.x0, ARENA.x1, G0 - 2, G0 + 10, ARENA.z0, ARENA.z1]);
+    buildStable11(rnd);
+    buildBarn11(rnd);
+    // Reitplatz: Sand, weißer Zaun (Birke), Hindernisse aus Heu und Zaun
+    for (let z = ARENA.z0; z <= ARENA.z1; z++) for (let x = ARENA.x0; x <= ARENA.x1; x++) setB(x, G0, z, SAND);
+    const ar = fencePen(ARENA, [[ARENA.x0, 183, -1, 0]]);
+    for (const [x, z] of [[292, 176], [306, 176], [299, 190]]) { setB(x, F, z, FENCE); setB(x + 1, F, z, FENCE); setB(x - 1, F, z, HAY); setB(x + 2, F, z, HAY); }
+    GUT_PENS.push([ar, "horse", 4]);
+    GUT_SPOTS.arena.push([ARENA.x0 - 1.5, F, 186.5, Math.PI / 2, "look"], [ARENA.x0 + 3.5, F, 172.5, Math.PI / 2, "look"], [ARENA.x0 + 3.5, F, 195.5, Math.PI / 2, "look"]);
+    for (let z = 166; z <= 200; z++) for (let x = 280; x <= 283; x++) setB(x, G0, z, PATH);
+    // Weiden: Kühe mit Unterstand und Trog, Schafe, Schweine im Matsch mit Koben, Hühner mit Stall
+    const kuh = fencePen(WEIDE_KUH, [[WEIDE_KUH.x1, 290, 1, 0], [240, WEIDE_KUH.z0, 0, -1]]);
+    GUT_PENS.push([kuh, "cow", 8]);
+    shelter11(222, 241, 8, 5);
+    for (const [x, z] of [[236, 250], [237, 250], [250, 270]]) setB(x, F, z, TROG);
+    const schaf = fencePen(WEIDE_SCHAF, [[WEIDE_SCHAF.x0, 230, -1, 0]]);
+    GUT_PENS.push([schaf, "sheep", 10]);
+    shelter11(305, 252, 7, 6);
+    for (let z = WEIDE_SCHWEIN.z0; z <= WEIDE_SCHWEIN.z1; z++) for (let x = WEIDE_SCHWEIN.x0; x <= WEIDE_SCHWEIN.x1; x++) setB(x, G0, z, hash(x, z, 2801) < 0.55 ? DIRT : hash(x, z, 2802) < 0.5 ? PATH : GRASS);
+    const schwein = fencePen(WEIDE_SCHWEIN, [[WEIDE_SCHWEIN.x0, 283, -1, 0]]);
+    GUT_PENS.push([schwein, "pig", 6]);
+    shelter11(281, 289, 6, 5);
+    setB(270, F, 274, TROG); setB(271, F, 274, TROG);
+    const huhn = fencePen(HUEHNER, [[HUEHNER.x0, 283, -1, 0]]);
+    GUT_PENS.push([huhn, "chicken", 10]);
+    coop11(306, 288);
+    for (let z = 268; z <= 298; z++) for (let x = 291; x <= 293; x++) setB(x, G0, z, PATH);
+    for (const [r, kind] of [[kuh, "kuh"], [schaf, "schaf"], [schwein, "schwein"], [huhn, "huhn"]]) {
+      PLACES11.pens.push({ x0: r.x0, x1: r.x1, z0: r.z0, z1: r.z1, animal: { kuh: "cow", schaf: "sheep", schwein: "pig", huhn: "chicken" }[kind] });
+      for (let i = 0; i < 4; i++) GUT_SPOTS[kind].push([r.x0 + 2.5 + rnd() * (r.x1 - r.x0 - 4), F, r.z0 + 2.5 + rnd() * (r.z1 - r.z0 - 4), rnd() * 6.28, kind === "huhn" ? "pick" : kind === "schaf" ? "look" : "arrange"]);
+    }
+    PLACES11.pens.push({ x0: ar.x0, x1: ar.x1, z0: ar.z0, z1: ar.z1, animal: "horse" });
+    // Blumen und Büsche am Gutshaus
+    for (let z = GH.z0 - 2; z <= GH.z1 + 2; z++) for (const x of [GH.x1 + 2, GH.x1 + 3]) if (get(x, G0, z) === GRASS) setB(x, F, z, hash(x, z, 2803) < 0.5 ? ROSEBUSH : [TULIP, FLOWER_R, FLOWER_W][(x + z) % 3]);
+  }
+  // Unterstand: Pfosten, Dach aus Schindeln, Heu darunter
+  function shelter11(x0, z0, w, d) {
+    const F = G0 + 1;
+    for (const [x, z] of [[x0, z0], [x0 + w - 1, z0], [x0, z0 + d - 1], [x0 + w - 1, z0 + d - 1]]) fill(x, F, z, x, F + 2, z, SPRUCE_LOG);
+    fill(x0, F, z0, x0 + w - 1, F + 2, z0, SPRUCE_PLANKS);
+    for (let x = x0 - 1; x <= x0 + w; x++) for (let z = z0 - 1; z <= z0 + d; z++) setB(x, F + 3 + (z <= z0 + 1 ? 1 : 0), z, SCHINDEL);
+    setB(x0 + 1, F, z0 + 1, HAY); setB(x0 + 2, F, z0 + 1, HAY); setB(x0 + 1, F + 1, z0 + 1, HAY);
+  }
+  // Hühnerstall: kleines Holzhaus mit Rampe und Sitzstangen
+  function coop11(x0, z0) {
+    const F = G0 + 1;
+    fill(x0, F, z0, x0 + 5, F + 2, z0 + 4, SPRUCE_PLANKS); fill(x0 + 1, F, z0 + 1, x0 + 4, F + 2, z0 + 3, AIR);
+    fill(x0 + 1, G0, z0 + 1, x0 + 4, G0, z0 + 3, HAY);
+    fill(x0 - 1, F + 3, z0 - 1, x0 + 6, F + 3, z0 + 5, ROOF_RED); fill(x0, F + 4, z0 + 1, x0 + 5, F + 4, z0 + 3, ROOF_RED);
+    setB(x0 + 2, F, z0, AIR); setB(x0 + 3, F, z0, AIR);
+    fill(x0 + 1, F + 1, z0 + 2, x0 + 4, F + 1, z0 + 2, FENCE);
+    setB(x0 + 4, F, z0 + 3, HAY);
+  }
+  // Das Gutshaus: zwei Stockwerke, gelber Putz, Quarz an Ecken und Gesims, Mittelrisalit mit Giebel, Schieferdach.
+  // Unten: Halle mit Treppe, Salon mit Kamin, Speisezimmer, Küche. Oben: Schlafzimmer des Gutsherrn, Kinderzimmer, Arbeitszimmer, Gästezimmer.
+  function buildManor11(rnd) {
+    const { x0, x1, z0, z1 } = GH, F = G0 + 1, U = F + 5, zc0 = 195, zc1 = 198;
+    fill(x0, G0, z0, x1, G0, z1, SBRICK); fill(x0 + 1, G0, z0 + 1, x1 - 1, G0, z1 - 1, DPLANK);
+    for (let y = F; y <= F + 8; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const edge = x === x0 || x === x1 || z === z0 || z === z1;
+      if (!edge) { setB(x, y, z, AIR); continue; }
+      const corner = (x === x0 || x === x1) && (z === z0 || z === z1);
+      let b = PLASTER_Y;
+      if (y === F) b = SBRICK; else if (corner || y === F + 4 || y === F + 8) b = QUARTZ;
+      else if ((x === x0 || x === x1) && (z - z0) % 2 === 1 && y !== F + 3) b = y === F + 1 || y === F + 2 || y === F + 6 || y === F + 7 ? GLASS : PLASTER_Y;
+      else if ((z === z0 || z === z1) && (x - x0) % 3 === 1 && (y === F + 1 || y === F + 2 || y === F + 6 || y === F + 7)) b = GLASS;
+      setB(x, y, z, b);
+    }
+    fill(x0 + 1, F + 4, z0 + 1, x1 - 1, F + 4, z1 - 1, DPLANK);
+    // Mittelrisalit vorn (Westen): springt einen Block vor, Säulen, Giebel
+    for (let y = F; y <= F + 9; y++) for (let z = zc0 - 1; z <= zc1 + 1; z++) setB(x0 - 1, y, z, z === zc0 - 1 || z === zc1 + 1 ? PILLAR : y === F + 4 || y === F + 8 ? QUARTZ : y >= F + 9 ? QUARTZ : PLASTER_Y);
+    for (let i = 0; i < 3; i++) for (let z = zc0 - 1 + i; z <= zc1 + 1 - i; z++) setB(x0 - 1, F + 10 + i, z, i === 2 ? GOLD_TRIM : QUARTZ);
+    for (const z of [zc0 + 1, zc1 - 1]) { setB(x0 - 1, U + 1, z, GLASS); setB(x0 - 1, U + 2, z, GLASS); }
+    // Doppeltür, Freitreppe, Laternen
+    for (const z of [196, 197]) { setB(x0 - 1, F, z, AIR); setB(x0, F, z, AIR); setB(x0, F + 1, z, AIR); setB(x0 - 1, F + 1, z, AIR); addDoor(x0 - 1, F, z, -1, 0, "white"); setB(x0 - 2, G0, z, QUARTZ); setB(x0 - 3, G0, z, QUARTZ); }
+    fill(x0, F, 196, x0, F + 2, 197, AIR);
+    for (const z of [zc0 - 1, zc1 + 1]) setB(x0 - 2, F, z, LANTERN_S);
+    // Innenwände: Halle in der Mitte (z 195..198), Salon im Norden, Speisezimmer im Süden, Küche hinten im Süden
+    for (let y = F; y <= F + 3; y++) {
+      for (let x = x0 + 1; x < x1; x++) { if (x !== x0 + 6) { setB(x, y, zc0 - 1, PLASTER_W); setB(x, y, zc1 + 1, PLASTER_W); } }
+      for (let z = zc1 + 2; z < z1; z++) setB(x0 + 15, y, z, PLASTER_W);
+    }
+    for (const z of [zc0 - 1, zc1 + 1]) { setB(x0 + 6, F + 2, z, PLASTER_W); setB(x0 + 6, F + 3, z, PLASTER_W); }
+    setB(x0 + 15, F + 2, zc1 + 4, PLASTER_W); setB(x0 + 15, F + 3, zc1 + 4, PLASTER_W); setB(x0 + 15, F, zc1 + 4, AIR); setB(x0 + 15, F + 1, zc1 + 4, AIR);
+    // Halle: roter Teppich, Treppe hinten (nach Osten hinauf), Kronleuchter
+    for (let x = x0 + 1; x <= x0 + 12; x++) for (let z = zc0; z <= zc1; z++) setB(x, F, z, CARPET_R);
+    for (let k = 0; k < 4; k++) for (const z of [zc0 + 1, zc0 + 2]) fill(x0 + 14 + k, F, z, x0 + 14 + k, F + k, z, DPLANK);
+    for (let k = 1; k < 4; k++) for (const z of [zc0 + 1, zc0 + 2]) setB(x0 + 14 + k, F + 4, z, AIR);
+    for (let k = 0; k < 4; k++) { setB(x0 + 14 + k, U, zc0, FENCE); setB(x0 + 14 + k, U, zc1, FENCE); }
+    for (const x of [x0 + 4, x0 + 8, x0 + 12]) setB(x, F + 3, 196, LANTERN_H);
+    painting(PAINT.land, "+x", x0 + 1, F + 1, 198);
+    // Salon (Norden): Kamin, Sessel, Bänke, Marmortisch, Regale, Teppich, Kronleuchter
+    for (let x = x0 + 2; x <= x0 + 10; x++) for (let z = z0 + 1; z <= zc0 - 2; z++) setB(x, F, z, CARPET_B);
+    fill(x0 + 5, F, z0 + 1, x0 + 7, F + 3, z0 + 1, BRICK); setB(x0 + 6, F, z0 + 1, OVEN);
+    setB(x0 + 6, F, z0 + 3, TABLE_W); setB(x0 + 5, F, z0 + 3, rotId(CHAIR_W, 1, 0)); setB(x0 + 7, F, z0 + 3, rotId(CHAIR_W, -1, 0));
+    setB(x0 + 6, F, z0 + 4, rotId(BENCH, 0, -1));
+    for (let z = z0 + 1; z <= zc0 - 2; z++) { setB(x1 - 1, F, z, SHELF); setB(x1 - 1, F + 1, z, SHELF); }
+    setB(x0 + 1, F, z0 + 1, POT_BOX); setB(x0 + 11, F, z0 + 1, POT_BOX);
+    setB(x0 + 3, F + 3, z0 + 3, LANTERN_H); setB(x0 + 9, F + 3, z0 + 3, LANTERN_H);
+    // Speisezimmer (Süden, vorn): lange Tafel, Stühle, Kronleuchter, Vorratsregal
+    for (let x = x0 + 3; x <= x0 + 10; x++) { setB(x, F, zc1 + 4, TABLE_D); setB(x, F, zc1 + 3, rotId(CHAIR_D, 0, 1)); setB(x, F, zc1 + 5, rotId(CHAIR_D, 0, -1)); }
+    setB(x0 + 2, F, zc1 + 4, rotId(CHAIR_D, 1, 0)); setB(x0 + 11, F, zc1 + 4, rotId(CHAIR_D, -1, 0));
+    for (const x of [x0 + 4, x0 + 7, x0 + 10]) setB(x, F + 3, zc1 + 4, LANTERN_H);
+    setB(x0 + 13, F, z1 - 1, PANTRY); setB(x0 + 13, F + 1, z1 - 1, PANTRY);
+    // Küche (Süden, hinten)
+    for (const [dx, b] of [[1, OVEN], [2, COUNTER], [3, COUNTER], [4, OVEN], [6, PANTRY]]) setB(x0 + 15 + dx, F, z1 - 1, b);
+    setB(x1 - 2, F, zc1 + 3, BARREL); setB(x1 - 1, F, zc1 + 3, BARREL); setB(x0 + 19, F, zc1 + 3, TABLE_O);
+    setB(x0 + 19, F + 3, zc1 + 4, LANTERN_H);
+    // Obergeschoss: Flur, Schlafzimmer des Gutsherrn (Norden, vorn), Kinderzimmer (Norden, hinten), Arbeitszimmer (Süden, vorn), Gästezimmer (Süden, hinten)
+    for (let y = U; y <= U + 3; y++) {
+      for (let x = x0 + 1; x < x1; x++) { if (x !== x0 + 6 && x !== x0 + 18) { setB(x, y, zc0 - 1, PLASTER_W); setB(x, y, zc1 + 1, PLASTER_W); } }
+      for (const z of [z0 + 1, z0 + 2, z0 + 3, z0 + 4]) setB(x0 + 12, y, z, PLASTER_W);
+      for (let z = zc1 + 2; z < z1; z++) setB(x0 + 12, y, z, PLASTER_W);
+    }
+    for (const x of [x0 + 6, x0 + 18]) for (const z of [zc0 - 1, zc1 + 1]) { setB(x, U + 2, z, PLASTER_W); setB(x, U + 3, z, PLASTER_W); }
+    for (let x = x0 + 1; x <= x0 + 12; x++) for (let z = zc0; z <= zc1; z++) setB(x, U, z, CARPET_R);
+    bed2(x0 + 1, U, z0 + 2, 1, 0, BED_R); bed2(x0 + 1, U, z0 + 3, 1, 0, BED_R);
+    setB(x0 + 10, U, z0 + 1, CHEST); setB(x0 + 11, U, z0 + 1, rotId(KOMMODE, 0, 1)); setB(x0 + 8, U, z0 + 1, POT_BOX);
+    setB(x0 + 6, U + 3, z0 + 3, LANTERN_H);
+    bed2(x0 + 14, U, z0 + 1, 1, 0, BED_B); bed2(x0 + 14, U, z0 + 4, 1, 0, BED_B);
+    setB(x1 - 1, U, z0 + 1, CHEST); setB(x1 - 1, U, z0 + 4, rotId(KOMMODE, -1, 0)); setB(x0 + 18, U + 3, z0 + 2, LANTERN_H);
+    setB(x0 + 5, U, zc1 + 4, TABLE_D); setB(x0 + 5, U, zc1 + 3, rotId(CHAIR_D, 0, 1));
+    for (let x = x0 + 1; x <= x0 + 4; x++) { setB(x, U, z1 - 1, SHELF); setB(x, U + 1, z1 - 1, SHELF); }
+    setB(x0 + 9, U, z1 - 1, CRAFT); setB(x0 + 6, U + 3, zc1 + 4, LANTERN_H);
+    bed2(x0 + 14, U, z1 - 1, 1, 0, BED_B); setB(x1 - 1, U, zc1 + 2, CHEST); setB(x0 + 18, U + 3, z1 - 2, LANTERN_H);
+    // Walmdach aus Schiefer
+    for (let i = 0; ; i++) {
+      const a0 = x0 - 1 + i, a1 = x1 + 1 - i, b0 = z0 - 1 + i, b1 = z1 + 1 - i;
+      if (a0 > a1 || b0 > b1) break;
+      for (let x = a0; x <= a1; x++) for (let z = b0; z <= b1; z++) if (x === a0 || x === a1 || z === b0 || z === b1 || b1 - b0 <= 1) setB(x, F + 9 + i, z, SLATE);
+    }
+    fill(x0 + 1, F + 9, z0 + 1, x1 - 1, F + 9, z1 - 1, DPLANK);
+    for (const x of [x0 + 4, x1 - 4]) fill(x, F + 9, z0 + 3, x, F + 14, z0 + 3, BRICK);
+    const home = { name: "Gutshaus", zone: "gutshof", door: [x0 - 2.5, F, 196.5], beds: [[x0 + 3.5, U, z0 + 2.5], [x0 + 3.5, U, z0 + 3.5], [x0 + 16.5, U, z0 + 1.5], [x0 + 16.5, U, z0 + 4.5]], chest: [x0 + 10, U, z0 + 1], size: 4, box: [x0, z0, x1, z1] };
+    PLACES11.homes.push(home);
+    GUT_SPOTS.haus.push([x0 + 7.5, F, 197.5, Math.PI / 2, "look"], [x0 + 9.5, F, z0 + 3.5, -Math.PI / 2, "arrange"], [x0 + 20.5, F, zc1 + 4.5, Math.PI, "arrange"], [x0 + 5.5, U, zc1 + 2.4, 0, "arrange"]);
+    GUT.beds = [
+      { stand: [x0 + 3.5, U, z0 + 2.5], feet: [x0 + 2.95, U + 0.56, z0 + 2.5], a: Math.PI / 2 },
+      { stand: [x0 + 3.5, U, z0 + 3.5], feet: [x0 + 2.95, U + 0.56, z0 + 3.5], a: Math.PI / 2 },
+      { stand: [x0 + 16.5, U, z0 + 1.5], feet: [x0 + 15.95, U + 0.56, z0 + 1.5], a: Math.PI / 2 },
+      { stand: [x0 + 16.5, U, z0 + 4.5], feet: [x0 + 15.95, U + 0.56, z0 + 4.5], a: Math.PI / 2 },
+    ];
+    AREAS.unshift(["Das Gutshaus", "hier wohnt der Gutsherr mit seiner Familie", x0 - 1, x1, G0, G0 + 14, z0, z1]);
+  }
+  // Pferdestall: Steinsockel, Holzwände mit Balken, Gang in der Mitte, je vier Boxen links und rechts mit Tor, Heuraufe und Trog
+  function buildStable11(rnd) {
+    const { x0, x1, z0, z1 } = STALL, F = G0 + 1, za = 169, zb = 170;   // Stallgasse
+    fill(x0, G0, z0, x1, G0, z1, COBBLE);
+    for (let y = F; y <= F + 4; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const edge = x === x0 || x === x1 || z === z0 || z === z1;
+      if (!edge) { setB(x, y, z, AIR); continue; }
+      const post = (x - x0) % 7 === 0 && (z === z0 || z === z1) || (x === x0 || x === x1) && (z === z0 || z === z1);
+      setB(x, y, z, y === F ? COBBLE : post ? DPLANK : y === F + 4 ? DPLANK : SPRUCE_PLANKS);
+      if (y === F + 2 && !post && (x - x0) % 7 === 3 && (z === z0 || z === z1)) setB(x, y, z, GLASS);
+    }
+    // Tore an beiden Enden der Stallgasse
+    for (const x of [x0, x1]) for (const z of [za - 1, za, zb, zb + 1]) for (let y = F; y <= F + 2; y++) setB(x, y, z, AIR);
+    for (let x = x0 + 1; x < x1; x++) for (const z of [za, zb]) setB(x, G0, z, SPRUCE_PLANKS);
+    // Boxen: Trennwände aus Brettern, Tor zur Gasse
+    for (let i = 0; i < 4; i++) {
+      const bx0 = x0 + 1 + i * 7, bx1 = Math.min(bx0 + 5, x1 - 1);
+      for (const [zo, zi, gz, sgn] of [[z0 + 1, za - 2, za - 1, -1], [zb + 2, z1 - 1, zb + 1, 1]]) {
+        for (let x = bx0; x <= Math.min(bx1, x1 - 1); x++) setB(x, F, gz, FENCE);
+        if (bx1 < x1 - 1) for (let z = Math.min(zo, zi); z <= Math.max(zo, zi) + 1; z++) { setB(bx1 + 1, F, z, SPRUCE_PLANKS); setB(bx1 + 1, F + 1, z, SPRUCE_PLANKS); }
+        const gx = bx0 + 2; setB(gx, F, gz, AIR); addGate(gx, F, gz, 0, sgn < 0 ? 1 : -1);
+        for (let z = Math.min(zo, zi); z <= Math.max(zo, zi); z++) for (let x = bx0; x <= Math.min(bx1, x1 - 1); x++) setB(x, G0, z, HAY);
+        const back = sgn < 0 ? z0 + 1 : z1 - 1;
+        setB(bx0, F, back, TROG); setB(bx0 + 1, F + 1, back, HAY);
+        GUT_PENS.push([{ x0: bx0 + 0.4, x1: Math.min(bx1, x1 - 1) + 0.6, z0: Math.min(zo, zi) + 0.4, z1: Math.max(zo, zi) + 0.6 }, "horse", 1, true]);
+      }
+      setB(bx0 + 3, F + 3, za, LANTERN_H);
+    }
+    for (const x of [x0 + 3, x0 + 12, x0 + 20]) GUT_SPOTS.stall.push([x + 0.5, F, za + 0.5, rnd() < 0.5 ? 0 : Math.PI, "arrange"]);
+    fill(x0 + 1, F + 5, z0 + 1, x1 - 1, F + 5, z1 - 1, SPRUCE_PLANKS);
+    for (let i = 0; i <= 9; i++) { const za = z0 - 1 + i, zb = z1 + 1 - i; if (za > zb) break; for (let x = x0 - 1; x <= x1 + 1; x++) { setB(x, F + 5 + i, za, ROOF_RED); setB(x, F + 5 + i, zb, ROOF_RED); if (zb - za <= 1) for (let z = za; z <= zb; z++) setB(x, F + 5 + i, z, ROOF_RED); } for (let z = za + 1; z < zb; z++) for (const x of [x0, x1]) setB(x, F + 5 + i, z, SPRUCE_PLANKS); }
+    AREAS.unshift(["Der Pferdestall", "acht Boxen für die Pferde des Gutshofs", x0, x1, G0, G0 + 12, z0, z1]);
+    PLACES11.work.push({ name: "Pferdestall", spot: [x0 + 3.5, F, za + 0.5], yaw: 0, zone: "gutshof" });
+  }
+  // Scheune: hoch, Bretter, großes Tor zum Hof, innen Heu und Säcke, Leiterwagen davor
+  function buildBarn11(rnd) {
+    const { x0, x1, z0, z1 } = SCHEUNE, F = G0 + 1, mx = Math.floor((x0 + x1) / 2);
+    fill(x0, G0, z0, x1, G0, z1, SPRUCE_PLANKS);
+    for (let y = F; y <= F + 6; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const edge = x === x0 || x === x1 || z === z0 || z === z1;
+      if (!edge) { setB(x, y, z, AIR); continue; }
+      const post = (x - x0) % 5 === 0 && (z === z0 || z === z1) || (z - z0) % 5 === 0 && (x === x0 || x === x1);
+      setB(x, y, z, y === F ? COBBLE : post ? DPLANK : (y === F + 3 ? DPLANK : PLANKS));
+    }
+    for (let x = mx - 2; x <= mx + 2; x++) for (let y = F; y <= F + 4; y++) setB(x, y, z0, AIR);
+    for (let i = 0; i <= 8; i++) for (let x = x0 - 1; x <= x1 + 1; x++) { const za = z0 - 1 + i, zb = z1 + 1 - i; if (za > zb) break; setB(x, F + 7 + i, za, ROOF_RED); setB(x, F + 7 + i, zb, ROOF_RED); if (zb - za <= 1) for (let z = za; z <= zb; z++) setB(x, F + 7 + i, z, ROOF_RED); for (let z = za + 1; z < zb; z++) for (const xx of [x0, x1]) setB(xx, F + 7 + i, z, PLANKS); }
+    // Heu bis unters Dach an den Seiten, Säcke, Fässer, Werkbank
+    for (let x = x0 + 1; x <= x0 + 6; x++) for (let z = z0 + 2; z < z1; z++) for (let y = F; y <= F + 2 + ((x + z) % 3); y++) setB(x, y, z, HAY);
+    for (let x = x1 - 6; x < x1; x++) for (let z = z0 + 4; z < z1; z++) for (let y = F; y <= F + 1 + ((x * 3 + z) % 3); y++) setB(x, y, z, HAY);
+    for (const [x, z, b] of [[mx - 3, z1 - 1, SACK], [mx - 2, z1 - 1, SACK], [mx + 2, z1 - 1, BARREL], [mx + 3, z1 - 1, BARREL], [mx, z1 - 1, CRAFT]]) setB(x, F, z, b);
+    for (const x of [mx - 4, mx + 4]) setB(x, F + 5, z0 + 6, LANTERN_H);
+    mGood("cart", mx + 0.5, F, z0 + 6, Math.PI / 2);
+    AREAS.unshift(["Die Scheune", "", x0, x1, G0, G0 + 16, z0, z1]);
+    GUT_SPOTS.stall.push([mx + 0.5, F, z0 + 3.5, Math.PI, "fork"], [x0 + 7.5, F, z0 + 5.5, -Math.PI / 2, "fork"]);
+  }
+  V11.build.push(buildGutshof11);
+
+  // ---------- Pferde ----------
+  const HORSE_C = { brown: [[126, 80, 46], [44, 30, 22]], black: [[38, 34, 34], [20, 18, 18]], white: [[232, 228, 220], [196, 196, 200]], chestnut: [[168, 92, 46], [232, 206, 150]], grey: [[168, 168, 172], [70, 70, 76]], palomino: [[216, 178, 106], [246, 240, 226]] };
+  function defHorse(col) {
+    const [C_, M_] = HORSE_C[col], dk = shade(C_, 0.8), HOOF = [52, 46, 42];
+    const coat = (f, x, y, w, h, v) => v(col === "grey" && hash(x, y, f.length + 9) > 0.78 ? shade(C_, 0.7) : f === "ny" ? dk : C_, 9);
+    const leg = (f, x, y, w, h, v) => (f === "ny" || y >= h - 3) ? v(HOOF, 6) : (col === "brown" || col === "chestnut") && y >= h - 8 ? v([236, 232, 222], 6) : coat(f, x, y, w, h, v);
+    return {
+      seed: 66,
+      bones: quadBones(15, [0, 9, 10], [3.2, 8], [{ n: "tail", p: "body", at: [0, 9, -11] }]),
+      boxes: [
+        { b: "body", f: [-5, 0, -11], t: [5, 10, 11], p: coat },
+        { b: "head", f: [-2.4, -4, -1.5], t: [2.4, 8, 4], p: coat },                                    // Hals
+        { b: "head", f: [-2.6, 5, 2.5], t: [2.6, 10.5, 13.5], p: (f, x, y, w, h, v) => {                  // Kopf
+          if ((f === "px" || f === "nx") && y === 3 && front(f, x, w) > 0.18 && front(f, x, w) < 0.3) return [16, 14, 14];
+          if (f === "pz" && y >= 8) return v([60, 50, 46], 6);
+          if (f === "py" && (col === "brown" || col === "chestnut") && x >= 4 && x <= 5) return v([240, 236, 226], 4);
+          return coat(f, x, y, w, h, v);
+        } },
+        { b: "head", f: [-2, 10.5, 2.6], t: [-0.8, 13, 4], p: coat }, { b: "head", f: [0.8, 10.5, 2.6], t: [2, 13, 4], p: coat },   // Ohren
+        { b: "head", f: [-0.9, -3, -2.6], t: [0.9, 10.8, 3.6], p: (f, x, y, w, h, v) => v(M_, 12) },                                 // Mähne
+        { b: "head", f: [-0.3, 7, 13.4], t: [0.3, 8.5, 13.7], p: flat([60, 40, 26], 4) },
+        { b: "legFR", f: [-1.6, -15, -1.6], t: [1.6, 0, 1.6], p: leg }, { b: "legFL", f: [-1.6, -15, -1.6], t: [1.6, 0, 1.6], p: leg },
+        { b: "legBR", f: [-1.6, -15, -1.6], t: [1.6, 0, 1.6], p: leg }, { b: "legBL", f: [-1.6, -15, -1.6], t: [1.6, 0, 1.6], p: leg },
+        { b: "tail", f: [-1.1, -11, -1.6], t: [1.1, 0, 0.6], p: (f, x, y, w, h, v) => v(M_, 12) },
+      ],
+    };
+  }
+  for (const c in HORSE_C) MODEL_DEFS["horse_" + c] = () => defHorse(c);
+  ANIMAL.horse = { r: 0.55, h: 1.75, eye: 1.6, hp: 15, speed: 1.5, voice: "neigh", graze: true };
+  SND.neigh = (v, p) => { voice(520 * p, 300 * p, 0.7, "sawtooth", 0.05 * v, { lp: 1600, q: 2, trem: [24, 0.7] }); voice(380 * p, 260 * p, 0.35, "square", 0.02 * v, { lp: 900, delay: 0.55 }); };
+  // Tiere in ihren Gehegen (sie bleiben drin, wilde Herden kommen nicht auf den Gutshof)
+  V11.spawn.push(() => {
+    const cols = Object.keys(HORSE_C);
+    let hi = 0;
+    for (const [pen, type, n] of GUT_PENS) for (let i = 0; i < n; i++) {
+      const x = pen.x0 + 0.5 + Math.random() * Math.max(0.1, pen.x1 - pen.x0 - 1), z = pen.z0 + 0.5 + Math.random() * Math.max(0.1, pen.z1 - pen.z0 - 1);
+      const A = ANIMAL[type], m = type === "horse" ? "horse_" + cols[hi++ % cols.length] : type === "sheep" ? "sheep_" + sheepColor(Math.random()) : type;
+      spawnEnt("animal", m, x, G0 + 1, z, { type, pen, r: A.r, h: A.h, eye: A.eye, hp: A.hp, maxHp: A.hp, speed: A.speed, voice: A.voice, canGraze: A.graze, yaw: Math.random() * 6.28, grazeT: 0, g: 0 });
+    }
+  });
+  // ---------- Die Leute vom Gutshof ----------
+  Object.assign(PEOPLE11, {
+    g1: { name: "Gutsherr Wilhelm", talk: "dem Gutsherrn Wilhelm", skin: [232, 192, 160], hair: [120, 110, 100], mustache: [120, 110, 100], coat: [40, 70, 50], vest: [220, 200, 150], pants: [200, 186, 150], boots: true, shoe: [40, 30, 24], hat: { t: "tophat", c: [40, 36, 30] }, tool: "cane" },
+    g2: { name: "Gutsherrin Charlotte", talk: "der Gutsherrin Charlotte", female: true, skin: [244, 210, 186], hair: [180, 120, 70], bun: true, bodice: [70, 100, 150], skirt: [70, 100, 150], skirtLen: 11.5, hat: { t: "lady", c: [250, 246, 236], band: [70, 100, 150] } },
+    g3: { name: "Stallknecht Paul", talk: "dem Stallknecht Paul", skin: [222, 172, 136], hair: [70, 50, 34], shirt: [150, 120, 90], vest: [80, 60, 44], pants: [70, 64, 56], rolled: true, boots: true, hat: { t: "cap", c: [80, 70, 60] }, tool: "pitchfork" },
+    g4: { name: "Stallknecht Emil", talk: "dem Stallknecht Emil", skin: [236, 196, 160], hair: [200, 160, 90], shirt: [236, 230, 214], susp: [70, 50, 40], pants: [80, 70, 60], rolled: true, boots: true, tool: "rake" },
+    g5: { name: "Reitlehrerin Sophie", talk: "der Reitlehrerin Sophie", female: true, skin: [240, 204, 176], hair: [60, 40, 30], bodice: [130, 30, 40], skirt: [230, 222, 200], skirtLen: 6, stock: [230, 222, 200], shoe: [30, 24, 20], hat: { t: "tophat", c: [30, 30, 34] }, tool: "cane" },
+    g6: { name: "Melkerin Marta", talk: "der Melkerin Marta", female: true, skin: [232, 186, 150], hair: [200, 150, 90], bodice: [90, 120, 170], skirt: [100, 90, 80], apron: { c: [244, 240, 230] }, hat: { t: "scarf", c: [240, 236, 226], dot: [60, 90, 170] }, tool: "basket" },
+    g7: { name: "Schäfer Josef", talk: "dem Schäfer Josef", skin: [206, 156, 118], hair: [180, 180, 180], beard: [180, 180, 180], coat: [110, 96, 70], pants: [80, 70, 56], boots: true, hat: { t: "straw" }, tool: "cane" },
+    g8: { name: "Hühnermagd Frida", talk: "der Hühnermagd Frida", female: true, skin: [240, 200, 170], hair: [170, 90, 40], bodice: [150, 120, 60], skirt: [110, 80, 50], apron: { c: [226, 216, 196] }, hat: { t: "bonnet" }, tool: "basket", scale: 0.95 },
+  });
+  for (const k of ["g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8"]) { const o = PEOPLE11[k]; o.seed = pseed++; MODEL_DEFS["p11_" + k] = () => defPerson(o); }
+  Object.assign(L11, {
+    gutsherr: { talk: ["Willkommen auf meinem Gut{M}!", "Die Pferde sind mein ganzer Stolz.", "{M_}die Felder und das Vieh gehören zu Eurem Königreich, ich verwalte sie nur.", "Morgen kommen neue Kälber zur Welt, sagt die Melkerin."] },
+    gutsfrau: { talk: ["Wie schön, Euch auf unserem Gut zu sehen{M}.", "Im Gutshaus ist immer ein Zimmer für Gäste bereit.", "{M_}darf ich Euch einen Tee im Salon anbieten?", "Unsere Kinder reiten schon wie die Großen."] },
+    stall: { talk: ["Die Pferde sind gestriegelt{M}.", "Der Schimmel ist der schnellste von allen.", "{M_}bald kommt eine Kutsche dazu, sagt man.", "Frisches Heu, frisches Wasser, so bleiben sie gesund."] },
+    reit: { talk: ["Auf dem Reitplatz üben wir das Springen{M}.", "Ein Pferd spürt genau, ob man ruhig ist.", "{M_}möchtet Ihr einmal reiten? Bald geht das.", "Ferse tief, Rücken gerade!"] },
+    melk: { talk: ["Die Kühe geben heute viel Milch{M}.", "Aus der Milch macht Frieda auf dem Markt den Käse.", "{M_}die Bunte dort heißt Liesel.", "Morgens und abends wird gemolken."] },
+    schaf: { talk: ["Zehn Schafe, und keins geht verloren{M}.", "Aus der Wolle werden Decken und Teppiche.", "{M_}die schwarzen Schafe sind die frechsten.", "Ruhig, ruhig, meine Lieben."] },
+    huhn: { talk: ["Die Hühner legen jeden Tag frische Eier{M}.", "Put, put, put!", "{M_}der Hahn kräht schon vor Sonnenaufgang.", "Die Eier gehen in die Schlossküche."] },
+  });
+  V11.spawn.push(() => {
+    const ex = [[210.5, G0 + 1, 197.5, 224.5, 197.5], [210.5, G0 + 1, 287.5, 224.5, 287.5]];
+    const sp = k => GUT_SPOTS[k];
+    const list = [
+      ["g1", "gutsherr", () => sp("hof").concat(sp("haus"), sp("arena")), 7, 21, 0], ["g2", "gutsfrau", () => sp("haus").concat(sp("hof")), 7.5, 21.5, 1],
+      ["g3", "stall", () => sp("stall"), 6, 19, -1], ["g4", "stall", () => sp("stall").concat(sp("hof")), 6.2, 19.2, -1], ["g5", "reit", () => sp("arena"), 8, 18, -1],
+      ["g6", "melk", () => sp("kuh"), 6, 18.5, -1], ["g7", "schaf", () => sp("schaf"), 6.5, 18.5, -1], ["g8", "huhn", () => sp("huhn"), 6.5, 18, -1],
+    ];
+    list.forEach(([k, lk, pf, from, to, bed], i) => {
+      const s0 = pf()[0], formal = i % 2 === 0;
+      const e = spawnWorker(k, lk, s0, { formal, lines: lines11(lk, formal), from, to, exit: ex[i % 2], pickFrom: pf, stay: () => 15 + Math.random() * 30,
+        bed: bed >= 0 ? GUT.beds[bed] : undefined, nightLines: bed >= 0 ? ["Zzz …", "Oh, Majestät! So spät noch auf den Beinen?"] : undefined });
+      if (inHours(from, to)) wArrive(e); else { wFree(e); if (e.bed) { e.state = "toBed"; wArrive(e); } else { e.state = "leave"; wArrive(e); } }
+    });
+  });
   // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.

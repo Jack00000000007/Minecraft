@@ -2,13 +2,15 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
-## Vorschau auf Version 11, Teil 2: Marktplatz und Felder (nur auf diesem Branch)
+## Version 11, Teil 2: das große Land wird bewohnt (auf diesem Branch)
 
 - Auf dem Marktplatz der Neustadt steht jetzt der Kronenbrunnen: ein achteckiges Marmorbecken mit einer goldenen Schale und einer Krone, aus der das Wasser sprudelt. Rundherum gibt es zwölf Marktstände mit gestreiften Markisen: Gemüse, Obst, Bäcker, Metzger, Käse, Fisch, Blumen, Töpfer, Tuch, Wein, Honig und Gewürze. Dazu kommen ein weiß-blauer Maibaum mit Zunftzeichen, Linden mit Rundbänken und Laternen.
 - Zwölf Händler verkaufen an ihren Ständen und rufen ihre Waren aus, wenn du vorbeikommst. Acht Kunden kaufen ein, schauen in den Brunnen und sitzen auf den Bänken. Mit E oder Rechtsklick redest du mit ihnen.
 - Die Felder sind bunt bepflanzt: Weizen, Sonnenblumen, Lavendel, Raps, Mais, Kürbisse, Kartoffeln, Karotten, Kohl, Rote Bete, Melonen und ein Obstgarten mit Bienenkörben. Bauern und Mägde mähen, hacken, pflücken und gießen.
 - Auf einem Hügel steht die Windmühle mit Umgang, und ihre Flügel drehen sich. Daneben liegen das Müllerhaus mit Reetdach, ein Ziehbrunnen und ein Geräteschuppen. Der Müller und die Müllerin schlafen nachts in ihren Betten.
 - Morgens kommen alle über die Straßen herein, abends gehen sie heim. Nachts ist der Markt leer, aber hell erleuchtet.
+- Die Oststadt und die Neustadt sind gebaut: 50 Häuser mit Treppe, Küche, Esstisch, Schlafzimmern, Truhe, Blumenkästen, Gehweg und Garten. In der Oststadt Fachwerk, in der Neustadt bunte Bürgerhäuser.
+- Der Gutshof: ein gelbes Gutshaus mit Säulen und Salon, ein Pferdestall mit acht Boxen, eine große Scheune, ein Hof mit Pferdebrunnen, ein Reitplatz und Weiden mit Kühen, Schafen, Schweinen und Hühnern. Pferde gibt es in sechs Farben. Der Gutsherr, die Gutsherrin, Stallknechte, eine Reitlehrerin, eine Melkerin, ein Schäfer und eine Hühnermagd arbeiten dort.
 - Neu im Blockmenü (B): Kopfsteinpflaster, Markisen in vier Farben, Marktpfosten, Theke, Kisten mit Waren, Laternenmast, Maibaum, Sonnenblume, Mais, Lavendel, Raps, Kohlkopf, Reetdach, Holzschindeln, Mühlstein, Mehlsack, Wassertrog und die goldene Brunnenschale.
 
 ## Neu in Version 11, Teil 1: das große Land
