@@ -1445,18 +1445,19 @@
   const SAVE_KEY = "blockwelt-save-v1";
   const edits = new Map();
   let saveTimer = 0, noSave = false;
-  function recordEdit(x, y, z, b) { edits.set(idx(x, y, z), b); saveSoon(); }
+  function recordEdit(x, y, z, b) { if (WILD) { v17WildEdit(x, y, z, b); return; } edits.set(idx(x, y, z), b); saveSoon(); }
   function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 1500); }
   function saveNow() {
     if (noSave || !worldReady) return;
     try {
-      const e = [];
-      for (const [k, b] of edits) e.push(k, b);
+      const e = WILD ? (KINGDOM_E || []).slice() : [];
+      if (!WILD) for (const [k, b] of edits) e.push(k, b);
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         v: 2, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false, t: Math.round(dayT * 1e6) / 1e6, tr: timeRun,
-        p: P.dead ? null : (P.seat ? [...standSpot(P.seat), P.yaw, P.pitch] : [P.x, P.y, P.z, P.yaw, P.pitch]).map(n => Math.round(n * 1000) / 1000), fly: P.fly,
+        p: WILD ? WILD.kp : P.dead ? null : (P.seat ? [...standSpot(P.seat), P.yaw, P.pitch] : [P.x, P.y, P.z, P.yaw, P.pitch]).map(n => Math.round(n * 1000) / 1000), fly: P.fly,
         hp: P.dead ? 20 : P.hp, mon: monsters, sp: P.spawn, v13: v13Save(), v14: v14Save(),
       }));
+      if (WILD) v17SaveWild();
     } catch (err) {}
   }
   function loadSave() {
@@ -1554,6 +1555,7 @@
     if (m === "glass" && kind === "break") beep(1900 + Math.random() * 700, 0.3, "triangle", 0.03);
   }
   function toggleGate() {
+    if (WILD) return;
     gate.open = !gate.open; gate.t = 0.3;
     setBlocks(levers.map(([x, y, z]) => [x, y, z, gate.open ? LEVER_ON : LEVER]));
     beep(520, 0.09, "square", 0.05);
@@ -1632,6 +1634,7 @@
     return true;
   }
   function toGate() {
+    if (WILD) { wildPlace17(); return; }   // Version 17
     const x = C, z = C + 64;
     let y = H - 1; while (y > 0 && !solid(get(x, y, z))) y--;
     P.x = x + 0.5; P.z = z + 0.5; P.y = y + 1; P.vx = P.vy = P.vz = 0; P.yaw = 0; P.pitch = 0.12; P.fallTop = P.y; P.seat = null;
@@ -1645,6 +1648,7 @@
     if (keys.KeyD || keys.ArrowRight) s += 1; if (keys.KeyA || keys.ArrowLeft) s -= 1;
     f -= joy.y; s += joy.x;
     const len = Math.hypot(f, s); if (len > 1) { f /= len; s /= len; }
+    if (P.boat) { shipStep17(dt, f, s); return; }   // Version 17: im Segelboot
     // Sitzen: Laufen, Springen oder Shift lässt dich aufstehen
     if (P.seat) {
       P.seat.t += dt;
@@ -3353,6 +3357,7 @@
   }
   function respawn() {
     if (!P.dead) return;
+    if (WILD) { P.dead = false; P.hp = MAX_HP; travel17({ home: { x: C, z: C + 64 } }); return; }   // Version 17: aus der Wildnis geht es heim
     P.dead = false; P.hp = MAX_HP; P.air = AIR_MAX; P.inv = 3; P.lastHurt = 99; P.shake = 0; hurtFlash = 0;
     deathEl.hidden = true; crossEl.hidden = camMode === 2;
     const sp = P.spawn;
@@ -4068,12 +4073,12 @@
     if (!show) return;
     PM.vx = P.vx; PM.vz = P.vz; PM.ground = P.ground || !!P.seat; PM.inWater = P.inWater; PM.fly = P.fly && !P.ground;
     PM.lean = P.sprint ? 0.12 : 0;
-    PM.sit = !!P.seat; PM.pose = P.seat ? "sit" : "";
+    PM.sit = !!(P.seat || P.boat); PM.pose = P.seat || P.boat ? "sit" : "";
     // Im Sitzen zeigt der Körper nach vorne, nur der Kopf folgt dem Blick
-    PM.headYawT = P.seat ? Math.max(-1, Math.min(1, wrapA(P.yaw + Math.PI - P.seat.yaw))) : 0;
+    PM.headYawT = P.seat ? Math.max(-1, Math.min(1, wrapA(P.yaw + Math.PI - P.seat.yaw))) : P.boat ? Math.max(-1, Math.min(1, wrapA(P.yaw - P.boat.yaw))) : 0;
     PM.headPitchT = Math.max(-0.9, Math.min(0.9, -P.pitch));
     animHuman(PM, dt, t);
-    PM.mesh.position.set(P.x, P.y - (P.camLift || 0), P.z); PM.mesh.rotation.y = P.seat ? P.seat.yaw : P.yaw + Math.PI;
+    PM.mesh.position.set(P.x, P.y - (P.camLift || 0), P.z); PM.mesh.rotation.y = P.seat ? P.seat.yaw : P.boat ? P.boat.yaw + Math.PI : P.yaw + Math.PI;
     PM.mesh.rotation.z = P.dead ? Math.min(1, P.deadT / 0.35) * Math.PI / 2 : 0;
     PM.mesh.material.userData.uLight.value.copy(playerLight.value);
   }
@@ -4171,6 +4176,7 @@
   }
   function placeBlock() {
     if (P.dead || sleepT >= 0) return;
+    if (v17Ship()) return;               // Version 17: ins Segelboot ein- oder aussteigen
     if (targetEnt) { interact(targetEnt); return; }
     if (!target) { v13UseItem(null); return; }
     // Rechtsklick benutzt Hebel, Betten und Sitze; mit Shift setzt man stattdessen einen Block
@@ -4362,7 +4368,7 @@
     if (e.code.startsWith("Digit")) { const n = +e.code.slice(5); if (n >= 1 && n <= 9) select(n - 1); }
     if (e.code === "KeyF" && !e.repeat) toggleFly();
     if (e.code === "Space" && !e.repeat) jumpTap(e.timeStamp);
-    if (e.code === "KeyT" && !e.repeat && sleepT < 0) { toGate(); butlerToPlayer(); }
+    if (e.code === "KeyT" && !e.repeat && sleepT < 0) { if (WILD) travel17({ home: { x: C, z: C + 64 } }); else { toGate(); butlerToPlayer(); } }
     if (e.code === "KeyN" && !e.repeat) skipTime();
     if (e.code === "KeyV" && !e.repeat) cycleView();
     if (e.code === "KeyB" && !e.repeat) openPalette();
@@ -4647,13 +4653,12 @@
   }
 
   function updateV10(dt, t) {
-    updateBigGate(dt);
-    updateJets(dt);
+    if (!WILD) { updateBigGate(dt); updateJets(dt); }
     updateAreas(dt);
     updateProps(dt, t);
     updateStaffPose();
     updateDoors(dt);
-    for (const f of V11.update) f(dt, t);
+    for (const f of (WILD ? V11.wild || [] : V11.update)) f(dt, t);   // Version 17: in der Wildnis nur, was dort gebraucht wird
   }
   // ---------- Version 10: Dinge im Schloss – Krone, Rüstungen, Waffen, Speisen, Globus und deine Goldstatue ----------
   // Die Dinge sind kleine Modelle aus Quadern wie die Figuren (Maße in Figuren-Pixeln, 1 Block = 17,8 Pixel).
@@ -8708,7 +8713,7 @@
   }
 
   // ---------- Truhen, Ofen, Schatztruhe ----------
-  const chestKey = (x, y, z) => idx(x, y, z);
+  const chestKey = (x, y, z) => WILD ? "w" + (x + WILD.ox) + "," + y + "," + (z + WILD.oz) : idx(x, y, z);   // Version 17: in der Wildnis nach Weltzahlen
   function chestAt(x, y, z) {
     const k = chestKey(x, y, z);
     if (!V13.chests.has(k)) V13.chests.set(k, chestLoot(x, y, z));
@@ -8720,6 +8725,9 @@
     const a = areaOf(x + 0.5, y + 0.5, z + 0.5), name = a ? String(a[0]) : "";
     const put = (id, lo, hi) => { const n = lo + Math.floor(r() * (hi - lo + 1)); if (n <= 0) return; let slot; do slot = Math.floor(r() * 27); while (list[slot]); list[slot] = mk(id, Math.min(n, maxStack(id))); };
     if (/Schatzkammer/.test(name)) { put(I.goldbarren, 20, 40); put(I.goldbarren, 10, 30); put(I.diamant, 4, 10); put(I.smaragd, 6, 14); put(I.goldapfel, 1, 2); put(GOLD, 1, 3); }
+    else if (/Vergrabener Schatz/.test(name)) { put(I.goldbarren, 24, 48); put(I.goldbarren, 12, 30); put(I.diamant, 5, 12); put(I.smaragd, 8, 16); put(I.goldapfel, 2, 4); put(TOOLS.schwert_diamant, 1, 1); put(TOOLS.spitzhacke_diamant, 1, 1); put(GOLD, 2, 5); }   // Version 17
+    else if (/Ruine/.test(name)) { put(I.eisenbarren, 2, 8); put(I.goldbarren, 1, 5); put(I.brot, 1, 4); put(TORCH, 4, 12); put(I.buch, 0, 2); put(I.kohle, 4, 12); if (r() < 0.3) put(I.diamant, 1, 2); if (r() < 0.35) put(TOOLS[["schwert", "axt", "spitzhacke"][Math.floor(r() * 3)] + "_eisen"], 1, 1); }
+    else if (/Höhle/.test(name)) { put(I.kohle, 6, 20); put(I.roheisen, 3, 10); put(I.rohgold, 0, 5); put(TORCH, 6, 16); put(I.brot, 1, 3); if (r() < 0.4) put(I.diamant, 1, 3); if (r() < 0.3) put(I.smaragd, 1, 3); if (r() < 0.25) put(TOOLS.spitzhacke_eisen, 1, 1); }
     else if (/Küche/.test(name)) { put(I.brot, 4, 10); put(I.apfel, 3, 8); put(I.steak, 2, 5); put(I.kartoffel, 4, 9); put(I.karotte, 3, 8); put(I.schweinebraten, 1, 4); put(I.kohle, 4, 12); }
     else if (/Vorrat|Speise/.test(name)) { put(I.brot, 4, 12); put(I.apfel, 4, 10); put(I.kartoffel, 6, 16); put(I.karotte, 6, 14); put(I.weizen, 6, 20); }
     else if (/Waffen/.test(name)) { put(TOOLS.schwert_eisen, 1, 1); put(TOOLS.schwert_eisen, 1, 1); put(TOOLS.axt_eisen, 1, 1); put(I.eisenbarren, 4, 12); put(TORCH, 8, 16); }
@@ -8736,7 +8744,7 @@
     return list;
   }
   function furnaceAt(x, y, z) {
-    const k = idx(x, y, z);
+    const k = chestKey(x, y, z);
     if (!V13.furn.has(k)) V13.furn.set(k, { s: [null, null, null], burn: 0, burnMax: 0, cook: 0, x, y, z });
     return V13.furn.get(k);
   }
@@ -8770,6 +8778,7 @@
   function v13Open(kind, ctx) {
     V13.ui = kind; V13.els = []; UIEL.innerHTML = ""; UIEL.hidden = false;
     if (kind === "befehle") { buildCmd15(UIEL); return; }   // Version 15: der Befehlskreis
+    if (kind === "karte") { buildMap17(UIEL); return; }     // Version 17: die Karte
     if (kind === "werkbank") V13.gridSize = 3; else if (kind === "inventar") V13.gridSize = 2;
     if (kind === "truhe") V13.chest = chestAt(ctx[0], ctx[1], ctx[2]);
     if (kind === "ofen") V13.furnace = furnaceAt(ctx[0], ctx[1], ctx[2]);
@@ -9116,10 +9125,10 @@
   }
   // Nach dem Abbauen: Fundstücke, Inhalt von Truhe und Ofen, Abnutzung des Werkzeugs
   function v13Broken(x, y, z, b) {
-    const k = idx(x, y, z);
+    const k = chestKey(x, y, z);
     if (b === CHEST && V13.chests.has(k)) { for (const s of V13.chests.get(k)) if (s) spawnDrop(s.id, s.n, s.d, x + 0.5, y + 0.4, z + 0.5); V13.chests.delete(k); }
     if (b === OVEN && V13.furn.has(k)) { for (const s of V13.furn.get(k).s) if (s) spawnDrop(s.id, s.n, s.d, x + 0.5, y + 0.4, z + 0.5); V13.furn.delete(k); }
-    V13.crops.delete(k);
+    if (!WILD) V13.crops.delete(idx(x, y, z));
     if (!survival()) return;
     const held = V13.inv[sel];
     if (canHarvest(b, held)) for (const [id, n] of dropsOf(b)) spawnDrop(id, n, 0, x + 0.5, y + 0.3, z + 0.5);
@@ -9163,7 +9172,7 @@
     if (d && d.plant && t && !t.door) {
       const { x, y, z, py } = t;
       if (get(x, y, z) === FARMLAND && py === y + 1 && get(x, y + 1, z) === AIR) {
-        editBlock(x, y + 1, z, d.plant); V13.crops.set(idx(x, y + 1, z), 0);
+        editBlock(x, y + 1, z, d.plant); if (!WILD) V13.crops.set(idx(x, y + 1, z), 0);
         blockSound(GRASS, "place", 0.07); swingHand();
         if (survival()) { if (!--st.n) { V13.inv[sel] = null; select(sel); } refreshBar(); }
         saveSoon();
@@ -9335,15 +9344,16 @@
   });
 
   // ---------- Jedes Bild: Abbauen, Fundstücke, Öfen, Felder, Tiere ----------
-  V11.update.push((dt) => {
+  const v13Tick = (dt) => {
     updateMine(dt);
     updateDrops(dt);
-    updateCrops(dt);
+    if (!WILD) updateCrops(dt);
     lootAnimals();
     for (const f of V13.furn.values()) if (f.burn > 0 || (f.s[0] && f.s[1])) { if (tickFurnace(f, dt) && V13.ui === "ofen" && V13.furnace === f) render(); }
     updateOpenFurnace();
     const h0 = heldId(); if (h0 !== heldNow) heldNow = h0;
-  });
+  };
+  V11.update.push(v13Tick); (V11.wild = V11.wild || []).push(v13Tick);
   // Ein Hinweis beim ersten Mal, wenn man Überleben wählt und noch kein Werkzeug hat, gibt es nicht: der König findet seine Werkzeuge im Inventar.
   // ==================== Version 14: Lebendiges Dorf – Stadtmauer mit Feldtor, Wegenetz, Wandern außer Sicht ====================
   // Blöcke 340 bis 359. Die Felder liegen jetzt vor der Stadtmauer: Morgens geht das Feldtor auf, um 17:30 Uhr schließt es sich von selbst.
@@ -10516,7 +10526,7 @@
     const kl = document.getElementById("keyList");
     if (kl) { const kb = document.createElement("kbd"), dv = document.createElement("div"); kb.textContent = "Q"; dv.textContent = "Befehlskreis: James, Bewohner, Köche, Dienerinnen und Wachen Aufträge geben, etwas holen lassen"; const ik = [...kl.querySelectorAll("kbd")].find(k => k.textContent === "I"); if (ik) ik.nextElementSibling.after(kb, dv); else kl.append(kb, dv); }
   })();
-  V11.update.push(dt => updateOrders15(dt));
+  V11.update.push(dt => updateOrders15(dt)); (V11.wild = V11.wild || []).push(dt => updateOrders15(dt));
   // ==================== Version 15: Befehle und Gäste – seltene Gäste und der Bote ====================
   // Ab und zu (alle ein bis zwei Tage, tagsüber) kommt ein Gast durch die Südpforte der Großen Mauer. Ein Bote läuft los, sucht den König,
   // wo immer er ist, und erzählt, wie weit er laufen musste. Der Gast geht zu seinem Platz (Thronsaal, Markt oder Dorfbrunnen) und bleibt bis zum Abend.
@@ -10609,6 +10619,7 @@
   function guestTalk15(e) {
     const T = e.guest15; if (!T) return false;
     e.talkT = 3.5;
+    if (T.talk17) return T.talk17(e);                       // Version 17: Gäste mit eigenem Gespräch (Abenteurerin mit Schatzkarte)
     if (T.gift && !e.gave15) {
       e.gave15 = true; e.swingT = 0;
       for (const [id, n] of T.gift) giveItem(id, n);
@@ -10837,6 +10848,765 @@
     }
   }
   V11.update.push((dt, t) => updateDefense16(dt, t));
+  // ==================== Version 17: Endlose Welt – Wildnis hinter der Großen Mauer, Höhlen ====================
+  // Das Königreich liegt fest bei den Weltzahlen 0 bis 335 (Ost) und 0 bis 447 (Süd). Hinter der Mauer beginnt die Wildnis:
+  // Sie wird Stück für Stück aus festen Formeln erzeugt (gleiche Stelle, gleiche Landschaft), so groß wie das Königreich.
+  // Kommt der König an den Rand eines Stücks, lädt das nächste (kurzer Ladebildschirm). Gebautes in der Wildnis wird gespeichert.
+  const WILD_KEY = "blockwelt-wild", WILD_EDITS_KEY = "blockwelt-wild-edits", HOME_KEY = "blockwelt-home";
+  let WILD = null;                       // { ox, oz, p: [x, y, z, yaw], kp: Platz im Königreich zum Zurückkehren }
+  let wildEdits = null, KINGDOM_E = null, HOME_AT = null;
+  try { const s = JSON.parse(localStorage.getItem(WILD_KEY) || "null"); if (s && Number.isFinite(s.ox) && Number.isFinite(s.oz)) WILD = s; } catch (e) {}
+  try { const s = JSON.parse(localStorage.getItem(HOME_KEY) || "null"); if (s && Number.isFinite(s.x)) HOME_AT = s; localStorage.removeItem(HOME_KEY); } catch (e) {}
+  const round16 = v => Math.round(v / 16) * 16;
+  const ihash = (a, b, s) => Math.floor(hash(a, b, s) * 4294967296) >>> 0;
+  // ---------- Landschaft der Wildnis ----------
+  function wildHeight17(gx, gz) {
+    const cont = fbm(gx / 260, gz / 260, 7101), hills = fbm(gx / 90, gz / 90, 7111);
+    const mount = Math.max(0, fbm(gx / 180, gz / 180, 7121) - 0.56) * 110;
+    let h = Math.round(SEA - 7 + cont * 24 + hills * 9 + mount);
+    const river = Math.abs(fbm(gx / 210, gz / 210, 7131) - 0.5);
+    if (river < 0.02 && mount < 8) h = Math.min(h, SEA - 1 - Math.round((0.02 - river) * 120));
+    return Math.max(4, Math.min(H - 24, h));
+  }
+  const wildTemp17 = (gx, gz) => fbm(gx / 520, gz / 520, 7141);
+  function carveSphere17(cx, cy, cz, r, ox, oz) {
+    const x0 = Math.floor(cx - r - ox), x1 = Math.ceil(cx + r - ox), z0 = Math.floor(cz - r - oz), z1 = Math.ceil(cz + r - oz);
+    for (let z = Math.max(1, z0); z <= Math.min(D - 2, z1); z++) for (let x = Math.max(1, x0); x <= Math.min(W - 2, x1); x++) for (let y = Math.max(2, Math.floor(cy - r)); y <= Math.min(H - 2, Math.ceil(cy + r)); y++) {
+      const dx = x + ox + 0.5 - cx, dy = y + 0.5 - cy, dz = z + oz + 0.5 - cz;
+      if (dx * dx + dy * dy * 1.6 + dz * dz > r * r) continue;
+      const k = idx(x, y, z), b = world[k];
+      if (b === WATER || b === AIR) continue;
+      if (world[idx(x, y + 1, z)] === WATER) continue;          // kein Wasser über der Höhle anschneiden
+      world[k] = AIR;
+    }
+  }
+  // Höhlen wie Würmer: jedes 16er-Feld der Welt entscheidet selbst, ob dort eine Höhle beginnt (überall gleich, egal wo das Stück liegt)
+  function caves17(ox, oz, zoneOk, density) {
+    const c0x = Math.floor((ox - 64) / 16), c1x = Math.floor((ox + W + 64) / 16), c0z = Math.floor((oz - 64) / 16), c1z = Math.floor((oz + D + 64) / 16);
+    for (let cz = c0z; cz <= c1z; cz++) for (let cx = c0x; cx <= c1x; cx++) {
+      const r = mulberry32(ihash(cx, cz, 7171));
+      if (r() > density) continue;
+      let x = cx * 16 + r() * 16, z = cz * 16 + r() * 16;
+      if (zoneOk && !zoneOk(x, z)) continue;
+      let y = 8 + r() * 18, yaw = r() * Math.PI * 2, pitch = (r() - 0.5) * 0.4, rad = 1.6 + r() * 1.6;
+      const len = 60 + Math.floor(r() * 120);
+      for (let i = 0; i < len; i++) {
+        if (zoneOk && !zoneOk(x, z)) break;
+        carveSphere17(x, y, z, rad, ox, oz);
+        x += Math.cos(yaw) * Math.cos(pitch); z += Math.sin(yaw) * Math.cos(pitch); y += Math.sin(pitch) * 0.7;
+        yaw += (r() - 0.5) * 0.5; pitch = Math.max(-0.5, Math.min(0.5, pitch + (r() - 0.5) * 0.18)); rad = Math.max(1.2, Math.min(3.6, rad + (r() - 0.5) * 0.3));
+        if (y < 4) { y = 4; pitch = Math.abs(pitch); }
+        if (r() < 0.012) carveSphere17(x, y, z, rad * 2.2, ox, oz);   // große Halle
+      }
+    }
+  }
+  // Erze in jedem 16er-Feld, ebenfalls immer gleich
+  function ores17(ox, oz) {
+    const c0x = Math.floor(ox / 16), c1x = Math.floor((ox + W - 1) / 16), c0z = Math.floor(oz / 16), c1z = Math.floor((oz + D - 1) / 16);
+    for (let cz = c0z; cz <= c1z; cz++) for (let cx = c0x; cx <= c1x; cx++) {
+      const r = mulberry32(ihash(cx, cz, 7181)), bx = cx * 16, bz = cz * 16;
+      const v = (b, n, y0, y1, l0, l1) => {
+        for (let i = 0; i < n; i++) {
+          let x = bx + Math.floor(r() * 16), z = bz + Math.floor(r() * 16), y = y0 + Math.floor(r() * (y1 - y0 + 1));
+          const len = l0 + Math.floor(r() * (l1 - l0 + 1));
+          for (let k = 0; k < len; k++) {
+            const wx = x - ox, wz = z - oz;
+            if (wx > 0 && wz > 0 && wx < W - 1 && wz < D - 1 && y > 0 && world[idx(wx, y, wz)] === STONE) world[idx(wx, y, wz)] = b;
+            const q = r(); if (q < 0.33) x += r() < 0.5 ? 1 : -1; else if (q < 0.66) z += r() < 0.5 ? 1 : -1; else y += r() < 0.5 ? 1 : -1;
+          }
+        }
+      };
+      v(ORE_COAL, 6, 4, SEA + 20, 5, 12); v(ORE_IRON, 3, 2, SEA, 4, 8);
+      if (r() < 0.6) v(ORE_GOLD, 1, 1, 16, 3, 7); if (r() < 0.25) v(ORE_DIAMOND, 1, 1, 10, 2, 5); if (r() < 0.15) v(ORE_EMERALD, 1, 2, 30, 1, 2);
+    }
+  }
+  function genWild17() {
+    const { ox, oz } = WILD;
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+      const gx = ox + x, gz = oz + z, h = wildHeight17(gx, gz), t = wildTemp17(gx, gz);
+      heights[x + z * W] = h;
+      const desert = t > 0.64, snowy = t < 0.36 || h > SEA + 40;
+      for (let y = 0; y <= h; y++) {
+        let b = STONE;
+        if (y >= h - 3) b = desert ? SAND : DIRT;
+        if (y === h) b = h <= SEA + 1 ? (desert || h < SEA ? SAND : (h === SEA + 1 ? SAND : GRASS)) : desert ? SAND : h > SEA + 46 ? STONE : snowy ? SNOW : GRASS;
+        world[idx(x, y, z)] = b;
+      }
+      if (h > SEA + 46) world[idx(x, h, z)] = h > SEA + 52 ? SNOW : STONE;
+      for (let y = h + 1; y <= SEA; y++) world[idx(x, y, z)] = WATER;
+    }
+    caves17(ox, oz, null, 0.32);
+    ores17(ox, oz);
+    // Bäume, Gras, Blumen, Pilze, Schilf (an jeder Stelle immer gleich)
+    for (let z = 3; z < D - 3; z++) for (let x = 3; x < W - 3; x++) {
+      const gx = ox + x, gz = oz + z, h = heights[x + z * W], top = world[idx(x, h, z)];
+      if (top !== GRASS && top !== SNOW && top !== SAND) continue;
+      if (world[idx(x, h + 1, z)] !== AIR) continue;
+      const t = wildTemp17(gx, gz), forest = fbm(gx / 70, gz / 70, 7151), r = hash(gx, gz, 7161), r2 = hash(gx, gz, 7162);
+      if (top === SAND) { if (h === SEA + 1 && r < 0.12 && (get(x + 1, SEA, z) === WATER || get(x - 1, SEA, z) === WATER || get(x, SEA, z + 1) === WATER || get(x, SEA, z - 1) === WATER)) setB(x, h + 1, z, REEDS); continue; }
+      const treeP = 0.004 + Math.max(0, forest - 0.45) * 0.16;
+      if (r < treeP) {
+        const tr = mulberry32(ihash(gx, gz, 7163));
+        if (t < 0.42 || top === SNOW) plantSpruce(x, h, z, tr); else if (r2 < 0.3) plantBirch(x, h, z, tr); else if (r2 < 0.38 && forest > 0.55) plantBigOak(x, h, z, tr); else plantTree(x, h, z, tr);
+        continue;
+      }
+      if (top === SNOW) continue;
+      if (r < 0.1 + forest * 0.08) setB(x, h + 1, z, forest > 0.55 && r2 < 0.4 ? FERN : TALLGRASS);
+      else if (r > 0.993) setB(x, h + 1, z, [FLOWER_R, FLOWER_Y, FLOWER_B, FLOWER_W, TULIP][Math.floor(r2 * 5)]);
+      else if (r > 0.9875 && forest > 0.5) setB(x, h + 1, z, r2 < 0.5 ? MUSHROOM_B : MUSHROOM_R);
+      else if (r > 0.9868 && r2 < 0.5) setB(x, h + 1, z, r2 < 0.25 ? PUMPKIN : MELON);
+    }
+    // Zum Königreich hin: die Große Mauer von außen, mit der Pforte (nur wenn dieses Stück direkt südlich ans Königreich grenzt)
+    if (oz === D) for (let x = 0; x < W; x++) {
+      const gx = ox + x; if (gx < 0 || gx >= W) continue;
+      for (let z = 0; z < 4; z++) { const g = heights[x + z * W]; fill(x, g - 2, z, x, Math.max(g, G0) + 12, z, SBRICK); if (z === 3 && gx % 2 === 0) setB(x, Math.max(g, G0) + 13, z, SBRICK); }
+    }
+    // Der Pilgerweg: von der Pforte 70 Blöcke nach Süden, folgt sanft dem Gelände (höchstens ein Block pro Schritt),
+    // über Wasser als Holzsteg auf Pfählen, mit Laternenpfählen; durch die Mauer führt er als Tunnel
+    if (oz === D && ox <= 94 && ox + W > 98) {
+      let prev = Math.max(heights[(96 - ox) + 8 * W], SEA + 1);
+      const road = [];
+      for (let z = 8; z >= 0; z--) road[z] = prev;   // vor und in der Mauer eben
+      for (let z = 9; z < 70; z++) { const h = heights[(96 - ox) + z * W]; prev = Math.max(prev - 1, Math.min(prev + 1, Math.max(h, SEA + 1))); road[z] = prev; }
+      for (let z = 0; z < 70; z++) {
+        const r = road[z], h = heights[(96 - ox) + z * W], wet = h <= SEA;
+        for (let gx = 94; gx <= 98; gx++) {
+          const x = gx - ox, edge = gx === 94 || gx === 98, hx = heights[x + z * W];
+          if (z < 4) { if (!edge) { for (let y = r + 1; y <= r + 4; y++) setB(x, y, z, AIR); setB(x, r, z, PATH); for (let y = hx; y < r; y++) setB(x, y, z, SBRICK); } continue; }
+          for (let y = r + 1; y <= r + 6; y++) { const bb = get(x, y, z); if (bb !== AIR) setB(x, y, z, AIR); }
+          if (wet) { setB(x, r, z, PLANKS); if (edge) setB(x, r + 1, z, FENCE); if (edge && z % 8 === 0) for (let y = r - 1; y > hx; y--) setB(x, y, z, LOG); }
+          else { for (let y = hx + 1; y < r; y++) setB(x, y, z, DIRT); setB(x, r, z, edge ? GRASS : PATH); }
+          if (edge && z % 12 === 6) { setB(x, r + 1, z, FENCE); setB(x, r + 2, z, FENCE); setB(x, r + 3, z, LAMP); }
+        }
+      }
+    }
+    AREAS.length = 0;
+    const dist = Math.round(Math.hypot(ox + W / 2 - C, oz + D / 2 - C));
+    AREAS.push(["Die Wildnis", "etwa " + dist.toLocaleString("de-DE") + " Blöcke vom Schloss entfernt", 0, W - 1, 0, H - 1, 0, D - 1]);
+    AREAS.unshift(["Eine Höhle", "tief unter der Wildnis", 0, W - 1, 0, SEA - 2, 0, D - 1]);
+    wildExtras17();                       // Schätze, Ruinen, Höhlentruhen (Teil c)
+  }
+  // ---------- Höhlen unter dem Königreich: im Hügelland im Südosten und am Westrand, mit Eingang am Hang ----------
+  V11.build.push(() => {
+    const zoneA = (x, z) => x >= 240 && x <= 318 && z >= 302 && z <= 428, zoneB = (x, z) => x >= 15 && x <= 30 && z >= 160 && z <= 330;
+    const deep = (x, z) => (zoneA(x, z) || zoneB(x, z));
+    // nur unter der Erde: oberste drei Schichten bleiben (außer am Eingang)
+    const save = [];
+    for (let z = 300; z <= 430; z++) for (let x = 238; x <= 320; x++) { const h = groundIn16(x, z); for (let y = h - 2; y <= h; y++) save.push([x, y, z, get(x, y, z)]); }
+    for (let z = 158; z <= 332; z++) for (let x = 13; x <= 32; x++) { const h = groundIn16(x, z); for (let y = h - 2; y <= h; y++) save.push([x, y, z, get(x, y, z)]); }
+    caves17(0, 0, deep, 0.5);
+    for (const [x, y, z, b] of save) setB(x, y, z, b);
+    // Eingang: ein Gang vom Hang schräg hinunter, mit Fackeln
+    let x = 286, z = 372, y = groundIn16(x, z) + 1;
+    for (let i = 0; i < 26; i++) {
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) for (let dy = 0; dy <= 2; dy++) setB(x + dx, y + dy, z + dz, AIR);
+      if (i % 6 === 2) setB(x - 2, y + 1, z, rotId(TORCH_W, 1, 0));
+      x += 1; if (i > 2) y -= 1;
+    }
+    AREAS.unshift(["Die Höhlen", "tief unter dem Hügelland", 238, 320, 2, G0 - 3, 300, 430], ["Höhleneingang", "Fackeln führen hinunter", 282, 292, G0 - 8, G0 + 12, 368, 376]);
+  });
+
+  // ---------- Reisen: vom Königreich hinaus, von Stück zu Stück, wieder heim ----------
+  const overlapsKingdom = (ox, oz) => ox < W && ox + W > 0 && oz < D && oz + D > 0;
+  let travelling17 = false;
+  function travel17(target) {
+    // target: { wild: { ox, oz, p } } oder { home: { x, z } }
+    if (travelling17) return;
+    travelling17 = true;
+    saveNow();                           // erst den jetzigen Stand sichern, dann das Reiseziel eintragen
+    noSave = true;
+    try {
+      if (target.wild) { localStorage.setItem(WILD_KEY, JSON.stringify(target.wild)); }
+      else { localStorage.removeItem(WILD_KEY); localStorage.setItem(HOME_KEY, JSON.stringify(target.home)); }
+    } catch (e) {}
+    if (!WILD) mapStoreKingdom17();      // das Bild des Königreichs für die Karte in der Wildnis
+    const veil = document.createElement("div");
+    veil.style.cssText = "position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#0d1a26;color:#f2ecdc;font:700 26px 'Pixelify Sans',monospace;text-align:center;padding:20px";
+    veil.textContent = target.wild ? "Die Wildnis wird erkundet …" : "Heimkehr ins Königreich …";
+    document.body.append(veil);
+    setTimeout(() => location.reload(), 60);
+  }
+  // Im Königreich: über den Rand hinaus in die Wildnis
+  function kingdomEdge17() {
+    if (P.dead || sleepT >= 0) return;
+    let ox, oz, px, pz;
+    if (P.z > D - 2.6) { ox = round16(P.x - W / 2); oz = D; px = P.x - ox; pz = 5.5; }
+    else if (P.z < 1.6) { ox = round16(P.x - W / 2); oz = -D; px = P.x - ox; pz = D - 6.5; }
+    else if (P.x < 1.6) { ox = -W; oz = round16(P.z - D / 2); px = W - 6.5; pz = P.z - oz; }
+    else if (P.x > W - 2.6) { ox = W; oz = round16(P.z - D / 2); px = 5.5; pz = P.z - oz; }
+    else return;
+    travel17({ wild: { ox, oz, p: [px, null, pz, P.yaw], kp: [Math.max(3, Math.min(W - 4, P.x)), P.y, Math.max(3, Math.min(D - 4, P.z)), P.yaw, P.pitch] } });
+  }
+  // In der Wildnis: am Rand das nächste Stück, oder heim, wenn das nächste Stück das Königreich berühren würde
+  function wildEdge17() {
+    if (P.dead || sleepT >= 0) return;
+    const m = 20;
+    if (P.x > m && P.x < W - m && P.z > m && P.z < D - m) return;
+    const gx = WILD.ox + P.x, gz = WILD.oz + P.z;
+    let nox = WILD.ox + round16(P.x - W / 2), noz = WILD.oz + round16(P.z - D / 2);
+    if (overlapsKingdom(nox, noz)) {
+      // Das nächste Stück würde das Königreich berühren: so verschieben, dass es außen bleibt
+      const pen = [W - nox, nox + W, D - noz, noz + D];   // nach rechts, links, unten, oben schieben
+      const i = pen.indexOf(Math.min(...pen));
+      if (i === 0) nox = W; else if (i === 1) nox = -W; else if (i === 2) noz = D; else noz = -D;
+    }
+    if (nox === WILD.ox && noz === WILD.oz) {
+      // Kein neues Stück möglich: der König steht an der Seite zum Königreich. Erst ganz am Rand geht es heim.
+      const atEdge = P.x < 2.6 || P.x > W - 3.6 || P.z < 2.6 || P.z > D - 3.6;
+      if (atEdge && gx > -8 && gx < W + 8 && gz > -8 && gz < D + 8) travel17({ home: { x: Math.max(3, Math.min(W - 4, gx)), z: Math.max(3, Math.min(D - 4, gz)) } });
+      return;
+    }
+    travel17({ wild: { ox: nox, oz: noz, p: [gx - nox, P.y, gz - noz, P.yaw], kp: WILD.kp } });
+  }
+  // ---------- Speichern in der Wildnis ----------
+  function v17WildEdit(x, y, z, b) {
+    if (!wildEdits) wildEdits = {};
+    wildEdits[(x + WILD.ox) + "," + y + "," + (z + WILD.oz)] = b;
+    saveSoon();
+  }
+  function v17SaveWild() {
+    try {
+      WILD.p = [P.x, P.y, P.z, P.yaw];
+      localStorage.setItem(WILD_KEY, JSON.stringify(WILD));
+      if (wildEdits) localStorage.setItem(WILD_EDITS_KEY, JSON.stringify(wildEdits));
+    } catch (e) {}
+  }
+  function applyWildEdits17() {
+    try { wildEdits = JSON.parse(localStorage.getItem(WILD_EDITS_KEY) || "{}") || {}; } catch (e) { wildEdits = {}; }
+    for (const k in wildEdits) {
+      const [gx, y, gz] = k.split(",").map(Number), x = gx - WILD.ox, z = gz - WILD.oz, b = wildEdits[k];
+      if (x >= 0 && z >= 0 && x < W && z < D && y >= 0 && y < H && b >= 0 && b < NB && (b === AIR || TEX[b])) world[idx(x, y, z)] = b;
+    }
+  }
+  // Wo der König in der Wildnis steht (nach dem Laden, nach dem Sterben gibt es die Heimkehr)
+  function wildPlace17() {
+    let [x, y, z, yaw] = WILD.p || [W / 2, null, D / 2, 0];
+    x = Math.max(4, Math.min(W - 5, x)); z = Math.max(4, Math.min(D - 5, z));
+    const fx = Math.floor(x), fz = Math.floor(z);
+    if (y === null || !Number.isFinite(y) || hits(x, y, z)) {
+      // ein trockener Platz in der Nähe (nicht im Wasser landen)
+      const dry = (cx, cz) => { let yy = H - 2; while (yy > 1 && !standable(cx, yy, cz)) yy--; return yy > 1 && get(cx, yy, cz) !== WATER && get(cx, yy - 1, cz) !== WATER ? yy : -1; };
+      let best = null;
+      for (let rr = 0; rr <= 40 && !best; rr += 2) for (let dz = -rr; dz <= rr && !best; dz += 2) for (let dx = -rr; dx <= rr; dx += 2) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== rr) continue;
+        const cx = fx + dx, cz = fz + dz; if (cx < 3 || cz < 3 || cx > W - 4 || cz > D - 4) continue;
+        const yy = dry(cx, cz); if (yy > 0) { best = [cx + 0.5, yy, cz + 0.5]; break; }
+      }
+      if (best) [x, y, z] = best; else { let yy = H - 2; while (yy > 1 && !standable(fx, yy, fz)) yy--; y = yy > 1 ? yy : heights[fx + fz * W] + 1; }
+    }
+    P.x = x; P.y = y; P.z = z; P.yaw = yaw || 0; P.pitch = 0; P.vx = P.vy = P.vz = 0; P.fallTop = P.y; P.seat = null;
+  }
+  // Nach dem Laden im Königreich: nach einer Heimkehr am Rand absetzen
+  function homePlace17() {
+    if (!HOME_AT) return;
+    const x = Math.floor(HOME_AT.x), z = Math.floor(HOME_AT.z);
+    let y = H - 2; while (y > 1 && !standable(x, y, z)) y--;
+    P.x = x + 0.5; P.z = z + 0.5; P.y = y > 1 ? y : groundIn16(x, z) + 1; P.vx = P.vy = P.vz = 0; P.fallTop = P.y; P.fly = false;
+    setTimeout(() => announce14("Willkommen daheim, Majestät! Durch die Südpforte kommst du wieder hinein.", "Heimkehr:"), 800);
+  }
+  let edgeT17 = 0;
+  function wildTick17(dt) {
+    if ((edgeT17 -= dt) > 0) return;
+    edgeT17 = 0.25;
+    if (!playing || palOpen) return;
+    if (WILD) wildEdge17(); else kingdomEdge17();
+  }
+  V11.update.push(dt => wildTick17(dt));
+  (V11.wild = V11.wild || []).push(dt => wildTick17(dt), dt => updateAnnounce(dt));
+  // ==================== Version 17: Die Karte (Taste M) ====================
+  // Das Königreich ist ganz eingezeichnet. Die Wildnis zeichnet sich selbst, sobald der König dort gewesen ist (Feld für Feld, 16 Blöcke groß).
+  // Ein Klick auf die Karte: Markierung setzen oder James und die Wachen dorthin schicken. Ziehen verschiebt, das Mausrad vergrößert.
+  const MAP_KEY = "blockwelt-map", MAPK_KEY = "blockwelt-map-k";
+  const MAP17 = { seen: new Set(), flags: [], treasure: [], cx: null, cz: null, zoom: 1 };
+  try {
+    const s = JSON.parse(localStorage.getItem(MAP_KEY) || "null");
+    if (s) { (s.seen || []).forEach(k => MAP17.seen.add(k)); MAP17.flags = s.flags || []; MAP17.treasure = s.treasure || []; MAP17.zoom = s.zoom || 1; }
+  } catch (e) {}
+  function mapSave17() {
+    try { localStorage.setItem(MAP_KEY, JSON.stringify({ seen: [...MAP17.seen], flags: MAP17.flags, treasure: MAP17.treasure, zoom: MAP17.zoom })); } catch (e) {}
+  }
+  // Wo der König gerade in der ganzen Welt steht
+  const kingG17 = () => [P.x + (WILD ? WILD.ox : 0), P.z + (WILD ? WILD.oz : 0)];
+  const inKingdom17 = (gx, gz) => gx >= 0 && gz >= 0 && gx < W && gz < D;
+  // Gesehene Felder merken (alles im Umkreis von 80 Blöcken, außerhalb des Königreichs)
+  let seenT17 = 0, seenDirty17 = false;
+  function markSeen17(dt) {
+    if ((seenT17 -= dt) > 0) return; seenT17 = 1;
+    const [gx, gz] = kingG17(), r = 5, cx = Math.floor(gx / 16), cz = Math.floor(gz / 16);
+    if (!WILD && gx > 90 && gx < W - 90 && gz > 90 && gz < D - 90) return;
+    for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dz * dz > r * r + 1) continue;
+      const x = cx + dx, z = cz + dz;
+      if (inKingdom17(x * 16 + 8, z * 16 + 8)) continue;
+      const k = x + "," + z; if (!MAP17.seen.has(k)) { MAP17.seen.add(k); seenDirty17 = true; }
+    }
+    if (seenDirty17 && Math.random() < 0.1) { seenDirty17 = false; mapSave17(); }
+  }
+  // Farbe der Wildnis an einer Stelle – aus denselben Formeln wie die Landschaft
+  const PARCH = [238, 220, 176];
+  function wildColor17(gx, gz) {
+    const h = wildHeight17(gx, gz), t = wildTemp17(gx, gz);
+    let c;
+    if (h <= SEA) c = mix([128, 164, 178], [70, 104, 136], Math.min(1, (SEA - h) / 9));
+    else if (t > 0.64) c = [228, 206, 150];
+    else if (h > SEA + 52) c = [242, 242, 236];
+    else if (h > SEA + 46) c = [150, 146, 140];
+    else if (h === SEA + 1) c = [226, 208, 156];
+    else {
+      const forest = fbm(gx / 70, gz / 70, 7151), snowy = t < 0.36 || h > SEA + 40;
+      c = snowy ? [222, 228, 226] : mix(PARCH, [150, 172, 104], 0.55);
+      if (forest > 0.5) c = mix(c, t < 0.42 ? [52, 84, 64] : [72, 106, 60], Math.min(0.85, (forest - 0.5) * 5));
+    }
+    const k = 1 + Math.max(-0.2, Math.min(0.2, (h - wildHeight17(gx - 2, gz - 2)) * 0.05));
+    return mix(c, PARCH, 0.22).map(v => v * k);
+  }
+  // Ein Feld der Wildnis als kleines Bild (8 x 8 Punkte, je 2 Blöcke), einmal gezeichnet und gemerkt
+  const tiles17 = new Map();
+  function tile17(cx, cz) {
+    const k = cx + "," + cz; let cv = tiles17.get(k);
+    if (cv) return cv;
+    cv = document.createElement("canvas"); cv.width = cv.height = 8;
+    const g = cv.getContext("2d"), im = g.createImageData(8, 8);
+    for (let z = 0; z < 8; z++) for (let x = 0; x < 8; x++) {
+      const c = wildColor17(cx * 16 + x * 2 + 1, cz * 16 + z * 2 + 1), o = (z * 8 + x) * 4;
+      const f = (hash(cx * 8 + x, cz * 8 + z, 93) - 0.5) * 8;
+      im.data[o] = c[0] + f; im.data[o + 1] = c[1] + f; im.data[o + 2] = c[2] * 0.95 + f; im.data[o + 3] = 255;
+    }
+    g.putImageData(im, 0, 0);
+    tiles17.set(k, cv);
+    return cv;
+  }
+  // Das Königreich als Bild: im Königreich frisch gemalt, in der Wildnis aus dem Speicher
+  let kingdomImg17 = null, kingdomAt17 = -1e9;
+  function kingdomImage17(cb) {
+    if (!WILD) {
+      if (!kingdomImg17 || performance.now() - kingdomAt17 > 60000) {
+        const cv = document.createElement("canvas"); cv.width = W; cv.height = D;
+        const g = cv.getContext("2d"), im = g.createImageData(W, D); im.data.set(drawMapArt(W, D)); g.putImageData(im, 0, 0);
+        try { labelMapArt(g, 0, 0, W, D); } catch (e) {}
+        kingdomImg17 = cv; kingdomAt17 = performance.now();
+      }
+      cb(kingdomImg17); return;
+    }
+    if (kingdomImg17) { cb(kingdomImg17); return; }
+    const url = (() => { try { return localStorage.getItem(MAPK_KEY); } catch (e) { return null; } })();
+    if (!url) { cb(null); return; }
+    const img = new Image(); img.onload = () => { kingdomImg17 = img; cb(img); }; img.onerror = () => cb(null); img.src = url;
+  }
+  // Vor der Reise in die Wildnis wird das Bild des Königreichs gespeichert
+  function mapStoreKingdom17() {
+    if (WILD) return;
+    try { kingdomImage17(cv => { if (cv && cv.toDataURL) localStorage.setItem(MAPK_KEY, cv.toDataURL("image/png")); }); } catch (e) {}
+    mapSave17();
+  }
+  // Namen für Gegenden der Wildnis (jede Gegend 384 x 384 Blöcke hat ihren eigenen Namen)
+  const SYL17 = [["Ar", "Bel", "Dorn", "Eis", "Fal", "Grau", "Hag", "Ilm", "Kar", "Lin", "Mor", "Nord", "Ost", "Rab", "Sil", "Tann", "Ul", "Wen", "Wolf", "Zirn"],
+    ["a", "e", "en", "er", "il", "o", "un", "au", "ei", "ar"]];
+  function regionName17(rx, rz) {
+    const gx = rx * 384 + 192, gz = rz * 384 + 192, h = wildHeight17(gx, gz), t = wildTemp17(gx, gz), f = fbm(gx / 70, gz / 70, 7151);
+    const a = SYL17[0][Math.floor(hash(rx, rz, 401) * 20)], b = SYL17[1][Math.floor(hash(rx, rz, 402) * 10)];
+    const kind = h <= SEA ? "see" : t > 0.64 ? "sand" : h > SEA + 34 ? "berge" : f > 0.55 ? "wald" : t < 0.36 ? "frost" : hash(rx, rz, 403) < 0.5 ? "heide" : "tal";
+    return a + (hash(rx, rz, 404) < 0.4 ? b : "") + kind;
+  }
+
+  // ---------- Das Kartenfenster ----------
+  const mapCss = document.createElement("style");
+  mapCss.textContent = `
+  #v13 .map17 { width: min(1100px, calc(100vw - 32px)); height: min(760px, calc(100vh - 32px)); display: grid; grid-template-rows: auto 1fr auto; gap: 8px; padding: 12px; box-sizing: border-box; }
+  #v13 .map17 .mhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #v13 .map17 .mhead h2 { margin: 0 auto 0 0; }
+  #v13 .map17 .mwrap { position: relative; border-radius: 8px; overflow: hidden; border: 2px solid #6b4a24; background: #d9c597; min-height: 0; touch-action: none; }
+  #v13 .map17 canvas.mc { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; image-rendering: pixelated; }
+  #v13 .map17 .mfoot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font: 500 13px "Nunito", system-ui, sans-serif; color: var(--ink-dim); }
+  #v13 .map17 .mpop { position: absolute; min-width: 200px; background: var(--panel); border: 1px solid var(--sun); border-radius: 8px; padding: 6px; display: grid; gap: 4px; z-index: 2; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+  #v13 .map17 .mpop .pt { font: 700 13px "Pixelify Sans", monospace; color: var(--sun); padding: 2px 4px; }
+  #v13 .map17 .mpop button { text-align: left; }`;
+  document.head.append(mapCss);
+  let mapEl17 = null;
+  function buildMap17(root) {
+    const card = h("div", "card map17"), head = h("div", "mhead");
+    head.append(h("h2", "", WILD ? "Karte der Wildnis" : "Karte des Königreichs"));
+    const btn = (t, f) => { const b = h("button", "v13btn alt", t); b.type = "button"; b.addEventListener("click", f); head.append(b); return b; };
+    btn("−", () => zoomMap17(1 / 1.5)); btn("+", () => zoomMap17(1.5)); btn("Zum König", () => { [MAP17.cx, MAP17.cz] = kingG17(); drawMap17(); });
+    btn("Schließen (M)", () => closePalette());
+    const wrap = h("div", "mwrap"), cv = h("canvas", "mc"), foot = h("div", "mfoot"), info = h("span", "", ""), legend = h("span", "", "Klick: Markierung setzen oder Leute losschicken · Ziehen: verschieben · Rad: größer/kleiner");
+    wrap.append(cv); foot.append(info, legend); card.append(head, wrap, foot); root.append(card);
+    mapEl17 = { cv, wrap, info, pop: null };
+    if (MAP17.cx === null || !Number.isFinite(MAP17.cx)) [MAP17.cx, MAP17.cz] = kingG17();
+    else [MAP17.cx, MAP17.cz] = kingG17();
+    // Ziehen und Klicken
+    let drag = null;
+    cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, cx: MAP17.cx, cz: MAP17.cz, moved: false }; cv.style.cursor = "grabbing"; });
+    cv.addEventListener("pointermove", e => {
+      const [gx, gz] = mapToWorld17(e.offsetX, e.offsetY);
+      info.textContent = "X " + Math.floor(gx) + "  Z " + Math.floor(gz) + " · " + (inKingdom17(gx, gz) ? "Königreich" : MAP17.seen.has(Math.floor(gx / 16) + "," + Math.floor(gz / 16)) ? "Wildnis" : "unerforscht");
+      if (!drag) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+      if (drag.moved) { const s = scale17(); MAP17.cx = drag.cx - dx / s; MAP17.cz = drag.cz - dy / s; drawMap17(); }
+    });
+    cv.addEventListener("pointerup", e => { cv.style.cursor = "grab"; const d = drag; drag = null; if (d && !d.moved) mapClick17(e.offsetX, e.offsetY); });
+    cv.addEventListener("wheel", e => { e.preventDefault(); zoomMap17(e.deltaY < 0 ? 1.25 : 0.8); }, { passive: false });
+    kingdomImage17(() => drawMap17());
+    requestAnimationFrame(() => drawMap17());
+  }
+  const scale17 = () => MAP17.zoom * (window.devicePixelRatio > 1 ? 1 : 1);
+  function zoomMap17(f) { MAP17.zoom = Math.max(0.125, Math.min(6, MAP17.zoom * f)); drawMap17(); }
+  function mapToWorld17(px, py) {
+    const r = mapEl17.cv.getBoundingClientRect(), s = scale17();
+    return [MAP17.cx + (px - r.width / 2) / s, MAP17.cz + (py - r.height / 2) / s];
+  }
+  function drawMap17() {
+    if (!mapEl17 || V13.ui !== "karte") return;
+    const cv = mapEl17.cv, r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.max(10, Math.round(r.width * dpr)); cv.height = Math.max(10, Math.round(r.height * dpr));
+    const g = cv.getContext("2d"), s = scale17() * dpr, w = cv.width, ht = cv.height;
+    const X = gx => (gx - MAP17.cx) * s + w / 2, Z = gz => (gz - MAP17.cz) * s + ht / 2;
+    g.imageSmoothingEnabled = false;
+    // Unerforschtes Pergament mit Schraffur
+    g.fillStyle = "#d9c597"; g.fillRect(0, 0, w, ht);
+    g.strokeStyle = "rgba(120,90,50,.18)"; g.lineWidth = 1;
+    for (let k = -ht; k < w; k += 14) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + ht, ht); g.stroke(); }
+    // Gesehene Felder der Wildnis
+    const gx0 = MAP17.cx - w / 2 / s, gz0 = MAP17.cz - ht / 2 / s, gx1 = MAP17.cx + w / 2 / s, gz1 = MAP17.cz + ht / 2 / s;
+    const c0x = Math.floor(gx0 / 16), c1x = Math.floor(gx1 / 16), c0z = Math.floor(gz0 / 16), c1z = Math.floor(gz1 / 16);
+    if ((c1x - c0x) * (c1z - c0z) < 40000) for (let cz = c0z; cz <= c1z; cz++) for (let cx = c0x; cx <= c1x; cx++) {
+      if (!MAP17.seen.has(cx + "," + cz)) continue;
+      g.drawImage(tile17(cx, cz), Math.floor(X(cx * 16)), Math.floor(Z(cz * 16)), Math.ceil(16 * s) + 1, Math.ceil(16 * s) + 1);
+    }
+    // Das Königreich
+    if (kingdomImg17) { g.imageSmoothingEnabled = s < 1; g.drawImage(kingdomImg17, X(0), Z(0), W * s, D * s); g.imageSmoothingEnabled = false; }
+    else { g.fillStyle = "rgba(150,120,70,.5)"; g.fillRect(X(0), Z(0), W * s, D * s); }
+    g.strokeStyle = "rgba(90,58,24,.8)"; g.lineWidth = 2 * dpr; g.strokeRect(X(0), Z(0), W * s, D * s);
+    // Namen der Gegenden
+    g.textAlign = "center"; g.textBaseline = "middle";
+    const rx0 = Math.floor(gx0 / 384), rx1 = Math.floor(gx1 / 384), rz0 = Math.floor(gz0 / 384), rz1 = Math.floor(gz1 / 384);
+    if ((rx1 - rx0) * (rz1 - rz0) < 400) for (let rz = rz0; rz <= rz1; rz++) for (let rx = rx0; rx <= rx1; rx++) {
+      const mx = rx * 384 + 192, mz = rz * 384 + 192;
+      if (inKingdom17(mx, mz) || !MAP17.seen.has(Math.floor(mx / 16) + "," + Math.floor(mz / 16))) continue;
+      const fs = Math.max(10, Math.min(22, 26 * s)) * (s < 0.6 ? 1 : 1);
+      g.font = "italic 700 " + fs + "px Georgia, 'Times New Roman', serif"; g.lineWidth = 3 * dpr; g.strokeStyle = "rgba(240,224,184,.9)";
+      const nm = regionName17(rx, rz); g.strokeText(nm, X(mx), Z(mz)); g.fillStyle = "#4a2e14"; g.fillText(nm, X(mx), Z(mz));
+    }
+    // Zeichen: Schätze, Markierungen, Leute
+    const dot = (gx, gz, col, rad, ring) => { g.beginPath(); g.arc(X(gx), Z(gz), rad * dpr, 0, Math.PI * 2); g.fillStyle = col; g.fill(); if (ring) { g.lineWidth = 1.5 * dpr; g.strokeStyle = ring; g.stroke(); } };
+    const label = (t, gx, gz, dy) => { g.font = "700 " + 12 * dpr + "px 'Pixelify Sans', monospace"; g.lineWidth = 3 * dpr; g.strokeStyle = "rgba(240,224,184,.95)"; g.strokeText(t, X(gx), Z(gz) + dy * dpr); g.fillStyle = "#3a2410"; g.fillText(t, X(gx), Z(gz) + dy * dpr); };
+    for (const t of MAP17.treasure) {
+      if (t.found) continue;
+      const x = X(t.gx), z = Z(t.gz), k = 7 * dpr;
+      g.strokeStyle = "#a01818"; g.lineWidth = 3.5 * dpr; g.beginPath(); g.moveTo(x - k, z - k); g.lineTo(x + k, z + k); g.moveTo(x + k, z - k); g.lineTo(x - k, z + k); g.stroke();
+      label(t.name || "Schatz", t.gx, t.gz, 16);
+    }
+    for (const f of MAP17.flags) {
+      const x = X(f[0]), z = Z(f[1]);
+      g.strokeStyle = "#3a2410"; g.lineWidth = 2 * dpr; g.beginPath(); g.moveTo(x, z); g.lineTo(x, z - 18 * dpr); g.stroke();
+      g.fillStyle = "#c0392b"; g.beginPath(); g.moveTo(x, z - 18 * dpr); g.lineTo(x + 12 * dpr, z - 14 * dpr); g.lineTo(x, z - 10 * dpr); g.fill();
+      if (f[2]) label(f[2], f[0], f[1], 10);
+    }
+    const off = WILD ? [WILD.ox, WILD.oz] : [0, 0];
+    if (!WILD && s >= 0.5) for (const e of ents) {
+      if (e.dead >= 0 || e.gone) continue;
+      if (e.kind === "guard") dot(e.x, e.z, e.order15 ? "#2050c0" : "#4a6fb0", e.order15 ? 3.4 : 2.2);
+      else if (e.guest15) dot(e.x, e.z, "#8e44ad", 3.4, "#fff");
+      else if (e.kind === "zombie") dot(e.x, e.z, "#2e7d32", 3, "#111");
+      else if (WORKERS.includes(e) && s >= 1) dot(e.x, e.z, "rgba(120,70,30,.75)", 1.6);
+    }
+    if (V17SHIP && V17SHIP.mesh) dot(V17SHIP.x + off[0], V17SHIP.z + off[1], "#6d4c2a", 4, "#fff");
+    if (butler && butler.dead < 0) { dot(butler.x + off[0], butler.z + off[1], "#111", 4.2, "#f0b541"); label("James", butler.x + off[0], butler.z + off[1], -12); }
+    // Der König: Pfeil in Blickrichtung
+    const [kx, kz] = kingG17(), ax = X(kx), az = Z(kz);
+    g.save(); g.translate(ax, az); g.rotate(Math.PI - P.yaw);
+    g.beginPath(); g.moveTo(0, -11 * dpr); g.lineTo(7 * dpr, 8 * dpr); g.lineTo(0, 4 * dpr); g.lineTo(-7 * dpr, 8 * dpr); g.closePath();
+    g.fillStyle = "#f0b541"; g.fill(); g.lineWidth = 2 * dpr; g.strokeStyle = "#5a3a12"; g.stroke(); g.restore();
+    label("Du", kx, kz, 18);
+    // Maßstab und Windrose
+    const bar = [16, 32, 64, 128, 256, 512, 1024].find(n => n * s > 70 * dpr) || 1024;
+    g.fillStyle = "rgba(240,224,184,.85)"; g.fillRect(10 * dpr, ht - 30 * dpr, bar * s + 70 * dpr, 22 * dpr);
+    g.fillStyle = "#3a2410"; g.fillRect(16 * dpr, ht - 16 * dpr, bar * s, 4 * dpr);
+    g.font = "700 " + 12 * dpr + "px 'Pixelify Sans', monospace"; g.textAlign = "left"; g.fillText(bar + " Blöcke", 22 * dpr + bar * s, ht - 15 * dpr);
+    g.textAlign = "center"; g.font = "700 " + 16 * dpr + "px Georgia, serif"; g.fillStyle = "#5a3a12"; g.fillText("N", w - 24 * dpr, 20 * dpr);
+    g.beginPath(); g.moveTo(w - 24 * dpr, 30 * dpr); g.lineTo(w - 19 * dpr, 46 * dpr); g.lineTo(w - 29 * dpr, 46 * dpr); g.fill();
+  }
+  // Klick auf die Karte: kleines Auswahlfeld
+  function mapClick17(px, py) {
+    if (mapEl17.pop) { mapEl17.pop.remove(); mapEl17.pop = null; return; }
+    const [gx, gz] = mapToWorld17(px, py), pop = h("div", "mpop");
+    pop.style.left = Math.min(px + 8, mapEl17.wrap.clientWidth - 220) + "px"; pop.style.top = Math.min(py + 8, mapEl17.wrap.clientHeight - 190) + "px";
+    pop.append(h("div", "pt", inKingdom17(gx, gz) ? "Im Königreich (X " + Math.floor(gx) + ", Z " + Math.floor(gz) + ")" : "In der Wildnis (X " + Math.floor(gx) + ", Z " + Math.floor(gz) + ")"));
+    const opt = (t, f) => { const b = h("button", "v13btn alt", t); b.type = "button"; b.addEventListener("click", ev => { ev.stopPropagation(); pop.remove(); mapEl17.pop = null; f(); drawMap17(); }); pop.append(b); };
+    const near = MAP17.flags.findIndex(f => Math.hypot(f[0] - gx, f[1] - gz) < 10 / scale17() + 2);
+    if (near >= 0) opt("Markierung entfernen", () => { MAP17.flags.splice(near, 1); mapSave17(); });
+    else opt("Markierung setzen", () => { MAP17.flags.push([Math.round(gx), Math.round(gz), "Markierung " + (MAP17.flags.length + 1)]); mapSave17(); });
+    const lx = Math.floor(gx - (WILD ? WILD.ox : 0)), lz = Math.floor(gz - (WILD ? WILD.oz : 0));
+    const here = lx > 2 && lz > 2 && lx < W - 3 && lz < D - 3;   // liegt im geladenen Land
+    if (here && butler && butler.dead < 0) opt("James hierher schicken", () => sendTo17([butler], lx, lz, "James"));
+    if (here && !WILD) opt("Vier Wachen hierher", () => {
+      const gs = ents.filter(e => e.kind === "guard" && e.dead < 0 && !e.gone).sort((a, b) => Math.hypot(a.x - lx, a.z - lz) - Math.hypot(b.x - lx, b.z - lz)).slice(0, 4);
+      sendTo17(gs, lx, lz, "Die Wachen");
+    });
+    if (!here) pop.append(h("div", "pt", "Zu weit weg – dorthin muss man selbst reisen."));
+    mapEl17.wrap.append(pop); mapEl17.pop = pop;
+  }
+  // Leute zu einer Stelle schicken: sie gehen hin und warten dort (die Wachen halten zehn Minuten Wache)
+  function sendTo17(list, x, z, who) {
+    if (!list.length) return;
+    let y = H - 2; while (y > 1 && !standable(x, y, z)) y--;
+    if (y <= 1) { showName("Dort kann niemand stehen.", 1800); return; }
+    list.forEach((e, i) => {
+      const sp = freeSpotNear(x + 0.5, y, z + 0.5, (i % 2) * 2 - 1, Math.floor(i / 2) * 2 - 1) || [x + 0.5, y, z + 0.5];
+      if (e === butler) { e.stay = false; order15(e, [{ go: sp }, { fn: ee => { ee.stay = true; announce14("James ist an der markierten Stelle angekommen und wartet dort.", "Karte:"); } }]); }
+      else order15(e, [{ go: sp }, { wait: 600, fn: ee => { ee.yawT = hash(i, 3, 7) * 6.28; } }]);
+    });
+    say(who === "James" ? "James" : list[0].name || "Wache", who === "James" ? "Sehr wohl, Majestät. Ich mache mich auf den Weg." : "Zu Befehl! Wir ziehen los.");
+    if (!MAP17.flags.some(f => Math.hypot(f[0] - x - (WILD ? WILD.ox : 0), f[1] - z - (WILD ? WILD.oz : 0)) < 4)) { MAP17.flags.push([x + (WILD ? WILD.ox : 0), z + (WILD ? WILD.oz : 0), who === "James" ? "James" : "Wachen"]); mapSave17(); }
+  }
+  // Taste M öffnet und schließt die Karte; am Handy ein Knopf
+  window.addEventListener("keydown", e => {
+    if (e.code !== "KeyM" || e.repeat) return;
+    if (e.target && e.target.tagName === "INPUT") return;
+    if (palOpen && V13.ui === "karte") { e.stopImmediatePropagation(); closePalette(); return; }
+    if (!palOpen && playing && !P.dead && sleepT < 0) { e.stopImmediatePropagation(); openPalette("karte"); }
+  }, true);
+  window.addEventListener("resize", () => { if (V13.ui === "karte") drawMap17(); });
+  (() => {
+    const tb = document.querySelector(".tbtns");
+    if (tb) { const b = document.createElement("button"); b.id = "tMap"; b.textContent = "Karte"; tb.append(b); b.addEventListener("touchstart", e => { e.preventDefault(); initAudio(); openPalette("karte"); }, { passive: false }); }
+    const kl = document.getElementById("keyList");
+    if (kl) { const kb = document.createElement("kbd"), dv = document.createElement("div"); kb.textContent = "M"; dv.textContent = "Karte: Königreich und erforschte Wildnis, Markierungen, James und Wachen losschicken"; kl.append(kb, dv); }
+  })();
+  let mapRedraw17 = 0;
+  const mapTick17 = dt => { markSeen17(dt); if (V13.ui === "karte" && (mapRedraw17 -= dt) <= 0) { mapRedraw17 = 0.5; drawMap17(); } };
+  V11.update.push(mapTick17); (V11.wild = V11.wild || []).push(mapTick17);
+  window.addEventListener("pagehide", mapSave17);
+  // ==================== Version 17: Segelboot, Schatzkarten, Ruinen und Höhlentruhen ====================
+  // ---------- Das königliche Segelboot am Bootssteg ----------
+  // Rechtsklick (oder E) nah am Boot: einsteigen. W/S: schneller und langsamer, A/D: lenken. Leertaste oder Rechtsklick: am Ufer aussteigen.
+  // Folgt James gerade, steigt er mit ein und rudert hinten mit.
+  const solid17 = b => b !== AIR && b !== WATER && !NONSOLID[b] && !PLANT[b];
+  const SHIP_KEY = "blockwelt-ship";
+  const V17SHIP = { x: 0, z: 0, y: SEA + 0.82, yaw: Math.PI / 2, v: 0, turn: 0, on: false, mesh: null, mat: null, lt: 0, james: false, hintT: 0 };
+  function shipMesh17() {
+    const t = b => TEX[b][0], DP = t(DPLANK), SP = t(SPRUCE_PLANKS), LG = t(SPRUCE_LOG), WW = t(WWOOL), RW = t(RWOOL), GD = t(GOLD);
+    const hull = [
+      [-1.0, -0.55, -3.0, 1.0, -0.35, 3.0, DP],                                     // Boden
+      [-1.3, -0.5, -3.0, -1.1, 0.45, 3.0, SP], [1.1, -0.5, -3.0, 1.3, 0.45, 3.0, SP], // Bordwände
+      [-1.3, -0.5, 3.0, 1.3, 0.6, 3.25, SP],                                         // Heck
+      [-1.0, -0.45, -3.6, 1.0, 0.5, -3.0, SP], [-0.6, -0.35, -4.15, 0.6, 0.6, -3.6, SP], [-0.2, -0.1, -4.6, 0.2, 0.75, -4.15, SP], // Bug
+      [-1.36, 0.45, -3.0, -1.04, 0.58, 3.25, GD], [1.04, 0.45, -3.0, 1.36, 0.58, 3.25, GD],   // goldene Reling
+      [-1.1, -0.05, -1.0, 1.1, 0.08, -0.6, DP], [-1.1, -0.05, 1.7, 1.1, 0.08, 2.1, DP],         // Ruderbänke
+      [-0.13, -0.35, -1.62, 0.13, 6.3, -1.36, LG],                                    // Mast
+      [-0.08, 1.35, -1.55, 0.08, 1.52, 2.7, LG],                                      // Baum
+      [-0.04, 1.55, -1.32, 0.04, 6.0, 2.5, WW],                                       // Segel
+      [-0.05, 3.3, -1.32, 0.05, 3.85, 2.5, RW], [-0.05, 4.7, -1.32, 0.05, 5.0, 2.5, RW],   // rote Streifen
+      [-0.05, 6.3, -1.5, 0.05, 6.75, -0.6, RW], [-0.08, 6.3, -1.55, 0.08, 6.45, -1.4, GD],  // Wimpel
+      [-1.9, 0.05, 1.85, -1.3, 0.13, 2.0, DP], [1.3, 0.05, 1.85, 1.9, 0.13, 2.0, DP],         // Ruder
+    ];
+    const mat = litEnt(new THREE.MeshLambertMaterial({ map: atlasTex }));
+    const m = new THREE.Mesh(tileBoxGeo(hull), mat); m.castShadow = true; m.receiveShadow = true;
+    const g = new THREE.Group(); g.add(m); scene.add(g);
+    return { g, mat };
+  }
+  // Ist hier Wasser für das Boot? (Wasser auf Seehöhe, darüber frei)
+  const shipWater17 = (x, z) => { const fx = Math.floor(x), fz = Math.floor(z); return get(fx, SEA, fz) === WATER && !solid17(get(fx, SEA + 1, fz)); };
+  function shipFits17(x, z, yaw) {
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw), sx = Math.cos(yaw), sz = -Math.sin(yaw);
+    for (const [a, b] of [[0, 0], [4.3, 0], [-3.1, 0], [0, 1.2], [0, -1.2], [2.6, 0.9], [2.6, -0.9], [-2.4, 1.1], [-2.4, -1.1]])
+      if (!shipWater17(x + fx * a + sx * b, z + fz * a + sz * b)) return false;
+    return true;
+  }
+  function shipInit17() {
+    if (WILD || V17SHIP.mesh || !JETTY.x) return;
+    let s = null; try { s = JSON.parse(localStorage.getItem(SHIP_KEY) || "null"); } catch (e) {}
+    if (s && Number.isFinite(s.x) && shipFits17(s.x, s.z, s.yaw)) Object.assign(V17SHIP, { x: s.x, z: s.z, yaw: s.yaw });
+    else {
+      // Am Ende des Stegs festgemacht, längs zum Steg
+      // längs neben dem Steg (Südseite), Bug zum See hin
+      V17SHIP.yaw = -Math.PI / 2;
+      let ok = false;
+      for (const dz of [3.5, 4.5, -3.5, -4.5]) { for (let dx = 7; dx < 26 && !ok; dx++) { V17SHIP.x = JETTY.x + dx + 0.5; V17SHIP.z = LAKE.cz + dz; ok = shipFits17(V17SHIP.x, V17SHIP.z, V17SHIP.yaw); } if (ok) break; }
+    }
+    const { g, mat } = shipMesh17(); V17SHIP.mesh = g; V17SHIP.mat = mat;
+    AREAS.unshift(["Das königliche Segelboot", "Rechtsklick nah am Boot: einsteigen", 0, 0, SEA - 2, SEA + 8, 0, 0]);
+    V17SHIP.area = AREAS[0];
+  }
+  const shipDist17 = () => Math.hypot(P.x - V17SHIP.x, P.z - V17SHIP.z);
+  // Rechtsklick: ein- oder aussteigen
+  function v17Ship() {
+    if (WILD || !V17SHIP.mesh) return false;
+    if (V17SHIP.on) { shipLeave17(); return true; }
+    if (shipDist17() > 4.2 || Math.abs(P.y - V17SHIP.y) > 3.5) return false;
+    // nur wenn der König zum Boot schaut
+    const lx = -Math.sin(P.yaw), lz = -Math.cos(P.yaw), dx = V17SHIP.x - P.x, dz = V17SHIP.z - P.z, d = Math.hypot(dx, dz) || 1;
+    if ((lx * dx + lz * dz) / d < 0.35 && d > 1.6) return false;
+    shipBoard17(); return true;
+  }
+  function shipBoard17() {
+    V17SHIP.on = true; V17SHIP.v = 0; P.boat = V17SHIP; P.fly = false; P.vx = P.vy = P.vz = 0;
+    noiseHit(260, 0.8, 0.25, 0.08);
+    // James steigt mit ein, wenn er gerade folgt und in der Nähe ist
+    if (butler && butler.dead < 0 && !butler.stay && distP(butler) < 16) {
+      order15(butler, [{ wait: 1e9 }], {}); butler.ghost = true; butler.sit = true; butler.pose = "sit"; V17SHIP.james = true;
+      say("James", "Ich nehme die Ruder, Majestät. Eine schöne Fahrt!");
+    } else showName("Du sitzt im Segelboot. W und S: Fahrt, A und D: lenken, Leertaste: aussteigen", 3200);
+  }
+  function shipLeave17() {
+    // Einen festen Platz am Ufer oder auf dem Steg suchen
+    let best = null, bd = 1e9;
+    const cx = Math.floor(V17SHIP.x), cz = Math.floor(V17SHIP.z);
+    for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) for (let y = SEA + 1; y <= SEA + 4; y++) {
+      const x = cx + dx, z = cz + dz;
+      if (!standable(x, y, z) || get(x, y, z) === WATER || get(x, y - 1, z) === WATER) continue;
+      const d = Math.hypot(x + 0.5 - V17SHIP.x, z + 0.5 - V17SHIP.z); if (d < bd) { bd = d; best = [x + 0.5, y, z + 0.5]; }
+    }
+    if (!best) { showName("Hier ist kein Ufer zum Aussteigen. Fahr näher ans Land oder an den Steg.", 2200); return; }
+    V17SHIP.on = false; V17SHIP.v = 0; P.boat = null;
+    P.x = best[0]; P.y = best[1]; P.z = best[2]; P.vx = P.vy = P.vz = 0; P.fallTop = P.y; P.ground = true;
+    if (V17SHIP.james && butler) {
+      V17SHIP.james = false; butler.sit = false; butler.pose = "none";
+      const sp = freeSpotNear(P.x, P.y, P.z, 1.5, 1.5) || best;
+      butler.x = sp[0]; butler.y = sp[1]; butler.z = sp[2]; endOrder15(butler, true); butler.stay = false;
+    }
+    try { localStorage.setItem(SHIP_KEY, JSON.stringify({ x: V17SHIP.x, z: V17SHIP.z, yaw: V17SHIP.yaw })); } catch (e) {}
+    noiseHit(300, 0.7, 0.2, 0.06);
+  }
+  // Fahren (aus step aufgerufen, solange der König im Boot sitzt)
+  function shipStep17(dt, f, s) {
+    const S = V17SHIP;
+    if (keys.Space) { keys.Space = false; shipLeave17(); return; }
+    const vmax = (keys.ShiftLeft || keys.ShiftRight) ? 8.5 : 6;
+    S.v += (f * (f > 0 ? vmax : vmax * 0.4) - S.v) * Math.min(1, dt * (Math.abs(f) > 0.1 ? 0.9 : 0.5));
+    S.turn += ((-s) * (0.55 + Math.min(1, Math.abs(S.v) / 4) * 0.5) - S.turn) * Math.min(1, dt * 4);
+    const ny = S.yaw + S.turn * dt * (S.v < -0.1 ? -1 : 1);
+    const nx = S.x - Math.sin(ny) * S.v * dt, nz = S.z - Math.cos(ny) * S.v * dt;
+    if (shipFits17(nx, nz, ny)) { S.x = nx; S.z = nz; S.yaw = ny; }
+    else if (shipFits17(S.x, S.z, ny)) { S.yaw = ny; if (Math.abs(S.v) > 2.5) noiseHit(160, 0.6, 0.18, 0.05); S.v *= -0.2; }
+    else { if (Math.abs(S.v) > 2.5) noiseHit(160, 0.6, 0.18, 0.05); S.v *= -0.2; }
+    // Der König sitzt auf der vorderen Bank, der Blick bleibt frei
+    P.x = S.x - Math.sin(S.yaw) * 0.8; P.z = S.z - Math.cos(S.yaw) * 0.8; P.y = S.y - 0.32;
+    P.vx = -Math.sin(S.yaw) * S.v; P.vz = -Math.cos(S.yaw) * S.v; P.vy = 0; P.ground = true; P.inWater = false; P.fallTop = P.y;
+  }
+  function shipTick17(dt, t) {
+    const S = V17SHIP;
+    if (!S.mesh) { shipInit17(); if (!S.mesh) return; }
+    if (S.on && (P.dead || Math.hypot(P.x - S.x, P.z - S.z) > 3)) {   // gestorben oder fortgereist (Taste T): das Boot bleibt liegen
+      S.on = false; P.boat = null;
+      if (S.james && butler) { S.james = false; butler.sit = false; butler.pose = "none"; endOrder15(butler, true); }
+    }
+    // Wiegen auf den Wellen, Bugwelle
+    const sp = Math.abs(S.v), roll = Math.sin(t * 1.3) * 0.035 + S.turn * Math.min(1, sp / 5) * 0.12, pitch = Math.sin(t * 0.9 + 1) * 0.02 - Math.min(0.05, sp * 0.006);
+    S.mesh.position.set(S.x, S.y + Math.sin(t * 1.7) * 0.05, S.z);
+    S.mesh.rotation.set(pitch, S.yaw, roll, "YXZ");
+    if (sp > 1.5 && Math.random() < dt * sp * 3) emit(S.x - Math.sin(S.yaw) * 4.2, SEA + 1.05, S.z - Math.cos(S.yaw) * 4.2, 2, () => [235, 245, 255], 0.09, 0.8, 5);
+    if ((S.lt -= dt) <= 0) { S.lt = 0.5; const l = lightAt(S.x, SEA + 2, S.z); S.mat.userData.uLight.value.set(l.x, l.y); }
+    if (S.area) S.area[1] = S.on ? "W/S: Fahrt · A/D: lenken · Leertaste: aussteigen" : "Rechtsklick nah am Boot: einsteigen";
+    if (S.area) { S.area[2] = S.x - 4; S.area[3] = S.x + 4; S.area[6] = S.z - 4; S.area[7] = S.z + 4; }
+    // James rudert am Heck
+    if (S.james && butler) {
+      butler.x = S.x + Math.sin(S.yaw) * 2.0; butler.z = S.z + Math.cos(S.yaw) * 2.0; butler.y = S.y - 0.32; butler.vx = butler.vy = butler.vz = 0;
+      butler.yaw = butler.yawT = S.yaw + Math.PI; butler.sit = true; butler.pose = "sit"; butler.ghost = true;
+    }
+    // Hinweis, wenn der König davor steht
+    if (!S.on && (S.hintT -= dt) <= 0 && shipDist17() < 3.6 && sayT <= 0) { S.hintT = 8; hintEl.textContent = (isTouch ? "„Bauen“" : "Rechtsklick") + " zum Boot: einsteigen"; hintEl.hidden = false; sayT = 2.2; }
+  }
+  V11.update.push((dt, t) => shipTick17(dt, t === undefined ? performance.now() / 1000 : t));
+  window.addEventListener("pagehide", () => { if (V17SHIP.mesh && !WILD) try { localStorage.setItem(SHIP_KEY, JSON.stringify({ x: V17SHIP.x, z: V17SHIP.z, yaw: V17SHIP.yaw })); } catch (e) {} });
+
+  // ---------- Schatzkarten: die Abenteurerin Rosalind kommt zu Besuch ----------
+  PEOPLE11.g_abenteurer = { name: "Abenteurerin Rosalind", talk: "der Abenteurerin Rosalind", female: true, skin: [228, 186, 150], hair: [150, 60, 30], bodice: [90, 110, 60], skirt: [110, 80, 50], skirtLen: 9,
+    hat: { t: "beret", c: [70, 90, 50], feather: [200, 60, 40] }, tool: "bag", bagc: [120, 80, 40], boots: true, seed: pseed++ };
+  MODEL_DEFS.p11_g_abenteurer = () => defPerson(PEOPLE11.g_abenteurer);
+  const PIRATES17 = ["Kapitän Rotbart", "Piratin Jolanda", "Graf Eisenhand", "Hexe Morla", "König Olaf dem Vergessenen", "Ritter Kunibert", "Kapitänin Sturmwind", "Mönch Anselm", "Räuber Hotzenplatz", "Kaufmann Fugger"];
+  const DIRS17 = (dx, dz) => { const a = Math.atan2(dx, -dz) / Math.PI * 180, n = ["Norden", "Nordosten", "Osten", "Südosten", "Süden", "Südwesten", "Westen", "Nordwesten"]; return n[Math.round(((a + 360) % 360) / 45) % 8]; };
+  function newTreasure17() {
+    const r = mulberry32((Date.now() ^ (MAP17.treasure.length * 7919)) >>> 0);
+    for (let tries = 0; tries < 200; tries++) {
+      const a = r() * Math.PI * 2, d = 420 + r() * 900 + MAP17.treasure.length * 120;
+      const gx = Math.round(C + Math.sin(a) * d), gz = Math.round(D / 2 + Math.cos(a) * d);
+      if (gx > -40 && gx < W + 40 && gz > -40 && gz < D + 40) continue;
+      const h = wildHeight17(gx, gz); if (h <= SEA + 1 || h > SEA + 38 || wildTemp17(gx, gz) > 0.64 && r() < 0.5) continue;
+      const t = { gx, gz, name: "Schatz von " + PIRATES17[Math.floor(r() * PIRATES17.length)], found: false };
+      MAP17.treasure.push(t); mapSave17(); return t;
+    }
+    return null;
+  }
+  GUESTS15.push({ key: "g_abenteurer", what: "eine Abenteurerin mit einer alten Karte", where: "am Dorfbrunnen", spot: [99.5, G0 + 1, 200.5, -Math.PI / 2], act: "look",
+    lines: ["Ich war schon hinter den Bergen und über drei Meere{M}.", "In der Wildnis liegen Schätze, die keiner mehr sucht.", "{M_}eine gute Karte ist mehr wert als ein Sack Gold."],
+    talk17: e => {
+      if (e.gave15) { say(e.name, "Grabt dort, wo das rote Kreuz auf Eurer Karte ist, Majestät. Rote Blumen in Kreuzform zeigen die Stelle. Viel Glück!"); return true; }
+      e.gave15 = true; e.swingT = 0;
+      const t = newTreasure17();
+      if (!t) { say(e.name, "Heute habe ich leider keine Karte für Euch."); return true; }
+      const dx = t.gx - C, dz = t.gz - D / 2, d = Math.round(Math.hypot(t.gx - P.x, t.gz - P.z));
+      say(e.name, `Diese Karte fand ich in einer alten Truhe. Sie führt zum ${t.name}, etwa ${d.toLocaleString("de-DE")} Blöcke im ${DIRS17(dx, dz)}. Ich zeichne Euch das Kreuz in Eure Karte (Taste M).`);
+      announce14(`Neue Schatzkarte: ${t.name}, im ${DIRS17(dx, dz)} hinter der Großen Mauer.`, "Karte:");
+      noiseHit(900, 1.4, 0.1, 0.05); beep(660, 0.2, "triangle", 0.03);
+      return true;
+    } });
+
+  // ---------- Was in der Wildnis zu finden ist: vergrabene Schätze, Ruinen, Truhen in Höhlen ----------
+  function wildExtras17() {
+    const { ox, oz } = WILD;
+    const groundAt = (x, z) => heights[x + z * W];
+    // Vergrabene Schätze: Truhe einen Block unter der Erde, darüber rote Blumen als Kreuz
+    for (const t of MAP17.treasure) {
+      if (t.found) continue;
+      const x = t.gx - ox, z = t.gz - oz;
+      if (x < 4 || z < 4 || x > W - 5 || z > D - 5) continue;
+      const h = groundAt(x, z);
+      setB(x, h - 1, z, CHEST); setB(x, h, z, DIRT);
+      for (const [dx, dz] of [[0, 0], [-1, -1], [1, 1], [1, -1], [-1, 1], [-2, -2], [2, 2], [2, -2], [-2, 2]]) {
+        const xx = x + dx, zz = z + dz, hh = groundAt(xx, zz);
+        if (get(xx, hh + 1, zz) === AIR || PLANT[get(xx, hh + 1, zz)]) { if (get(xx, hh, zz) !== WATER) { setB(xx, hh, zz, GRASS); setB(xx, hh + 1, zz, FLOWER_R); } }
+      }
+      AREAS.unshift(["Vergrabener Schatz", t.name, x - 1, x + 1, h - 3, h + 3, z - 1, z + 1]);
+      t.lx = x; t.ly = h - 1; t.lz = z;
+    }
+    // Ruinen: in jedem Feld von 128 x 128 Blöcken vielleicht eine, aus moosigen Steinen, mit einer Truhe
+    const r0x = Math.floor(ox / 128), r1x = Math.floor((ox + W - 1) / 128), r0z = Math.floor(oz / 128), r1z = Math.floor((oz + D - 1) / 128);
+    for (let rz = r0z; rz <= r1z; rz++) for (let rx = r0x; rx <= r1x; rx++) {
+      const r = mulberry32(ihash(rx, rz, 7191));
+      if (r() > 0.5) continue;
+      const cx = rx * 128 + 20 + Math.floor(r() * 88) - ox, cz = rz * 128 + 20 + Math.floor(r() * 88) - oz;
+      if (cx < 8 || cz < 8 || cx > W - 9 || cz > D - 9) continue;
+      const g = groundAt(cx, cz); if (g <= SEA + 1 || g > SEA + 40) continue;
+      let flat = true; for (const [dx, dz] of [[-4, -4], [4, -4], [-4, 4], [4, 4]]) if (Math.abs(groundAt(cx + dx, cz + dz) - g) > 3) flat = false;
+      if (!flat) continue;
+      for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) {
+        const x = cx + dx, z = cz + dz, edge = Math.abs(dx) === 4 || Math.abs(dz) === 4;
+        for (let y = g + 1; y <= g + 6; y++) if (get(x, y, z) !== AIR && !LOGB[get(x, y, z)]) setB(x, y, z, AIR);
+        for (let y = groundAt(x, z); y < g; y++) setB(x, y, z, COBBLE);
+        setB(x, g, z, r() < 0.6 ? GRAVEL : MOSSY_COBBLE);
+        if (edge) { const hh = (dx === 0 || dz === 0) && !(Math.abs(dx) === 4 && Math.abs(dz) === 4) ? 0 : Math.floor(r() * 4); for (let y = 1; y <= hh; y++) setB(x, g + y, z, r() < 0.55 ? MOSSY_COBBLE : COBBLE); }
+      }
+      // Säulenstümpfe und die Truhe
+      for (const [dx, dz] of [[-2, -2], [2, 2]]) { const hh = 1 + Math.floor(r() * 3); for (let y = 1; y <= hh; y++) setB(cx + dx, g + y, cz + dz, SBRICK); }
+      setB(cx + 2, g + 1, cz - 2, CHEST); setB(cx - 3, g + 1, cz + 3, rotId(TORCH_W, 1, 0));
+      AREAS.unshift(["Alte Ruine", "verlassen und von Moos bewachsen", cx - 5, cx + 5, g - 2, g + 8, cz - 5, cz + 5]);
+    }
+    // Truhen in Höhlen: in manchen 16er-Feldern liegt eine auf dem Höhlenboden, mit einer Fackel daneben
+    for (let cz = Math.floor(oz / 16); cz <= Math.floor((oz + D - 1) / 16); cz++) for (let cx = Math.floor(ox / 16); cx <= Math.floor((ox + W - 1) / 16); cx++) {
+      const r = mulberry32(ihash(cx, cz, 7201));
+      if (r() > 0.07) continue;
+      const x = cx * 16 + 2 + Math.floor(r() * 12) - ox, z = cz * 16 + 2 + Math.floor(r() * 12) - oz;
+      if (x < 2 || z < 2 || x > W - 3 || z > D - 3) continue;
+      for (let y = 5; y < Math.min(SEA - 3, groundAt(x, z) - 5); y++) {
+        if (get(x, y, z) === AIR && get(x, y + 1, z) === AIR && solid17(get(x, y - 1, z)) && get(x, y - 1, z) !== WATER) {
+          setB(x, y, z, CHEST);
+          if (get(x + 1, y, z) === AIR && solid17(get(x + 1, y - 1, z))) setB(x + 1, y, z, rotId(TORCH_W, 1, 0));
+          break;
+        }
+      }
+    }
+  }
+  // Schatz gefunden? (wenn die Truhe geöffnet wird)
+  function treasureTick17() {
+    if (!WILD || V13.ui !== "truhe" || !V13.at) return;
+    for (const t of MAP17.treasure) if (!t.found && t.lx === V13.at[0] && t.ly === V13.at[1] && t.lz === V13.at[2]) {
+      t.found = true; mapSave17();
+      announce14(`Du hast den ${t.name} gefunden!`, "Schatz:"); beep(523, 0.15, "triangle", 0.04); setTimeout(() => beep(784, 0.25, "triangle", 0.04), 160);
+    }
+  }
+  (V11.wild = V11.wild || []).push(() => treasureTick17());
   // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.
@@ -11488,8 +12258,8 @@
   window.addEventListener("pagehide", saveNow);
   document.addEventListener("visibilitychange", () => { if (document.hidden) saveNow(); });
   setTimeout(() => {
-    generate();
-    if (save) {
+    if (WILD) genWild17(); else generate();   // Version 17: in der Wildnis eine eigene Landschaft
+    if (save && !WILD) {
       if (save.gate) gateInstantOpen();
       for (let i = 0; i + 1 < save.e.length; i += 2) {
         const k = save.e[i], b = save.e[i + 1];
@@ -11505,17 +12275,19 @@
         if (world[k] !== LEVER && world[k] !== LEVER_ON) levers.splice(i, 1); else world[k] = gate.open ? LEVER_ON : LEVER;
       }
     }
+    if (WILD) { KINGDOM_E = save && Array.isArray(save.e) ? save.e : []; applyWildEdits17(); }
     for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) { let y = H - 1; while (y > 0 && world[idx(x, y, z)] === AIR) y--; topY[x + z * W] = y; }
     lightAll();
     for (let cz = 0; cz < D / CS; cz++) for (let cx = 0; cx < W / CS; cx++) rebuildChunk(cx, cz);
     chunkGeo.fill(0); chunkLit.fill(0);
     buildHand(); makePlayerModel();
-    toGate();
-    if (save && Array.isArray(save.p) && save.p.length === 5 && save.p.every(Number.isFinite)) {
+    if (WILD) wildPlace17(); else toGate();
+    if (!WILD && save && Array.isArray(save.p) && save.p.length === 5 && save.p.every(Number.isFinite)) {
       [P.x, P.y, P.z, P.yaw, P.pitch] = save.p;
       if (P.x < 1 || P.z < 1 || P.x > W - 1 || P.z > D - 1 || hits(P.x, P.y, P.z)) toGate();
       if (save.fly) { P.fly = true; flyTag.hidden = false; }
     }
+    if (!WILD) homePlace17();
     if (save && [0, 1, 2].includes(save.view)) setView(save.view);
     if (save && Number.isFinite(save.t)) dayT = ((save.t % 1) + 1) % 1;
     if (save && Number.isFinite(save.hp)) P.hp = Math.max(1, Math.min(20, Math.round(save.hp)));
@@ -11523,8 +12295,11 @@
     setMonsters(!(save && save.mon === false));
     timeRun = !(save && save.tr === false);
     P.fallTop = P.y; updateSky(0); syncTimeUI(); showClock();
+    if (WILD) { spawnAnimals(); spawnButler(save && save.stay); updateJamesTag(); menuText.textContent = "Du bist in der Wildnis hinter der Großen Mauer. Das Land hört nie auf. Mit T oder zurück zur Mauer kommst du heim."; }
+    else {
     spawnPeople(); spawnAnimals(); spawnButler(save && save.stay); updateJamesTag(); placeProps(); spawnStaff();
     for (const f of V11.spawn) f();
+    }
     initDoors();
     worldReady = true;
     artQueue.push(...Object.keys(ART_SCENES));

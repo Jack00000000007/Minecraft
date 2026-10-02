@@ -49,9 +49,13 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Alarmglocke im Glockenturm über dem Dorfbrunnen: Rechtsklick oder Befehlskreis; alle laufen heim, über dem Schloss leuchtet der Schutzschild und hält Zombies fern; Entwarnung mit der Glocke oder morgens von selbst; der Nachtwächter läutet, wenn nachts drei oder mehr Zombies nah an Dorf oder Markt sind
 
 ## Version 17: Endlose Welt und Karte
-- [ ] Land ohne Ende hinter der Mauer, Höhlen, eigenes Schiff auf dem See
-- [ ] Abenteurer mit Schatzkarten zu einem überraschenden Ziel
-- [ ] Karte, die sich selbst zeichnet; per Klick Leute hinschicken
+- [x] Land ohne Ende hinter der Mauer: die Wildnis wird Stück für Stück (so groß wie das Königreich) aus festen Formeln erzeugt, mit Hügeln, Bergen mit Schnee, Flüssen, Seen, Wüste, Wäldern, Erzen und Höhlen. Am Rand eines Stücks lädt das nächste; an der Mauer geht es heim. Gebautes in der Wildnis wird gespeichert.
+- [x] Pilgerweg von der Südpforte 70 Blöcke nach Süden (Laternen, Holzsteg über Wasser); die Große Mauer ist von außen zu sehen
+- [x] Höhlen unter dem Königreich (Hügelland im Südosten und am Westrand), Eingang mit Fackeln bei X 286, Z 372
+- [x] Königliches Segelboot am Bootssteg: einsteigen mit Rechtsklick, W/S Fahrt, A/D lenken, Leertaste aussteigen; James rudert mit
+- [x] Abenteurerin Rosalind kommt als Gast und gibt eine Schatzkarte; der Schatz liegt vergraben in der Wildnis (rote Blumen als Kreuz)
+- [x] In der Wildnis: alte Ruinen mit Truhen, Truhen in Höhlen
+- [x] Karte (Taste M): Königreich ganz, Wildnis sobald erkundet, Namen der Gegenden, Schätze, Markierungen; per Klick James oder vier Wachen hinschicken
 
 ## Version 18: Armee und Magie
 - [ ] Über 1000 Leute anwerben, jeder Ritter oder Magier, Training im Hof
@@ -81,6 +85,7 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 | Version 13: Inventar und Handwerk | 300–339 (Gegenstände ab 1100, eigener Bilder-Atlas) | 170–189 |
 | Version 14: Lebendiges Dorf | 340–359 | keine neuen |
 | Version 16: Mauer und Schutz | 360–379 | keine neuen |
+| Version 17: Endlose Welt und Karte | keine neuen | keine neuen |
 
 ## Änderungen am alten Code (außerhalb der eigenen Abschnitte)
 - `updateEnts`: `else if (e.think) e.think(e, dt, dp);` für Leute mit eigenem Tagesablauf
@@ -89,3 +94,4 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - Version 14: `entPhysics` wird für Leute übersprungen, die außer Sicht geradlinig gehen (`e.ghost`); das Riesentor öffnet sich auch für den Abgaben-Zug (`e.zug14`); `useTarget` (`v14UseBlock` für die Torwinden); Hinweis beim Anschauen (`v14Hint`); Speichern (`v14Save`/`v14Load`). Im eigenen Abschnitt: Häuser speichern Betten, Stühle, Küche (`townHouse`), neue Werkzeuge in `defPerson`.
 - Version 15: `updateEnts` fragt zuerst `orderThink15` (Aufträge); `interact` fragt `guestTalk15` (Gäste); Q schließt offene Fenster; `v13Chopped` zählt Holz für James' Auftrag.
 - Version 16: Nach `buildGreatWall()` laufen die Bauten aus `V11.post` (Südpforte, Treppen, Kanonen), weil die Große Mauer erst nach allen anderen Bauten entsteht. `workerThink` läuft nur noch innerhalb der Arbeitszeit.
+- Version 17: Beim Start entscheidet `WILD` (aus dem Speicher), ob das Königreich (`generate`) oder ein Stück Wildnis (`genWild17`) gebaut wird. In der Wildnis: nur Tiere und James, eigene Bauten in `blockwelt-wild-edits` (`recordEdit` → `v17WildEdit`), das Königreich-Spiel wird nicht verändert (`saveNow` behält die alten Änderungen), `toGate` und T führen heim, das Bild-Update läuft über `V11.wild`. `placeBlock` fragt zuerst `v17Ship` (Boot), `step` lenkt im Boot über `shipStep17`, die Spielerfigur sitzt im Boot (`updatePlayerModel`). `chestKey` zählt in der Wildnis nach Weltzahlen; Truhen-Inhalte für „Vergrabener Schatz“, „Ruine“, „Höhle“. `guestTalk15` fragt `talk17`.

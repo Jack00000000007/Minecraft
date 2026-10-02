@@ -2,6 +2,14 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Version 17: Endlose Welt und Karte (auf diesem Branch)
+
+- Hinter der Großen Mauer geht die Welt jetzt **ohne Ende** weiter. Geh durch die Südpforte: ein Pilgerweg mit Laternen führt in die **Wildnis** mit Wäldern, Bergen mit Schnee, Flüssen, Seen, Wüsten, Höhlen und Erzen. Kommst du an den Rand, lädt kurz das nächste Stück. Gehst du zurück an die Mauer, bist du wieder daheim. Was du in der Wildnis baust, bleibt gespeichert.
+- In der Wildnis findest du **alte Ruinen** und **Truhen in Höhlen**. Auch unter dem Königreich gibt es jetzt Höhlen: Der Eingang mit Fackeln liegt im Hügelland im Südosten.
+- Am Bootssteg liegt das **königliche Segelboot**. Rechtsklick nah am Boot: einsteigen. W und S: schneller und langsamer, A und D: lenken, Leertaste: am Ufer aussteigen. Folgt dir James, rudert er mit.
+- Manchmal kommt die **Abenteurerin Rosalind** zu Besuch. Sie gibt dir eine **Schatzkarte**: Das rote Kreuz steht auf deiner Karte, und an der Stelle in der Wildnis zeigen rote Blumen, wo du graben musst.
+- **Karte (Taste M, am Handy „Karte“):** Das Königreich ist ganz eingezeichnet, die Wildnis zeichnet sich, sobald du dort warst, mit Namen für jede Gegend. Ziehen verschiebt, das Mausrad vergrößert. Ein Klick: Markierung setzen oder James und vier Wachen dorthin schicken.
+
 ## Version 16: Mauer und Schutz (auf diesem Branch)
 
 - Über Treppen kommst du auf die Große Mauer und auf die Stadtmauer und kannst oben entlanglaufen: im Westen beim Dorf, im Osten beim Gutshof, im Süden neben der Pforte, im Norden hinter dem Schloss und neben dem Feldtor.
@@ -131,7 +139,8 @@ So lädst du sie herunter: Auf GitHub oben auf den grünen Knopf „Code“ und 
 | N | Zeit überspringen: Morgen, Mittag, Abend, Nacht |
 | Strg + G | Zugbrücke und Tor von überall öffnen oder schließen |
 | F | Fliegen an / aus |
-| T | Zurück vor das Schlosstor, James kommt mit |
+| M | Karte: Königreich und erkundete Wildnis, Markierungen, Leute hinschicken |
+| T | Zurück vor das Schlosstor, James kommt mit (in der Wildnis: heim ins Königreich) |
 | Esc | Pause |
 
 Im Pausenmenü (Esc, am Handy der Knopf „II“ oben rechts) stellst du die Uhrzeit minutengenau ein: Tipp sie ins Uhrzeit-Feld oder schieb den Regler. Mit „Uhr: läuft“ hältst du die Zeit an oder lässt sie weiterlaufen. Außerdem schaltest du dort die Monster an oder aus und kannst mit „Welt zurücksetzen“ alles Gebaute löschen und neu anfangen.
