@@ -2,6 +2,12 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Dazu nach Version 20
+
+- **Wetter:** Mal scheint die Sonne, mal regnet es, manchmal kommt ein Gewitter mit Blitz und Donner. In kalten Gegenden der Wildnis schneit es.
+- **Aufgabenbuch (Taste J, am Handy „Aufgaben“):** 26 Aufgaben zeigen dir alles, was es im Spiel gibt. Jede erfüllte Aufgabe bringt Gold in die Schatztruhe.
+- Im Pausenmenü kannst du den **Ton** aus- und anschalten.
+
 ## Version 20: Das Königreich wächst (auf diesem Branch)
 
 - **Erlasse vom Thron:** Geh in den Thronsaal und öffne im Befehlskreis (Q) „Erlasse und Feste“. Dort stellst du die **Abgaben** ein (niedrig, mittel, hoch) und erlässt **Gesetze**: freies Brot, Ruhetag, Schule für alle Kinder, Pflege von Brunnen und Straßen, strenge Nachtwache.
@@ -163,6 +169,7 @@ So lädst du sie herunter: Auf GitHub oben auf den grünen Knopf „Code“ und 
 | Strg + G | Zugbrücke und Tor von überall öffnen oder schließen |
 | F | Fliegen an / aus |
 | R | Zauber: Feuerball, Blitz, Schutzschild, Heilung, Sturmwind |
+| J | Aufgabenbuch |
 | M | Karte: Königreich und erkundete Wildnis, Markierungen, Leute hinschicken |
 | T | Zurück vor das Schlosstor, James kommt mit (in der Wildnis: heim ins Königreich) |
 | Esc | Pause |

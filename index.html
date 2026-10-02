@@ -104,6 +104,7 @@
   .keys div:nth-child(even) { color: var(--ink-dim); }
 
   #touch { position: fixed; inset: 0; pointer-events: none; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   #joy { position: fixed; left: 24px; bottom: calc(90px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%;
     background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.2); pointer-events: auto; }
   #knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255,255,255,.3); }
@@ -1491,7 +1492,8 @@
       if (actx.state === "suspended") actx.resume();
     } catch (e) {}
   }
-  const ac = () => (actx && actx.state === "running") ? actx : null;
+  let muted = false;   // Ton aus (Pausenmenü)
+  const ac = () => (!muted && actx && actx.state === "running") ? actx : null;
   function beep(f, d, type, vol) {
     const a = ac(); if (!a) return;
     try {
@@ -1966,6 +1968,7 @@
     stars.children[0].material.opacity = stars.children[1].material.opacity = nightF * 0.95;
     stars.visible = nightF > 0.01;
     clouds.material.color.setRGB(0.2 + 0.8 * dayF + 0.2 * dusk, 0.22 + 0.78 * dayF + 0.05 * dusk, 0.3 + 0.7 * dayF - 0.05 * dusk);
+    weatherSky();   // Regen und Gewitter machen den Himmel grau
   }
   // Tageszeiten für die Taste N
   const TIMES = [["Morgen", 7 / 24], ["Mittag", 0.5], ["Abend", 0.75], ["Nacht", 22 / 24]];
@@ -8811,6 +8814,7 @@
     if (kind === "reich") { buildRealm19(UIEL, ctx); return; } // Version 19: Gespräch mit einem fremden Herrscher
     if (kind === "kutsche") { buildCoach19(UIEL); return; }   // Version 19: Reiseziel der Kutsche
     if (kind === "erlasse") { buildDecree20(UIEL); return; }  // Version 20: Erlasse und Feste vom Thron
+    if (kind === "aufgaben") { buildQuests(UIEL); return; }    // Aufgabenbuch
     if (kind === "werkbank") V13.gridSize = 3; else if (kind === "inventar") V13.gridSize = 2;
     if (kind === "truhe") V13.chest = chestAt(ctx[0], ctx[1], ctx[2]);
     if (kind === "ofen") V13.furnace = furnaceAt(ctx[0], ctx[1], ctx[2]);
@@ -11834,7 +11838,7 @@
   #v13 .army18 .box { border: 1px solid var(--panel-line); border-radius: 8px; padding: 10px; display: grid; gap: 6px; }
   #v13 .army18 .box h3 { margin: 0; font: 700 18px "Pixelify Sans", monospace; color: var(--sun); }
   #v13 .army18 .row { display: flex; justify-content: space-between; font: 500 14px "Nunito", system-ui, sans-serif; color: var(--ink); }
-  #v13 .army18 .row b { font-variant-numeric: tabular-nums; }
+  #v13 .army18 .row b { font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: 8px; }
   #v13 .army18 .btns { display: flex; gap: 6px; flex-wrap: wrap; }
   #v13 .army18 .note { font: 500 13px "Nunito", system-ui, sans-serif; color: var(--ink-dim); }
   @media (max-width: 560px) { #v13 .army18 .cols { grid-template-columns: 1fr; } }`;
@@ -13147,6 +13151,182 @@
     if (Array.isArray(o.kids)) V20.kids = o.kids.filter(k => k && typeof k.n === "string").slice(0, 24);
     if (Array.isArray(o.why)) V20.why = o.why; if (Array.isArray(o.ev)) V20.ev = o.ev;
   }
+  // ==================== Nach Version 20: Wetter, Ton aus, Aufgabenbuch ====================
+  // Wetter: mal klar, mal Regen, mal Gewitter mit Blitz und Donner, in kalten Gegenden der Wildnis Schnee.
+  // Unter Dächern regnet es nicht. Der Himmel wird grau, das Licht dunkler.
+  const WX = { kind: "klar", k: 0, target: 0, left: 8, flashT: 0, nextBolt: 8, snd: null, sndGain: null };
+  const RAIN_N = 1400, rainPos = new Float32Array(RAIN_N * 6), rainGeo = new THREE.BufferGeometry();
+  rainGeo.setAttribute("position", new THREE.BufferAttribute(rainPos, 3));
+  const rainMesh = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0xa8bcd0, transparent: true, opacity: 0.55, depthWrite: false }));
+  rainMesh.frustumCulled = false; rainMesh.visible = false; scene.add(rainMesh);
+  const SNOW_N = 1600, snowPos = new Float32Array(SNOW_N * 3), snowGeo = new THREE.BufferGeometry();
+  snowGeo.setAttribute("position", new THREE.BufferAttribute(snowPos, 3));
+  const snowMesh = new THREE.Points(snowGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.16, transparent: true, opacity: 0.9, depthWrite: false }));
+  snowMesh.frustumCulled = false; snowMesh.visible = false; scene.add(snowMesh);
+  const rainDrops = [];
+  const coldHere = () => WILD && (wildTemp17(WILD.ox + P.x, WILD.oz + P.z) < 0.36 || P.y > SEA + 40);
+  const coverY = (x, z) => { const fx = Math.floor(x), fz = Math.floor(z); return fx < 0 || fz < 0 || fx >= W || fz >= D ? 0 : topY[fx + fz * W] + 1; };
+  function newRainDrop(d, top) {
+    const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 26;
+    d.x = camera.position.x + Math.cos(a) * r; d.z = camera.position.z + Math.sin(a) * r;
+    d.y = top ? camera.position.y + 6 + Math.random() * 16 : camera.position.y - 8 + Math.random() * 30;
+    d.floor = coverY(d.x, d.z); d.v = 20 + Math.random() * 8; d.ph = Math.random() * 6;
+  }
+  function setWeather(kind, quiet) {
+    if (kind === WX.kind) return;
+    WX.kind = kind; WX.target = kind === "klar" ? 0 : kind === "gewitter" ? 1 : 0.7;
+    if (!quiet) announce14({ klar: "Der Himmel klart auf.", regen: "Es fängt an zu regnen.", gewitter: "Ein Gewitter zieht auf! Blitze und Donner.", schnee: "Es schneit." }[kind], "Wetter:");
+  }
+  function weatherTick(dt) {
+    // neues Wetter alle 6 bis 18 Spielstunden
+    WX.left -= dt / 50;
+    if (WX.left <= 0) {
+      WX.left = 6 + Math.random() * 12;
+      const r = Math.random(), wet = r < 0.4 ? (r < 0.13 ? "gewitter" : "regen") : "klar";
+      setWeather(wet !== "klar" && coldHere() ? "schnee" : wet);
+    }
+    if (WX.kind === "regen" && coldHere()) setWeather("schnee", true);
+    if (WX.kind === "schnee" && !coldHere()) setWeather("regen", true);
+    WX.k += (WX.target - WX.k) * Math.min(1, dt * 0.25);
+    const snow = WX.kind === "schnee", n = Math.round((snow ? SNOW_N : RAIN_N) * WX.k);
+    rainMesh.visible = !snow && n > 10; snowMesh.visible = snow && n > 10;
+    while (rainDrops.length < Math.max(RAIN_N, SNOW_N)) { const d = {}; newRainDrop(d, false); rainDrops.push(d); }
+    let m = 0;
+    for (let i = 0; i < n; i++) {
+      const d = rainDrops[i];
+      d.y -= (snow ? 2.2 : d.v) * dt;
+      if (snow) { d.ph += dt; d.x += Math.sin(d.ph) * dt * 0.6; }
+      if (d.y < d.floor || d.y < camera.position.y - 12 || Math.hypot(d.x - camera.position.x, d.z - camera.position.z) > 28) { newRainDrop(d, true); continue; }
+      if (snow) { snowPos[m * 3] = d.x; snowPos[m * 3 + 1] = d.y; snowPos[m * 3 + 2] = d.z; }
+      else { rainPos[m * 6] = d.x; rainPos[m * 6 + 1] = d.y; rainPos[m * 6 + 2] = d.z; rainPos[m * 6 + 3] = d.x + 0.03; rainPos[m * 6 + 4] = d.y + 0.7; rainPos[m * 6 + 5] = d.z + 0.03; }
+      m++;
+    }
+    if (snow) { snowGeo.setDrawRange(0, m); snowGeo.attributes.position.needsUpdate = true; } else { rainGeo.setDrawRange(0, m * 2); rainGeo.attributes.position.needsUpdate = true; }
+    // Regenrauschen
+    const a = ac();
+    if (a && !WX.snd && WX.k > 0.05 && !snow) {
+      const src = a.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+      const lp = a.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1400;
+      const g = a.createGain(); g.gain.value = 0; src.connect(lp); lp.connect(g); g.connect(a.destination); src.start();
+      WX.snd = src; WX.sndGain = g;
+    }
+    if (WX.sndGain) { const inside = coverY(P.x, P.z) > P.y + 2.5; WX.sndGain.gain.value = snow || !a ? 0 : WX.k * (inside ? 0.012 : 0.03); }
+    // Gewitter: ferne Blitze, Donner kommt später
+    if (WX.kind === "gewitter" && WX.k > 0.6 && (WX.nextBolt -= dt) <= 0) {
+      WX.nextBolt = 5 + Math.random() * 12; WX.flashT = 0.25;
+      const an = Math.random() * Math.PI * 2, d = 40 + Math.random() * 90;
+      boltFar(P.x + Math.cos(an) * d, P.z + Math.sin(an) * d);
+      noiseHit(55 + Math.random() * 30, 0.4, 2.2, 0.15, d / 340); noiseHit(120, 0.6, 0.9, 0.08, d / 340 + 0.15);
+    }
+    if (WX.flashT > 0) WX.flashT -= dt;
+  }
+  function boltFar(x, z) {
+    let y = H - 2; const fx = Math.floor(x), fz = Math.floor(z);
+    if (fx >= 0 && fz >= 0 && fx < W && fz < D) y = topY[fx + fz * W] + 1; else y = SEA + 2;
+    const g = new THREE.Group(), mat = new THREE.MeshBasicMaterial({ color: 0xeef4ff });
+    let px = x, py = y + 60, pz = z;
+    while (py > y) { const ny = Math.max(y, py - 4 - Math.random() * 4), nx = px + (Math.random() - 0.5) * 5, nz = pz + (Math.random() - 0.5) * 5, len = Math.hypot(nx - px, ny - py, nz - pz);
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.35, len, 0.35), mat); s.position.set((px + nx) / 2, (py + ny) / 2, (pz + nz) / 2); s.lookAt(nx, ny, nz); s.rotateX(Math.PI / 2); g.add(s); px = nx; py = ny; pz = nz; }
+    scene.add(g); setTimeout(() => { scene.remove(g); g.children.forEach(c => c.geometry.dispose()); }, 220);
+  }
+  // Himmel und Licht bei schlechtem Wetter (aus updateSky aufgerufen)
+  const GREY = new THREE.Color(0x6f7b86), GREY_N = new THREE.Color(0x10141a);
+  function weatherSky() {
+    const k = WX.k; if (k <= 0.01) return;
+    const grey = GREY_N.clone().lerp(GREY, dayF);
+    skyTop.lerp(grey, k * 0.8); HORIZON.lerp(grey, k * 0.7);
+    sunLight.intensity *= 1 - 0.65 * k; hemi.intensity *= 1 - 0.22 * k;
+    clouds.material.color.multiplyScalar(1 - 0.45 * k);
+    if (WX.flashT > 0) { hemi.intensity += 0.9 * WX.flashT * 4; skyTop.lerp(new THREE.Color(0xdde6ff), 0.5); }
+  }
+
+  // ---------- Ton an / aus (im Pausenmenü), wird gemerkt ----------
+  (() => {
+    try { muted = localStorage.getItem("blockwelt-ton") === "aus"; } catch (e) {}
+    const opts = document.querySelector("#menu .opts");
+    if (!opts) return;
+    const b = document.createElement("button"); b.className = "opt"; b.id = "sndBtn";
+    const lab = () => { b.textContent = muted ? "Ton: aus" : "Ton: an"; };
+    lab(); opts.append(b);
+    b.addEventListener("click", () => { muted = !muted; lab(); try { localStorage.setItem("blockwelt-ton", muted ? "aus" : "an"); } catch (e) {} if (WX.sndGain) WX.sndGain.gain.value = 0; });
+  })();
+
+  // ---------- Das Aufgabenbuch (Taste J): führt durch alles, was es gibt; jede erfüllte Aufgabe bringt Gold in die Schatztruhe ----------
+  const QUEST_KEY = "blockwelt-aufgaben";
+  const areaName = () => { const a = areaOf(P.x, P.y + 0.5, P.z); return a ? String(a[0]) : ""; };
+  const QUESTS = [
+    { k: "thron", t: "Setz dich auf deinen Thron", how: "Im Thronsaal: Rechtsklick auf den Thron.", gold: 5, ok: () => P.seat && P.seat.throne },
+    { k: "schatz", t: "Öffne die Schatztruhe", how: "Sie steht im Thronsaal neben dem Thron.", gold: 5, ok: () => V13.ui === "schatz" },
+    { k: "werkbank", t: "Arbeite an einer Werkbank", how: "Rechtsklick auf eine Werkbank (zum Beispiel in der Werkstatt).", gold: 5, ok: () => V13.ui === "werkbank" },
+    { k: "markt", t: "Besuche den Marktplatz", how: "Südlich vom Dorf, Kutsche oder zu Fuß.", gold: 5, ok: () => !WILD && /Marktplatz/.test(areaName()) },
+    { k: "karte", t: "Schau auf die Karte", how: "Taste M (am Handy „Karte“).", gold: 5, ok: () => V13.ui === "karte" },
+    { k: "befehl", t: "Gib einen Befehl", how: "Taste Q öffnet den Befehlskreis.", gold: 5, ok: () => V13.ui === "befehle" },
+    { k: "boot", t: "Segle mit dem Boot", how: "Am Bootssteg am Königssee: Rechtsklick auf das Boot.", gold: 10, ok: () => !!P.boat },
+    { k: "pferd", t: "Reite ein Pferd", how: "Am Gutshof: Rechtsklick oder E auf ein Pferd.", gold: 10, ok: () => !!P.horse },
+    { k: "kutsche", t: "Lass dich von James kutschieren", how: "Die Kutsche steht vor dem Schlosstor.", gold: 10, ok: () => CO.onboard && !!CO.route },
+    { k: "glocke", t: "Läute die Alarmglocke", how: "Über dem Dorfbrunnen, oder im Befehlskreis unter „Wachen“.", gold: 5, ok: () => V16.alarm },
+    { k: "zauber", t: "Wirke einen Zauber", how: "Taste R, dann einen Zauber wählen.", gold: 10, ok: () => V18.mana < 99.5 },
+    { k: "armee", t: "Wirb 100 neue Leute für die Armee an", how: "Am Werbetisch auf dem Übungsplatz neben dem Schloss.", gold: 20, ok: () => armyN18() >= 120 },
+    { k: "truppe", t: "Schick eine Truppe los", how: "Karte (M), eine Stelle anklicken, „Truppe hierher“.", gold: 10, ok: () => V18.squads.length > 0 },
+    { k: "wildnis", t: "Geh hinaus in die Wildnis", how: "Durch die Südpforte in der Großen Mauer.", gold: 10, ok: () => !!WILD },
+    { k: "hoehle", t: "Finde eine Höhle", how: "Der Eingang mit Fackeln liegt im Hügelland im Südosten.", gold: 10, ok: () => /Höhle/.test(areaName()) },
+    { k: "ruine", t: "Entdecke eine alte Ruine", how: "In der Wildnis, oft auf freiem Feld.", gold: 15, ok: () => /Ruine/.test(areaName()) },
+    { k: "schatzfund", t: "Finde einen vergrabenen Schatz", how: "Die Abenteurerin Rosalind gibt dir eine Schatzkarte.", gold: 25, ok: () => MAP17.treasure.some(t => t.found) },
+    { k: "reich", t: "Besuche ein fremdes Reich", how: "Mit der Kutsche oder zu Fuß auf den Straßen.", gold: 20, ok: () => Object.values(V19.realms).some(r => r.visited) },
+    { k: "bund", t: "Schließe ein Bündnis", how: "Sprich mit einem fremden Herrscher im Thronsaal.", gold: 30, ok: () => Object.values(V19.realms).some(r => r.rel === "bund") },
+    { k: "erobert", t: "Erobere ein Reich", how: "Krieg erklären, dann die Armee schicken.", gold: 50, ok: () => Object.values(V19.realms).some(r => r.rel === "erobert") },
+    { k: "gesetz", t: "Erlasse ein Gesetz", how: "Im Thronsaal: Befehlskreis, „Erlasse und Feste“.", gold: 10, ok: () => Object.values(V20.laws).some(Boolean) },
+    { k: "jahrmarkt", t: "Eröffne einen Jahrmarkt", how: "Erlasse und Feste → Jahrmarkt.", gold: 15, ok: () => !!V20.fest },
+    { k: "turnier", t: "Veranstalte ein Ritterturnier", how: "Erlasse und Feste → Ritterturnier.", gold: 15, ok: () => !!V20.joust },
+    { k: "feuerwerk", t: "Zünde ein Feuerwerk", how: "Erlasse und Feste → Feuerwerk.", gold: 10, ok: () => !!V20.fw },
+    { k: "kind", t: "Erlebe die Geburt eines Kindes", how: "Halte die Leute zufrieden.", gold: 20, ok: () => V20.kids.length > 0 },
+    { k: "ring", t: "Lass den neuen Mauerring bauen", how: "Erlasse und Feste → Bauvorhaben.", gold: 40, ok: () => V20.ring >= 100 },
+  ];
+  let questDone = new Set();
+  try { (JSON.parse(localStorage.getItem(QUEST_KEY) || "[]") || []).forEach(k => questDone.add(k)); } catch (e) {}
+  let questT = 0;
+  function questTick(dt) {
+    if ((questT -= dt) > 0 || !worldReady) return; questT = 0.7;
+    for (const q of QUESTS) {
+      if (questDone.has(q.k)) continue;
+      let ok = false; try { ok = !!q.ok(); } catch (e) {}
+      if (!ok) continue;
+      questDone.add(q.k);
+      try { localStorage.setItem(QUEST_KEY, JSON.stringify([...questDone])); } catch (e) {}
+      V13.tc.set(String(I.goldbarren), (V13.tc.get(String(I.goldbarren)) || 0) + q.gold); saveSoon();
+      announce14(`${q.t} ✓ – ${q.gold} Goldbarren liegen in der Schatztruhe. (Aufgaben: Taste J)`, "Aufgabe erfüllt:");
+      beep(660, 0.12, "triangle", 0.03); setTimeout(() => beep(990, 0.2, "triangle", 0.03), 130);
+    }
+  }
+  function buildQuests(root) {
+    root = root || UIEL; root.innerHTML = "";
+    const card = h("div", "card army18"), head = h("div", "v13head");
+    head.append(h("h2", "", "Aufgabenbuch des Königs"), h("span", "v13mode", `${questDone.size} von ${QUESTS.length} erfüllt`));
+    const close = h("button", "v13btn", "Fertig"); close.type = "button"; close.addEventListener("click", () => closePalette()); head.append(close);
+    const box = h("div", "box");
+    const open = QUESTS.filter(q => !questDone.has(q.k)), done = QUESTS.filter(q => questDone.has(q.k));
+    for (const q of open.concat(done)) {
+      const row = h("div", "row"), ok = questDone.has(q.k), lab = h("span", "", (ok ? "✓ " : "○ ") + q.t + " ");
+      if (!ok) lab.append(h("small", "", "– " + q.how));
+      if (ok) lab.style.opacity = 0.6;
+      row.append(lab, h("b", "", q.gold + " Gold")); box.append(row);
+    }
+    card.append(head, box); root.append(card);
+  }
+  window.addEventListener("keydown", e => {
+    if (e.target && e.target.tagName === "INPUT") return;
+    if (e.code !== "KeyJ" || e.repeat) return;
+    if (palOpen && V13.ui === "aufgaben") { e.stopImmediatePropagation(); closePalette(); return; }
+    if (!palOpen && playing && !P.dead && sleepT < 0) { e.stopImmediatePropagation(); openPalette("aufgaben"); }
+  }, true);
+  (() => {
+    const tb = document.querySelector(".tbtns");
+    if (tb) { const b = document.createElement("button"); b.id = "tQuest"; b.textContent = "Aufgaben"; tb.append(b); b.addEventListener("touchstart", e => { e.preventDefault(); initAudio(); openPalette("aufgaben"); }, { passive: false }); }
+    const kl = document.getElementById("keyList");
+    if (kl) { const kb = document.createElement("kbd"), dv = document.createElement("div"); kb.textContent = "J"; dv.textContent = "Aufgabenbuch: was es alles zu entdecken gibt (jede Aufgabe bringt Gold)"; kl.append(kb, dv); }
+  })();
+  V11.update.push(dt => { weatherTick(dt); questTick(dt); });
+  (V11.wild = V11.wild || []).push(dt => { weatherTick(dt); questTick(dt); });
   // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.

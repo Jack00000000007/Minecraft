@@ -81,6 +81,12 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Jahrmarkt mit Zelten, Karussell mit Pferden, Wimpelketten, Gaukler, Herold und Musik; alle Leute kommen auf die Festwiese
 - [x] Feuerwerk über dem Schloss: Raketen mit Funkenschweif, bunte Kugeln und Ringe, der Knall kommt mit der Schallgeschwindigkeit; nach Jahrmarkt oder Turnier um 21 Uhr von selbst
 
+## Nach Version 20: Ergänzungen
+- [x] Wetter: klar, Regen, Gewitter mit fernen Blitzen und Donner, Schnee in kalten Gegenden der Wildnis; grauer Himmel, dunkleres Licht, Regenrauschen; unter Dächern kein Regen
+- [x] Ton an/aus im Pausenmenü (wird gemerkt)
+- [x] Aufgabenbuch (Taste J, am Handy „Aufgaben“): 26 Aufgaben führen durch alles im Spiel, jede bringt Gold in die Schatztruhe
+- [x] Handy: neue Knöpfe Befehle, Karte, Zauber, Aufgaben; Schrift in Fenstern wird nicht mehr vergrößert
+
 ## Regeln beim Bauen
 - Jeder Teil steht als eigener, beschrifteter Abschnitt in `index.html`. Änderungen am alten Code werden hier unten aufgeschrieben.
 - Neue Blöcke und Kacheln bekommen feste Nummernbereiche (unten), damit sich nichts überschneidet.
@@ -112,3 +118,4 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - Version 18: `saveNow`/Laden speichern die Armee (`v18Save`/`v18Load`); „Welt zurücksetzen“ löscht auch Wildnis, Karte und Boot. Im eigenen Abschnitt: `defPerson` kennt Ritterhelm, Zauberhut, langen Mantel (`robe`), Schwert und Zauberstab; der Befehlskreis hat `EXTRA_CMD15`, die Karte `MAPOPT17` für spätere Punkte.
 - Version 19: `interact` (Pferd aufsitzen), `animalThink` (gerittene Pferde und Kutschpferde denken nicht selbst), `step` (Reiten schneller, höher springen; in der Kutsche kein Laufen), `placeCamera` und Spielerfigur (zu Pferd höher, sitzend), `placeBlock` (`v19Use`: absteigen, Kutsche), Hinweis beim Anschauen eines Pferds, in der Wildnis laufen die Bauten aus `V11.wspawn`. `travel17` nimmt das Pferd mit. Die Reiche speichern über `v18Save` mit.
 - Version 20: `interact` lässt Bewohner manchmal über ihre Zufriedenheit reden (`moodLine20`); `depositTrib14` rechnet die Abgaben mit `trib20` (Erlass und Zufriedenheit). Gespeichert wird über `v18Save`.
+- Nach Version 20: `ac()` schweigt, wenn der Ton aus ist (`muted`); `updateSky` ruft `weatherSky` (grauer Himmel bei Regen); Schriftgröße auf dem Handy fest (`text-size-adjust`).
