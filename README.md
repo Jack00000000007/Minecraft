@@ -2,6 +2,12 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Die Königin
+
+- In den königlichen Gemächern (links vom Thronsaal) wohnt jetzt die **Königin**, eine echte, lebensnahe 3D-Figur. Sie hat einen Tagesablauf: am Spiegel, im Sessel, am Fenster, am Schminktisch, abends auf dem Sofa am Kamin.
+- Sprich sie an (E oder Rechtsklick). Sie schaut dich an, lächelt, redet und winkt.
+- Im Befehlskreis (Q) unter „Königin“ kann sie dich **begleiten**, auch in die Wildnis. Kommt ein Zombie, zieht sie ihren Degen.
+
 ## Dazu nach Version 20
 
 - **Wetter:** Mal scheint die Sonne, mal regnet es, manchmal kommt ein Gewitter mit Blitz und Donner. In kalten Gegenden der Wildnis schneit es.

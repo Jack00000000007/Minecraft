@@ -87,6 +87,13 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Aufgabenbuch (Taste J, am Handy „Aufgaben“): 26 Aufgaben führen durch alles im Spiel, jede bringt Gold in die Schatztruhe
 - [x] Handy: neue Knöpfe Befehle, Karte, Zauber, Aufgaben; Schrift in Fenstern wird nicht mehr vergrößert
 
+## Die Königin (echte 3D-Figur)
+- [x] Paket aus `figuren/frau/` eingebaut: `frau.glb` (als Base64 in `index.html`, läuft ohne Internet), `frau.js` und der GLTFLoader von three.js r128 als eigene Skripte vor dem Spiel
+- [x] Tagesablauf in den königlichen Gemächern: 7 Uhr Spiegel im Ankleidezimmer, 9 Uhr Sessel in ihrem Zimmer, 12 Uhr Fenster im Schlafgemach, 14 Uhr Schminktisch, 17 Uhr Sofa am Kamin, 20 Uhr ihr Zimmer, 22 Uhr am Bett. Sie geht durch die Türen, setzt sich, macht kleine Gesten
+- [x] Reden (E oder Rechtsklick): sie sagt „Markus“, nicht „Majestät“, spricht mit Mundbewegung, winkt, lächelt, wenn du nah bist, und schaut dich an
+- [x] Befehlskreis „Königin“: Begleite mich / Geh in deine Gemächer. Sie geht mit (auch in die Wildnis und heim) und wehrt Zombies mit dem Degen ab
+- [ ] Hinlegen und Schlafen im Bett (die Bewegungen kommen mit dem nächsten Paket; der Befehl ist schon vorbereitet)
+
 ## Regeln beim Bauen
 - Jeder Teil steht als eigener, beschrifteter Abschnitt in `index.html`. Änderungen am alten Code werden hier unten aufgeschrieben.
 - Neue Blöcke und Kacheln bekommen feste Nummernbereiche (unten), damit sich nichts überschneidet.
@@ -119,3 +126,4 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - Version 19: `interact` (Pferd aufsitzen), `animalThink` (gerittene Pferde und Kutschpferde denken nicht selbst), `step` (Reiten schneller, höher springen; in der Kutsche kein Laufen), `placeCamera` und Spielerfigur (zu Pferd höher, sitzend), `placeBlock` (`v19Use`: absteigen, Kutsche), Hinweis beim Anschauen eines Pferds, in der Wildnis laufen die Bauten aus `V11.wspawn`. `travel17` nimmt das Pferd mit. Die Reiche speichern über `v18Save` mit.
 - Version 20: `interact` lässt Bewohner manchmal über ihre Zufriedenheit reden (`moodLine20`); `depositTrib14` rechnet die Abgaben mit `trib20` (Erlass und Zufriedenheit). Gespeichert wird über `v18Save`.
 - Nach Version 20: `ac()` schweigt, wenn der Ton aus ist (`muted`); `updateSky` ruft `weatherSky` (grauer Himmel bei Regen); Schriftgröße auf dem Handy fest (`text-size-adjust`).
+- Königin: drei zusätzliche `<script>`-Blöcke (GLTFLoader, `frau.js` vor dem Spiel, die GLB-Daten als `<script id="frau-glb">` am Ende). `travel17` nimmt sie mit, wenn sie begleitet. Teil: `part_queen.js`.
