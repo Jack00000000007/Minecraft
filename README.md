@@ -2,6 +2,14 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Version 19: Fremde Reiche und Reisen (auf diesem Branch)
+
+- Hinter der Großen Mauer liegen jetzt **fünf Nachbarreiche**: Nordreich, Morgenland, Westmark, Südland und Seeburg. Von der Südpforte führen **Straßen** zu allen Reichen; du siehst sie auf der Karte (M).
+- Jedes Reich hat ein **Dorf mit Burg**. Im Thronsaal sitzt der fremde Herrscher. Sprich ihn an: Du kannst Geschenke machen, ein **Bündnis** schließen, Tribut fordern oder Krieg erklären und mit deiner Armee **erobern** oder **überfallen**. Verbündete und eroberte Reiche schicken dir jeden Tag einen Boten mit Gaben zur Schatztruhe.
+- Am Marktstand jedes Dorfs kannst du **handeln**.
+- **Reiten:** Rechtsklick oder E auf ein Pferd (zum Beispiel am Gutshof). Shift ist Galopp, mit der Leertaste springt das Pferd über Zäune. Rechtsklick: absteigen. Das Pferd kommt mit in die Wildnis.
+- Vor dem Schlosstor steht die **königliche Kutsche**. Rechtsklick: einsteigen und ein Ziel wählen. James fährt dich zum Marktplatz, zum Gutshof, zum Bootssteg und an andere Orte, oder über die Südpforte in ein fremdes Reich und wieder heim.
+
 ## Version 18: Armee und Magie (auf diesem Branch)
 
 - Neben dem Schloss stehen jetzt die **Kaserne** und der **Übungsplatz**. Tagsüber üben die Ritter an den Strohpuppen und die Magier im Zauberkreis, abends gehen alle in die Kaserne.

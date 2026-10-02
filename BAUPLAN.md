@@ -65,8 +65,12 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Zauber des Königs (Taste R): Feuerball, Blitz, Schutzschild (30 Sekunden unverwundbar), Heilung, Sturmwind; Zauberkraft wächst von selbst nach
 
 ## Version 19: Fremde Dörfer und Reisen
-- [ ] Fremde Dörfer zum Handeln, Überfallen oder Einnehmen; fremde Könige und Bündnisse
-- [ ] Straßen zwischen den Schlössern, Pferde, Kutsche mit James als Kutscher
+- [x] Fünf Nachbarreiche an festen Orten in der Wildnis: Nordreich (König Harald), Morgenland (Sultan Rashid), Westmark (Königin Adelheid), Südland (König Fernando), Seeburg (Herzogin Isolde)
+- [x] Jedes Reich hat ein Dorf: Burg mit Türmen und Thronsaal (der Herrscher sitzt auf dem Thron), acht Häuser, Dorfplatz mit Brunnen, Fahnen in den eigenen Farben, Marktstand mit Händler, Felder, Wachen und Bauern
+- [x] Diplomatie im Thronsaal: Geschenke (Gunst steigt), Bündnis (ab Gunst 60), Tribut fordern, Krieg erklären, Eroberung oder Überfall mit der Armee, Frieden. Verbündete und eroberte Reiche schicken jeden Tag einen Boten mit Gaben zu Fuß zur Schatztruhe
+- [x] Straßen von der Südpforte zu allen Reichen, außen um das Königreich herum, mit Brücken und Meilensteinen; auf der Karte eingezeichnet
+- [x] Reiten: auf jedes Pferd aufsitzen, Galopp mit Shift, hohe Sprünge; das Pferd reist mit in die Wildnis und zurück
+- [x] Königliche Kutsche vor dem Schlosstor: James fährt zu acht Zielen im Königreich oder über die Südpforte in ein fremdes Reich (die Uhr springt um die Reisezeit weiter) und wieder heim
 
 ## Version 20: Das Königreich wächst
 - [ ] Gesetze und Abgaben vom Thron, Zufriedenheit der Bauern, Nachwuchs
@@ -90,6 +94,7 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 | Version 16: Mauer und Schutz | 360–379 | keine neuen |
 | Version 17: Endlose Welt und Karte | keine neuen | keine neuen |
 | Version 18: Armee und Magie | 380–399 | keine neuen |
+| Version 19: Fremde Reiche und Reisen | keine neuen | keine neuen |
 
 ## Änderungen am alten Code (außerhalb der eigenen Abschnitte)
 - `updateEnts`: `else if (e.think) e.think(e, dt, dp);` für Leute mit eigenem Tagesablauf
@@ -100,3 +105,4 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - Version 16: Nach `buildGreatWall()` laufen die Bauten aus `V11.post` (Südpforte, Treppen, Kanonen), weil die Große Mauer erst nach allen anderen Bauten entsteht. `workerThink` läuft nur noch innerhalb der Arbeitszeit.
 - Version 17: Beim Start entscheidet `WILD` (aus dem Speicher), ob das Königreich (`generate`) oder ein Stück Wildnis (`genWild17`) gebaut wird. In der Wildnis: nur Tiere und James, eigene Bauten in `blockwelt-wild-edits` (`recordEdit` → `v17WildEdit`), das Königreich-Spiel wird nicht verändert (`saveNow` behält die alten Änderungen), `toGate` und T führen heim, das Bild-Update läuft über `V11.wild`. `placeBlock` fragt zuerst `v17Ship` (Boot), `step` lenkt im Boot über `shipStep17`, die Spielerfigur sitzt im Boot (`updatePlayerModel`). `chestKey` zählt in der Wildnis nach Weltzahlen; Truhen-Inhalte für „Vergrabener Schatz“, „Ruine“, „Höhle“. `guestTalk15` fragt `talk17`.
 - Version 18: `saveNow`/Laden speichern die Armee (`v18Save`/`v18Load`); „Welt zurücksetzen“ löscht auch Wildnis, Karte und Boot. Im eigenen Abschnitt: `defPerson` kennt Ritterhelm, Zauberhut, langen Mantel (`robe`), Schwert und Zauberstab; der Befehlskreis hat `EXTRA_CMD15`, die Karte `MAPOPT17` für spätere Punkte.
+- Version 19: `interact` (Pferd aufsitzen), `animalThink` (gerittene Pferde und Kutschpferde denken nicht selbst), `step` (Reiten schneller, höher springen; in der Kutsche kein Laufen), `placeCamera` und Spielerfigur (zu Pferd höher, sitzend), `placeBlock` (`v19Use`: absteigen, Kutsche), Hinweis beim Anschauen eines Pferds, in der Wildnis laufen die Bauten aus `V11.wspawn`. `travel17` nimmt das Pferd mit. Die Reiche speichern über `v18Save` mit.

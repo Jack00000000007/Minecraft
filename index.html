@@ -1649,6 +1649,7 @@
     f -= joy.y; s += joy.x;
     const len = Math.hypot(f, s); if (len > 1) { f /= len; s /= len; }
     if (P.boat) { shipStep17(dt, f, s); return; }   // Version 17: im Segelboot
+    if (P.carriage) { coachStep19(); return; }      // Version 19: in der Kutsche fährt James
     // Sitzen: Laufen, Springen oder Shift lässt dich aufstehen
     if (P.seat) {
       P.seat.t += dt;
@@ -1662,6 +1663,7 @@
     const sprinting = shift && !P.fly && f > 0;
     P.sprint = sprinting;
     let sp = P.fly ? 12 : (sprinting ? 6.4 : 4.3);
+    if (P.horse && !P.fly) sp *= sprinting ? 2.3 : 1.9;   // Version 19: zu Pferd
     if (inWater && !P.fly) sp *= 0.55;
     const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
     const tx = (-sy * f + cy * s) * sp, tz = (-cy * f - sy * s) * sp;
@@ -1676,7 +1678,7 @@
       P.vy = Math.max(P.vy, -4);
     } else {
       P.vy -= 28 * dt;
-      if (keys.Space && P.ground) P.vy = 8.6;
+      if (keys.Space && P.ground) P.vy = P.horse ? 10.6 : 8.6;
       P.vy = Math.max(P.vy, -50);
     }
     const wasGround = P.ground, fallV = P.vy, ox = P.x, oz = P.z;
@@ -2991,6 +2993,7 @@
     e.dvx = dx * sp; e.dvz = dz * sp; e.yawT = Math.atan2(dx, dz);
   }
   function animalThink(e, dt) {
+    if (e.ridden || e.harness19) { e.dvx = e.dvz = 0; return; }   // Version 19: geritten oder vor der Kutsche
     if (e.dead >= 0) { e.dvx = e.dvz = 0; return; }
     e.timer -= dt;
     const dp = distP(e);
@@ -4040,7 +4043,7 @@
   };
   let camD = 0;
   function placeCamera() {
-    eyeV.set(P.x, P.y + 1.62 - (P.camLift || 0), P.z);
+    eyeV.set(P.x, P.y + 1.62 - (P.camLift || 0) + (P.horse ? 1.05 : 0), P.z);
     let d = 0;
     if (camMode !== 0 && sleepT < 0) {
       lookVec(dirV);
@@ -4073,12 +4076,12 @@
     if (!show) return;
     PM.vx = P.vx; PM.vz = P.vz; PM.ground = P.ground || !!P.seat; PM.inWater = P.inWater; PM.fly = P.fly && !P.ground;
     PM.lean = P.sprint ? 0.12 : 0;
-    PM.sit = !!(P.seat || P.boat); PM.pose = P.seat || P.boat ? "sit" : "";
+    PM.sit = !!(P.seat || P.boat || P.horse || P.carriage); PM.pose = PM.sit ? "sit" : "";
     // Im Sitzen zeigt der Körper nach vorne, nur der Kopf folgt dem Blick
     PM.headYawT = P.seat ? Math.max(-1, Math.min(1, wrapA(P.yaw + Math.PI - P.seat.yaw))) : P.boat ? Math.max(-1, Math.min(1, wrapA(P.yaw - P.boat.yaw))) : 0;
     PM.headPitchT = Math.max(-0.9, Math.min(0.9, -P.pitch));
     animHuman(PM, dt, t);
-    PM.mesh.position.set(P.x, P.y - (P.camLift || 0), P.z); PM.mesh.rotation.y = P.seat ? P.seat.yaw : P.boat ? P.boat.yaw + Math.PI : P.yaw + Math.PI;
+    PM.mesh.position.set(P.x, P.y - (P.camLift || 0) + (P.horse ? 0.95 : 0), P.z); PM.mesh.rotation.y = P.seat ? P.seat.yaw : P.boat ? P.boat.yaw + Math.PI : P.yaw + Math.PI;
     PM.mesh.rotation.z = P.dead ? Math.min(1, P.deadT / 0.35) * Math.PI / 2 : 0;
     PM.mesh.material.userData.uLight.value.copy(playerLight.value);
   }
@@ -4177,6 +4180,7 @@
   function placeBlock() {
     if (P.dead || sleepT >= 0) return;
     if (v17Ship()) return;               // Version 17: ins Segelboot ein- oder aussteigen
+    if (v19Use()) return;                // Version 19: vom Pferd absteigen, in die Kutsche steigen
     if (targetEnt) { interact(targetEnt); return; }
     if (!target) { v13UseItem(null); return; }
     // Rechtsklick benutzt Hebel, Betten und Sitze; mit Shift setzt man stattdessen einen Block
@@ -4223,6 +4227,7 @@
     else { e.talkT = 2.5; say(e.name, pick(OUCH)); }
   }
   function interact(e) {
+    if (e.type === "horse" && v19Mount(e)) return;   // Version 19: aufsitzen
     if (e === butler) {
       e.stay = !e.stay; e.job = null; e.target = null; e.talkT = 1.6;
       say("James", e.stay ? "Sehr wohl, ich warte hier auf Sie." : "Sehr wohl, ich folge Ihnen.");
@@ -6516,13 +6521,18 @@
           { b: "head", f: [-2.6, 11.5, -2.6], t: [2.6, 14.5, 2.6], p: (f, x, y, w, h, v) => (x + y * 5) % 7 === 0 ? [250, 230, 120] : v(hc, 6) },
           { b: "head", f: [-1.2, 14.5, -1.8], t: [1.2, 17.5, 0.6], p: flat(hc, 6) });
         break;
+      case "crown":   // Version 19: Krone der fremden Könige
+        extra.push({ b: "head", f: [-4.4, 7.2, -4.4], t: [4.4, 9, 4.4], p: (f, x, y, w, h, v) => f !== "py" && f !== "ny" && x % 3 === 1 && y === 0 ? (H.gem || [200, 30, 40]) : v([226, 182, 60], 6) });
+        for (const [x, z] of [[-3.6, -3.6], [0, -3.6], [3.6, -3.6], [-3.6, 0], [3.6, 0], [-3.6, 3.6], [0, 3.6], [3.6, 3.6]]) extra.push({ b: "head", f: [x - 0.7, 9, z - 0.7], t: [x + 0.7, 10.8, z + 0.7], p: flat([236, 196, 70], 4) });
+        if (hc) extra.push({ b: "head", f: [-3.8, 7.4, -3.8], t: [3.8, 8.4, 3.8], p: flat(hc, 6) });
+        break;
       case "veil":
         extra.push({ b: "head", f: [-6.6, 7.4, -6.6], t: [6.6, 8.1, 6.6], p: straw }, { b: "head", f: [-4.4, 8.1, -4.4], t: [4.4, 10.4, 4.4], p: straw },
           { b: "head", f: [-5.6, -1, -5.6], t: [5.6, 7.4, 5.6], skip: ["py", "ny"], p: (f, x, y, w, h, v) => x % 2 === 0 || y % 2 === 0 ? [70, 72, 70, 255] : null });
         break;
     }
     if (o.bun) extra.push({ b: "head", f: [-1.8, 5.8, -5.6], t: [1.8, 9.2, -3.6], p: flat(HR, 12) });
-    else if (!H || H.t === "cap" || H.t === "beret" || H.t === "straw" || H.t === "tophat" || H.t === "lady") extra.push({ b: "head", f: [-4, 4.5, -4], t: [4, 8, 4], i: 0.3, p: hairCap(HR, F_ ? "long" : o.style === "slick" ? "slick" : "part") });
+    else if (!H || H.t === "cap" || H.t === "beret" || H.t === "straw" || H.t === "tophat" || H.t === "lady" || H.t === "crown") extra.push({ b: "head", f: [-4, 4.5, -4], t: [4, 8, 4], i: 0.3, p: hairCap(HR, F_ ? "long" : o.style === "slick" ? "slick" : "part") });
     // Werkzeug oder Tasche in der rechten Hand (hängt an der Hand, der Stiel zeigt nach oben)
     const T_ = o.tool, W_ = [150, 108, 62];
     const stick = (y0, y1) => ({ b: "tool", f: [-0.4, y0, -0.4], t: [0.4, y1, 0.4], p: flat(W_, 8) });
@@ -8797,6 +8807,8 @@
     if (kind === "karte") { buildMap17(UIEL); return; }     // Version 17: die Karte
     if (kind === "armee") { buildArmy18(UIEL); return; }    // Version 18: Werbetisch und Übersicht der Armee
     if (kind === "zauber") { buildSpell18(UIEL); return; }  // Version 18: Zauberkreis
+    if (kind === "reich") { buildRealm19(UIEL, ctx); return; } // Version 19: Gespräch mit einem fremden Herrscher
+    if (kind === "kutsche") { buildCoach19(UIEL); return; }   // Version 19: Reiseziel der Kutsche
     if (kind === "werkbank") V13.gridSize = 3; else if (kind === "inventar") V13.gridSize = 2;
     if (kind === "truhe") V13.chest = chestAt(ctx[0], ctx[1], ctx[2]);
     if (kind === "ofen") V13.furnace = furnaceAt(ctx[0], ctx[1], ctx[2]);
@@ -11035,6 +11047,7 @@
     // target: { wild: { ox, oz, p } } oder { home: { x, z } }
     if (travelling17) return;
     travelling17 = true;
+    if (P.horse) (target.wild || target.home).horse = P.horse.m;   // Version 19: das Pferd reist mit
     saveNow();                           // erst den jetzigen Stand sichern, dann das Reiseziel eintragen
     noSave = true;
     try {
@@ -11044,7 +11057,7 @@
     if (!WILD) mapStoreKingdom17();      // das Bild des Königreichs für die Karte in der Wildnis
     const veil = document.createElement("div");
     veil.style.cssText = "position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#0d1a26;color:#f2ecdc;font:700 26px 'Pixelify Sans',monospace;text-align:center;padding:20px";
-    veil.textContent = target.wild ? "Die Wildnis wird erkundet …" : "Heimkehr ins Königreich …";
+    veil.textContent = coachVeil19 || (target.wild ? "Die Wildnis wird erkundet …" : "Heimkehr ins Königreich …");
     document.body.append(veil);
     setTimeout(() => location.reload(), 60);
   }
@@ -11139,7 +11152,7 @@
   // Das Königreich ist ganz eingezeichnet. Die Wildnis zeichnet sich selbst, sobald der König dort gewesen ist (Feld für Feld, 16 Blöcke groß).
   // Ein Klick auf die Karte: Markierung setzen oder James und die Wachen dorthin schicken. Ziehen verschiebt, das Mausrad vergrößert.
   const MAP_KEY = "blockwelt-map", MAPK_KEY = "blockwelt-map-k";
-  const MAPOPT17 = [];
+  const MAPOPT17 = [], MAPDRAW17 = [];
   const MAP17 = { seen: new Set(), flags: [], treasure: [], cx: null, cz: null, zoom: 1 };
   try {
     const s = JSON.parse(localStorage.getItem(MAP_KEY) || "null");
@@ -11301,6 +11314,7 @@
     if (kingdomImg17) { g.imageSmoothingEnabled = s < 1; g.drawImage(kingdomImg17, X(0), Z(0), W * s, D * s); g.imageSmoothingEnabled = false; }
     else { g.fillStyle = "rgba(150,120,70,.5)"; g.fillRect(X(0), Z(0), W * s, D * s); }
     g.strokeStyle = "rgba(90,58,24,.8)"; g.lineWidth = 2 * dpr; g.strokeRect(X(0), Z(0), W * s, D * s);
+    for (const f of MAPDRAW17) f(g, X, Z, s, dpr);   // spätere Versionen: Straßen, fremde Reiche
     // Namen der Gegenden
     g.textAlign = "center"; g.textBaseline = "middle";
     const rx0 = Math.floor(gx0 / 384), rx1 = Math.floor(gx1 / 384), rz0 = Math.floor(gz0 / 384), rz1 = Math.floor(gz1 / 384);
@@ -11567,6 +11581,7 @@
       return true;
     } });
 
+  const WILDX17 = [];
   // ---------- Was in der Wildnis zu finden ist: vergrabene Schätze, Ruinen, Truhen in Höhlen ----------
   function wildExtras17() {
     const { ox, oz } = WILD;
@@ -11621,6 +11636,7 @@
         }
       }
     }
+    for (const f of WILDX17) f();       // spätere Versionen: Straßen und fremde Reiche
   }
   // Schatz gefunden? (wenn die Truhe geöffnet wird)
   function treasureTick17() {
@@ -12054,12 +12070,13 @@
     return false;
   }
   function v18Hint(tb, use) { return ROTB[tb] === WERBETISCH ? use + "Ritter und Magier anwerben" : ""; }
-  function v18Save() { return { k: V18.k.slice(), m: V18.m.slice(), mana: Math.round(V18.mana) }; }
+  function v18Save() { return { k: V18.k.slice(), m: V18.m.slice(), mana: Math.round(V18.mana), v19: v19Save() }; }   // Version 19 speichert hier mit
   function v18Load(s) {
     const o = s && s.v18; if (!o) return;
     const ok = a => Array.isArray(a) && a.length === 3 && a.every(n => Number.isFinite(n) && n >= 0);
     if (ok(o.k)) V18.k = o.k.map(Math.floor); if (ok(o.m)) V18.m = o.m.map(Math.floor);
     if (Number.isFinite(o.mana)) V18.mana = Math.max(0, Math.min(100, o.mana));
+    v19Load(o.v19);
   }
   // Magier heben beim Zaubern den Stab
   function poses18(dt, t) {
@@ -12075,6 +12092,594 @@
   V11.spawn.push(() => refreshSoldiers18());
   V11.update.push((dt, t) => { poses18(dt, t || performance.now() / 1000); train18(); updateSpells18(dt); for (const q of V18.squads) if (q.back && q.ents.every(e => e.gone)) q.done = true; V18.squads = V18.squads.filter(q => !q.done); });
   (V11.wild = V11.wild || []).push(dt => updateSpells18(dt));
+  // ==================== Version 19: Fremde Reiche – Straßen, Dörfer mit Burg, fremde Könige, Handel, Bündnis, Krieg ====================
+  // Fünf Nachbarreiche liegen in der Wildnis, jedes an einem festen Ort. Von der Südpforte führen Straßen zu ihnen.
+  // In jedem Reich: Burg mit Thronsaal und König (oder Königin), Häuser, Marktstand, Brunnen, Felder, Leute.
+  // Mit dem fremden Herrscher spricht man über Geschenke, Bündnis, Handel, Tribut und Krieg. Verbündete und eroberte Reiche
+  // schicken jeden Tag einen Boten mit Gaben, der sie zu Fuß zur Schatztruhe trägt.
+  const REALMS19 = [
+    { id: "nord", name: "Nordreich", ruler: "König Harald", talk: "König Harald vom Nordreich", dir: [0.1, -1], dist: 1050, wall: PLASTER_B, roof: SLATE, stone: SBRICK, flag: BWOOL, col: [40, 70, 150], power: 520,
+      goods: [[[I.goldbarren, 2], [I.eisenbarren, 8]], [[I.brot, 6], [I.leder, 4]], [[I.goldbarren, 4], [I.diamant, 1]]], gift: [[I.eisenbarren, 6], [I.kohle, 12]] },
+    { id: "morgen", name: "Morgenland", ruler: "Sultan Rashid", talk: "Sultan Rashid aus dem Morgenland", dir: [1, 0.15], dist: 1150, wall: PLASTER_Y, roof: ROOF_GREEN, stone: QUARTZ, flag: GOLD, col: [200, 150, 40], power: 640,
+      goods: [[[I.goldbarren, 3], [I.smaragd, 2]], [[I.weizen, 16], [I.goldbarren, 1]], [[I.goldbarren, 5], [I.diamant, 2]]], gift: [[I.goldbarren, 4], [I.smaragd, 1]] },
+    { id: "west", name: "Westmark", ruler: "Königin Adelheid", female: true, talk: "Königin Adelheid von Westmark", dir: [-1, 0.25], dist: 980, wall: PLASTER_W, roof: ROOF_RED, stone: COBBLE, flag: RWOOL, col: [170, 30, 40], power: 450,
+      goods: [[[I.goldbarren, 1], [I.apfel, 10]], [[I.eisenbarren, 4], [I.buch, 3]], [[I.goldbarren, 2], [I.goldapfel, 1]]], gift: [[I.apfel, 12], [I.brot, 8]] },
+    { id: "sued", name: "Südland", ruler: "König Fernando", talk: "König Fernando vom Südland", dir: [-0.1, 1], dist: 1100, wall: PLASTER_R, roof: ROOF_RED, stone: BRICK, flag: RWOOL, col: [200, 90, 40], power: 580,
+      goods: [[[I.goldbarren, 1], [I.steak, 6]], [[I.weizen, 10], [I.goldbarren, 1]], [[I.goldbarren, 3], [I.smaragd, 3]]], gift: [[I.steak, 6], [I.goldbarren, 2]] },
+    { id: "see", name: "Seeburg", ruler: "Herzogin Isolde", female: true, talk: "Herzogin Isolde von Seeburg", dir: [0.75, 0.75], dist: 1300, wall: PLASTER_W, roof: SLATE, stone: SBRICK, flag: WWOOL, col: [60, 130, 170], power: 380,
+      goods: [[[I.goldbarren, 1], [I.feder, 8]], [[I.kohle, 16], [I.goldbarren, 1]], [[I.goldbarren, 2], [I.papier, 16]]], gift: [[I.papier, 10], [I.feder, 6]] },
+  ];
+  const REL19 = { fremd: "fremd", freund: "befreundet", bund: "verbündet", krieg: "im Krieg", erobert: "erobert" };
+  const V19 = { realms: {}, day: 0, prevH: -1, wars: [], horse: null, carriage: null };
+  for (const r of REALMS19) V19.realms[r.id] = { rel: "fremd", gunst: 30, power: r.power, visited: false, giftDay: -1, tribDay: -1, traded: 0 };
+  // ---------- Wo die Reiche liegen: in der Richtung nach außen ein flaches Stück Land (immer dasselbe) ----------
+  function siteOf19(r) {
+    if (r.site) return r.site;
+    const len = Math.hypot(...r.dir), bx = W / 2 + r.dir[0] / len * r.dist, bz = D / 2 + r.dir[1] / len * r.dist;
+    const good = (x, z) => {
+      if (x > -80 && x < W + 80 && z > -80 && z < D + 80) return false;
+      const h0 = wildHeight17(x, z); if (h0 < SEA + 2 || h0 > SEA + 26) return false;
+      for (const [dx, dz] of [[-30, -30], [30, -30], [-30, 30], [30, 30], [0, -36], [0, 36], [-36, 0], [36, 0]]) { const h = wildHeight17(x + dx, z + dz); if (h <= SEA || Math.abs(h - h0) > 7) return false; }
+      return true;
+    };
+    for (let rr = 0; rr <= 480; rr += 24) for (let a = 0; a < Math.max(1, rr / 6); a++) {
+      const an = a / Math.max(1, rr / 6) * Math.PI * 2, x = Math.round(bx + Math.cos(an) * rr), z = Math.round(bz + Math.sin(an) * rr);
+      if (good(x, z)) return (r.site = [x, z]);
+    }
+    return (r.site = [Math.round(bx), Math.round(bz)]);
+  }
+  // ---------- Straßen: von der Südpforte (Ende des Pilgerwegs) zum Dorfrand, mit einem Bogen ----------
+  const ROAD0 = [96.5, D + 69];
+  function road19(r) {
+    if (r.road) return r.road;
+    const [sx, sz] = siteOf19(r);
+    // Wegpunkte: erst nach Süden weg von der Mauer, dann außen um das Königreich herum, zuletzt zum Dorf
+    let wp = [ROAD0, [ROAD0[0], ROAD0[1] + 70]];
+    if (sz > D + 160) wp.push([(ROAD0[0] + sx) / 2 + (hash(r.dist, 7, 991) - 0.5) * 260, (ROAD0[1] + 70 + sz) / 2]);
+    else {
+      const cx = sx >= W / 2 ? W + 150 : -150;
+      wp.push([cx, D + 140]);
+      if (sz < -60) wp.push([cx, -150]);
+    }
+    wp.push([sx, sz]);
+    // Ecken runden (Chaikin), Anfang und Ende bleiben
+    for (let it = 0; it < 4; it++) {
+      const q = [wp[0]];
+      for (let i = 0; i < wp.length - 1; i++) { const [ax, az] = wp[i], [bx, bz] = wp[i + 1]; if (i > 0) q.push([ax * 0.75 + bx * 0.25, az * 0.75 + bz * 0.25]); if (i < wp.length - 2) q.push([ax * 0.25 + bx * 0.75, az * 0.25 + bz * 0.75]); }
+      q.push(wp[wp.length - 1]); wp = q;
+    }
+    const pts = [];
+    const push = (x, z) => { const raw = wildHeight17(Math.round(x), Math.round(z)); pts.push({ x, z, raw }); };
+    let along = 0;
+    for (let i = 0; i < wp.length - 1; i++) {
+      const [ax, az] = wp[i], [bx, bz] = wp[i + 1], L = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / (L || 1), nz = (bx - ax) / (L || 1);
+      for (let t = 0; t < L; t += 0.7) {
+        const k = t / L, w = along > 80 ? Math.sin((along + t) / 70 + r.dist) * 5 : 0;   // sanft geschwungen
+        push(ax + (bx - ax) * k + nx * w, az + (bz - az) * k + nz * w);
+      }
+      along += L;
+    }
+    // Höhe glätten (gleitender Mittelwert), nie unter Wasser
+    const n = pts.length, hs = pts.map(p => Math.max(p.raw, SEA + 1));
+    for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let k = -10; k <= 10; k++) { const j = i + k; if (j >= 0 && j < n) { s += hs[j]; c++; } } pts[i].h = Math.round(s / c); }
+    for (let i = 0; i < Math.min(n, 4); i++) pts[i].h = pts[Math.min(n - 1, 4)].h;
+    return (r.road = pts);
+  }
+  function paintRoads19() {
+    const { ox, oz } = WILD;
+    for (const r of REALMS19) {
+      const pts = road19(r), [sx, sz] = siteOf19(r);
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i], q = pts[Math.min(pts.length - 1, i + 1)], ddx = q.x - p.x, ddz = q.z - p.z, dl = Math.hypot(ddx, ddz) || 1, nx = -ddz / dl, nz = ddx / dl;
+        if (Math.hypot(p.x - sx, p.z - sz) < 12) break;                    // im Dorf übernimmt der Dorfplatz
+        for (let o = -1.5; o <= 1.5; o += 0.5) {
+          const gx = Math.round(p.x + nx * o), gz = Math.round(p.z + nz * o), x = gx - ox, z = gz - oz;
+          if (x < 1 || z < 1 || x > W - 2 || z > D - 2) continue;
+          const g = heights[x + z * W], rr = p.h, wet = g <= SEA, edge = Math.abs(o) > 1.2;
+          for (let y = rr + 1; y <= rr + 5; y++) { const b = get(x, y, z); if (b !== AIR && (y > SEA || b !== WATER)) setB(x, y, z, AIR); }
+          if (wet) { setB(x, rr, z, SPRUCE_PLANKS); if (edge && i % 10 === 0) for (let y = rr - 1; y > g; y--) setB(x, y, z, SPRUCE_LOG); }
+          else { for (let y = g + 1; y < rr; y++) setB(x, y, z, edge ? GRASS : DIRT); setB(x, rr, z, edge ? GRASS : PATH); }
+        }
+        // Meilensteine mit Laterne alle 60 Schritte, Brücken mit Geländer
+        if (i % 86 === 43) { const gx = Math.round(p.x + nx * 2.6), gz = Math.round(p.z + nz * 2.6), x = gx - ox, z = gz - oz; if (x > 1 && z > 1 && x < W - 2 && z < D - 2) { const g = Math.max(heights[x + z * W], p.h); setB(x, g + 1, z, COBBLE); setB(x, g + 2, z, FENCE); setB(x, g + 3, z, LAMP); } }
+      }
+    }
+  }
+  // ---------- Das Dorf eines Reichs ----------
+  function village19(r) {
+    const [sx, sz] = siteOf19(r), cx = sx - WILD.ox, cz = sz - WILD.oz, st = V19.realms[r.id];
+    if (cx < 40 || cz < 40 || cx > W - 41 || cz > D - 41) return false;
+    const won = st.rel === "erobert", flag = won ? RWOOL : r.flag;
+    // Gelände ebnen
+    let s = 0, c = 0; for (let dz = -20; dz <= 20; dz += 5) for (let dx = -20; dx <= 20; dx += 5) { s += heights[cx + dx + (cz + dz) * W]; c++; }
+    const L = Math.max(SEA + 2, Math.round(s / c)), F = L + 1;
+    for (let z = cz - 36; z <= cz + 36; z++) for (let x = cx - 36; x <= cx + 36; x++) {
+      const d = Math.max(Math.abs(x - cx), Math.abs(z - cz)), g = heights[x + z * W];
+      if (d > 34) { // Rand: sanft angleichen
+        const t = (d - 34) / 2, y = Math.round(L + (g - L) * t);
+        for (let yy = Math.min(g, y) + 1; yy <= Math.max(g, y) + 8; yy++) if (yy > y) setB(x, yy, z, AIR); else setB(x, yy, z, DIRT);
+        setB(x, y, z, GRASS); continue;
+      }
+      for (let y = Math.min(g, L) - 2; y < L; y++) if (get(x, y, z) === AIR || get(x, y, z) === WATER) setB(x, y, z, DIRT);
+      for (let y = L + 1; y <= L + 24; y++) setB(x, y, z, AIR);
+      setB(x, L, z, GRASS); heights[x + z * W] = L;
+    }
+    // Dorfplatz mit Brunnen, Marktstand und Fahnenmasten
+    for (let z = cz - 7; z <= cz + 7; z++) for (let x = cx - 7; x <= cx + 7; x++) setB(x, L, z, (x + z) % 3 === 0 ? GRAVEL : COBBLE);
+    fill(cx - 1, F, cz - 1, cx + 1, F, cz + 1, COBBLE); setB(cx, F, cz, WATER); setB(cx, L, cz, COBBLE);
+    for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) fill(cx + dx, F + 1, cz + dz, cx + dx, F + 2, cz + dz, FENCE);
+    fill(cx - 1, F + 3, cz - 1, cx + 1, F + 3, cz + 1, SPRUCE_PLANKS);
+    for (const [dx, dz] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) { fill(cx + dx, F, cz + dz, cx + dx, F + 4, cz + dz, SPRUCE_LOG); setB(cx + dx, F + 5, cz + dz, flag); setB(cx + dx, F + 4, cz + dz + (dz > 0 ? -1 : 1), flag); }
+    for (let x = cx + 3; x <= cx + 5; x++) setB(x, F, cz + 4, THEKE);
+    fill(cx + 3, F + 2, cz + 3, cx + 5, F + 2, cz + 5, flag); setB(cx + 3, F + 1, cz + 5, FENCE); setB(cx + 5, F + 1, cz + 5, FENCE);
+    // Die Burg im Norden: Mauern mit Zinnen, vier Türme, Tor, Thronsaal mit Teppich und Thron
+    const bx0 = cx - 10, bx1 = cx + 10, bz0 = cz - 32, bz1 = cz - 13, top = F + 7;
+    for (let z = bz0; z <= bz1; z++) for (let x = bx0; x <= bx1; x++) {
+      const wall = x === bx0 || x === bx1 || z === bz0 || z === bz1;
+      setB(x, L, z, wall ? r.stone : QUARTZ);
+      if (wall) { fill(x, F, z, x, top, z, r.stone); if ((x + z) % 2 === 0) setB(x, top + 1, z, r.stone); }
+      else { setB(x, top, z, r.stone); if ((x - bx0) % 4 === 2 && (z - bz0) % 5 === 2) setB(x, top - 1, z, LANTERN_H); }
+    }
+    for (const [x, z] of [[bx0, bz0], [bx1, bz0], [bx0, bz1], [bx1, bz1]]) {
+      fill(x - 1, F, z - 1, x + 1, top + 4, z + 1, r.stone);
+      for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) setB(x + dx, top + 5, z + dz, r.stone);
+      setB(x, top + 5, z, flag); setB(x, top + 6, z, flag);
+    }
+    for (let x = cx - 1; x <= cx + 1; x++) for (let y = F; y <= F + 3; y++) setB(x, y, bz1, AIR);
+    for (let y = F + 2; y <= F + 4; y++) for (const z of [bz0 + 4, bz0 + 9, bz0 + 14]) { setB(bx0, y, z, GLASS); setB(bx1, y, z, GLASS); }
+    for (let z = bz0 + 3; z < bz1; z++) for (let x = cx - 1; x <= cx + 1; x++) setB(x, F, z, won ? CARPET_R : r.id === "nord" || r.id === "see" ? CARPET_B : CARPET_R);
+    fill(cx - 2, F, bz0 + 1, cx + 2, F, bz0 + 2, GOLD);
+    setB(cx, F + 1, bz0 + 1, rotId(THRONSESSEL, 0, 1));
+    for (const x of [cx - 4, cx + 4]) { fill(x, F, bz0 + 1, x, F + 4, bz0 + 1, r.stone); setB(x, F + 5, bz0 + 1, LAMP); }
+    for (let x = bx0 + 2; x <= bx1 - 2; x += 3) { setB(x, F + 5, bz0 + 1, flag); setB(x, F + 4, bz0 + 1, flag); }
+    r.throne = [cx + 0.5 + WILD.ox, F + 1, bz0 + 3.5 + WILD.oz]; r.seat = [cx + 0.5 + WILD.ox, F + 1.45, bz0 + 1.6 + WILD.oz]; r.gate = [cx + 0.5 + WILD.ox, F, bz1 + 2.5 + WILD.oz];
+    // Häuser rund um den Platz (Tür zum Platz)
+    const houses = [[cx - 18, cz - 6, 1, 0], [cx - 18, cz + 6, 1, 0], [cx + 18, cz - 6, -1, 0], [cx + 18, cz + 6, -1, 0], [cx - 7, cz + 19, 0, -1], [cx + 7, cz + 19, 0, -1], [cx - 20, cz + 20, 1, -1], [cx + 20, cz + 20, -1, -1]];
+    r.homes = [];
+    houses.forEach(([hx, hz, fx, fz], k) => {
+      const x0 = hx - 3, x1 = hx + 3, z0 = hz - 3, z1 = hz + 3, tp = F + 3;
+      // Tür auf der Seite zum Platz (bei Eckhäusern die Nord- oder Südseite)
+      const door = fz ? [hx, fz > 0 ? z1 : z0] : [fx > 0 ? x1 : x0, hz];
+      for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+        setB(x, L, z, SPRUCE_PLANKS);
+        const wall = x === x0 || x === x1 || z === z0 || z === z1, corner = (x === x0 || x === x1) && (z === z0 || z === z1);
+        if (!wall) continue;
+        const mid = (x === hx || z === hz) && !corner, isDoor = x === door[0] && z === door[1];
+        for (let y = F; y <= tp; y++) setB(x, y, z, isDoor && y <= F + 1 ? AIR : y === F ? COBBLE : corner ? SPRUCE_LOG : y === F + 1 && mid ? GLASS : r.wall);
+      }
+      for (let i = 0; i <= 4; i++) for (let x = x0 - 1 + i; x <= x1 + 1 - i; x++) for (let z = z0 - 1; z <= z1 + 1; z++) setB(x, tp + 1 + i, z, x === x0 - 1 + i || x === x1 + 1 - i ? r.roof : (z === z0 || z === z1) ? r.wall : AIR);
+      bed2(hx - 2, F, hz - 1, 0, 1, k % 2 ? BED_B : BED_R); setB(hx + 2, F, hz - 2, CHEST); setB(hx + 2, F, hz + 1, TABLE_O); setB(hx, F + 2, hz, LANTERN_H);
+      r.homes.push([hx + 0.5 + WILD.ox, F, hz + 0.5 + WILD.oz]);
+    });
+    // Felder im Süden
+    for (const fx0 of [cx - 30, cx + 18]) for (let z = cz + 26; z <= cz + 32; z++) for (let x = fx0; x <= fx0 + 11; x++) {
+      if (z === cz + 29) { setB(x, L, z, WATER); continue; }
+      setB(x, L, z, FARMLAND); setB(x, F, z, (x + z) % 5 ? WHEAT : CARROTS);
+    }
+    r.plaza = [cx + 0.5 + WILD.ox, F, cz + 0.5 + WILD.oz]; r.stall = [cx + 4.5 + WILD.ox, F, cz + 5.5 + WILD.oz];
+    AREAS.unshift(["Der Thronsaal", `von ${r.talk}`, bx0, bx1, L, top + 6, bz0, bz1], [r.name, won ? "erobert – jetzt Teil deines Königreichs" : `das Reich von ${r.talk}`, cx - 36, cx + 36, L - 6, L + 30, cz - 36, cz + 36]);
+    return true;
+  }
+  // ---------- Die Leute im fremden Reich ----------
+  for (const r of REALMS19) {
+    const c = r.col, lt = c.map(v => Math.min(255, v + 70)), dk = c.map(v => v * 0.6);
+    PEOPLE11["k19_" + r.id] = r.female
+      ? { name: r.ruler, female: true, skin: [240, 206, 180], hair: [150, 90, 50], bun: true, bodice: c, skirt: c, skirtLen: 11.5, hat: { t: "crown", gem: [40, 160, 90] }, shoe: [40, 30, 24] }
+      : { name: r.ruler, skin: r.id === "morgen" ? [176, 126, 92] : [228, 186, 150], hair: [110, 80, 50], beard: [120, 90, 60], coat: c, vest: [236, 210, 120], pants: dk, boots: true, shoe: [40, 30, 24], hat: { t: "crown", c: r.id === "morgen" ? [240, 240, 230] : null, gem: [200, 30, 40] }, belt: [200, 160, 60] };
+    PEOPLE11["v19_" + r.id + "_0"] = { name: "Bauer", skin: [222, 176, 140], hair: [90, 60, 36], shirt: [220, 210, 190], vest: dk, pants: [90, 80, 64], hat: r.id === "morgen" ? { t: "turban", c: lt } : { t: "straw" }, tool: "hoe" };
+    PEOPLE11["v19_" + r.id + "_1"] = { name: "Bäuerin", female: true, skin: [236, 196, 166], hair: [170, 110, 50], bodice: c, skirt: [110, 90, 70], apron: { c: [240, 236, 226] }, hat: { t: "scarf", c: lt }, tool: "basket" };
+    PEOPLE11["v19_" + r.id + "_2"] = { name: "Händler", skin: [214, 170, 136], hair: [50, 40, 30], mustache: [50, 40, 30], coat: dk, vest: lt, pants: [60, 54, 48], hat: { t: r.id === "morgen" ? "turban" : "beret", c: c }, tool: "bag", bagc: [130, 80, 40] };
+    PEOPLE11["v19_" + r.id + "_3"] = { name: "Wache", skin: [226, 180, 144], hair: [70, 50, 34], coat: [150, 154, 164], vest: c, pants: [110, 110, 120], boots: true, hat: { t: "helm", c: c }, tool: "sword" };
+    for (const k of ["k19_", "v19_"]) for (const sfx of k === "k19_" ? [""] : ["_0", "_1", "_2", "_3"]) { const key = k + r.id + sfx, o = PEOPLE11[key]; o.seed = pseed++; MODEL_DEFS["p11_" + key] = () => defPerson(o); }
+  }
+  const VNAMES19 = ["Ole", "Ingrid", "Sven", "Hedda", "Tariq", "Leyla", "Bastian", "Greta", "Paulo", "Lucia", "Jonas", "Maren", "Edgar", "Wilma", "Rasmus", "Selma"];
+  function wanderThink19(e, dt, dp) {
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, true); return; }
+    if (e.fixed19) { e.dvx = e.dvz = 0; if (dp < 7) lookAt(e, P.x, P.y + 1.62, P.z); else { e.headYawT = 0; e.yawT = e.fixed19; } return; }
+    if ((e.timer -= dt) <= 0 || !e.goal19) {
+      e.timer = 4 + Math.random() * 8;
+      const c = e.home19, a = Math.random() * Math.PI * 2, rr = 2 + Math.random() * 11;
+      e.goal19 = [c[0] + Math.cos(a) * rr, c[2] + Math.sin(a) * rr]; e.idle19 = Math.random() < 0.35;
+    }
+    const [tx, tz] = e.goal19;
+    if (e.idle19 || Math.hypot(tx - e.x, tz - e.z) < 0.6) { e.dvx = e.dvz = 0; if (dp < 6) lookAt(e, P.x, P.y + 1.62, P.z); return; }
+    steerTo(e, tx, tz, e.speed); lookAhead(e);
+  }
+  function spawnRealm19(r) {
+    if (!r.plaza) return;
+    const st = V19.realms[r.id], loc = p => [p[0] - WILD.ox, p[1], p[2] - WILD.oz], won = st.rel === "erobert";
+    st.visited = true;
+    const formal = k => won ? k % 2 === 0 : false;
+    const say19 = (s, k) => fmt11(s, formal(k));
+    // Der Herrscher steht vor seinem Thron
+    const t = loc(r.seat), king = spawnEnt("villager", "p11_k19_" + r.id, t[0], t[1], t[2], { sit: true, pose: "sit", ghost: true, think: wanderThink19, fixed19: 0.0001, name: r.ruler, talkName: r.talk.replace(/^(König|Königin|Sultan|Herzogin)/, m => ({ König: "dem König", Königin: "der Königin", Sultan: "dem Sultan", Herzogin: "der Herzogin" })[m]),
+      lines: ["…"], realm19: r, guest15: { talk17: e => { e.talkT = 2; openPalette("reich", r.id); return true; } }, yaw: 0, scale: 1.05 });
+    king.yawT = king.yaw = 0;
+    // Wachen am Burgtor, ein Händler am Stand, Bauern auf dem Platz
+    const g = loc(r.gate);
+    for (const dx of [-2.2, 2.2]) spawnEnt("villager", "p11_v19_" + r.id + "_3", g[0] + dx, g[1], g[2] - 0.5, { think: wanderThink19, fixed19: 0.0001, name: "Wache von " + r.name, lines: [won ? say19("die Burg gehört jetzt Euch{M}.", 0) : "Halt! Zum Thronsaal geht es geradeaus.", "Unser Herrscher empfängt Euch gern."], yaw: 0 });
+    const s = loc(r.stall), trader = spawnEnt("villager", "p11_v19_" + r.id + "_2", s[0], s[1], s[2] + 1.4, { think: wanderThink19, fixed19: Math.PI, name: "Händler " + VNAMES19[r.dist % 16], lines: ["…"], yaw: Math.PI,
+      guest15: { talk17: e => { trade19(e, r); return true; } } });
+    trader.yawT = Math.PI;
+    for (let i = 0; i < 9; i++) {
+      const home = r.homes[i % r.homes.length], p = loc(r.plaza), h0 = i % 3 === 0 ? loc(home) : p;
+      const e = spawnEnt("villager", "p11_v19_" + r.id + "_" + (i % 2), h0[0] + (Math.random() - 0.5) * 6, h0[1], h0[2] + (Math.random() - 0.5) * 6, { think: wanderThink19, home19: p, speed: 1.3, name: VNAMES19[(i + r.dist) % 16] + " aus " + r.name,
+        lines: won ? [say19("seit Ihr unser König seid, geht es uns gut{M}.", i), say19("{M_}die Ernte ist gut dieses Jahr.", i)] : [`Willkommen in ${r.name}, Fremder.`, st.rel === "krieg" ? "Bitte tut uns nichts! Wir sind nur Bauern." : `${r.ruler} ist ein gerechter Herrscher.`, st.rel === "bund" ? "Unsere Reiche sind verbündet, das freut uns." : "Kommt Ihr von weit her?"] });
+      e.timer = Math.random() * 3;
+    }
+  }
+  // Handel am Marktstand: Angebote reihum, bezahlt wird aus dem Inventar
+  function trade19(e, r) {
+    e.talkT = 3.5;
+    const offers = r.goods, off = offers[(e.tradeI = ((e.tradeI || 0) + (e.traded ? 1 : 0)) % offers.length)], [[pid, pn], [gid, gn]] = off;
+    const ok = !survival() || countInv(pid) >= pn;
+    if (ok) { if (survival()) takeInv(pid, pn); giveItem(gid, gn); e.traded = true; V19.realms[r.id].traded++; V19.realms[r.id].gunst = Math.min(100, V19.realms[r.id].gunst + 2); say(e.name, `Gern getauscht: ${gn} ${itemName(gid)} für ${pn} ${itemName(pid)}. Sprecht mich wieder an für das nächste Angebot!`); refreshBar(); }
+    else { e.traded = false; say(e.name, `Mein Angebot: ${gn} ${itemName(gid)} für ${pn} ${itemName(pid)}. Habt Ihr ${pn} ${itemName(pid)} dabei?`); }
+  }
+
+  // ---------- Gespräch mit dem fremden Herrscher: Diplomatie ----------
+  const DIPL_GIFT = [I.goldbarren, 5];
+  function relText19(st) { return st.rel === "fremd" ? (st.gunst >= 60 ? "freundlich gesinnt" : st.gunst < 20 ? "misstrauisch" : "neutral") : REL19[st.rel]; }
+  function buildRealm19(root, id) {
+    const r = REALMS19.find(q => q.id === id), st = V19.realms[id];
+    root = root || UIEL; root.innerHTML = "";
+    const card = h("div", "card army18"), head = h("div", "v13head");
+    head.append(h("h2", "", r.ruler + " · " + r.name));
+    const close = h("button", "v13btn", "Fertig"); close.type = "button"; close.addEventListener("click", () => closePalette()); head.append(close);
+    const info = h("div", "box"), row = (a, b) => { const q = h("div", "row"); q.append(h("span", "", a), h("b", "", b)); info.append(q); };
+    info.append(h("h3", "", "Lage"));
+    row("Beziehung", relText19(st)); row("Gunst des Herrschers", Math.round(st.gunst) + " von 100");
+    row("Stärke der Armee von " + r.name, fmt18(st.power)); row("Stärke deiner Armee", fmt18(strength18()));
+    const msg = h("div", "note", greeting19(r, st));
+    const acts = h("div", "box"); acts.append(h("h3", "", "Was möchtet Ihr?"));
+    const btns = h("div", "btns");
+    const act = (t, f, dis) => { const b = h("button", "v13btn alt", t); b.type = "button"; b.disabled = !!dis; b.addEventListener("click", () => { clickSound(); const res = f(); if (res) msg.textContent = res; buildRealm19(root, id); root.querySelector(".note").textContent = res || msg.textContent; }); btns.append(b); };
+    if (st.rel !== "erobert") {
+      act(`Geschenk: ${DIPL_GIFT[1]} Goldbarren`, () => {
+        if (survival() && countInv(DIPL_GIFT[0]) < DIPL_GIFT[1]) return "Ihr habt nicht genug Goldbarren dabei (im Inventar).";
+        if (survival()) takeInv(...DIPL_GIFT); refreshBar();
+        st.gunst = Math.min(100, st.gunst + 18); if (st.rel === "krieg" && st.gunst > 50) st.rel = "fremd";
+        saveSoon(); return `${r.ruler}: „Welch großzügiges Geschenk! Ich werde es nicht vergessen.“`;
+      });
+      if (st.rel === "fremd" || st.rel === "freund") act("Bündnis anbieten", () => {
+        if (st.gunst < 60) { st.gunst = Math.max(0, st.gunst - 3); return `${r.ruler}: „Dafür kennen wir uns noch nicht gut genug.“ (Gunst ab 60 nötig)`; }
+        st.rel = "bund"; saveSoon(); announce14(`${r.name} ist jetzt mit deinem Königreich verbündet!`, "Bündnis:"); return `${r.ruler}: „So sei es! Von heute an sind unsere Reiche verbündet. Jeden Tag schicke ich Euch einen Boten mit Gaben.“`;
+      });
+      if (st.rel !== "krieg") act("Tribut fordern", () => {
+        if (strength18() > st.power * 2) { st.gunst = Math.max(0, st.gunst - 30); const n = Math.round(st.power / 40); giveItem(I.goldbarren, n); refreshBar(); saveSoon(); return `${r.ruler} zahlt zähneknirschend ${n} Goldbarren. Seine Gunst sinkt stark.`; }
+        st.gunst = Math.max(0, st.gunst - 12); saveSoon(); return `${r.ruler}: „Tribut? Eure Armee ist nicht stark genug, um so etwas zu verlangen!“`;
+      });
+      if (st.rel !== "krieg") act("Krieg erklären", () => { st.rel = "krieg"; st.gunst = 0; saveSoon(); announce14(`Krieg mit ${r.name}! Schicke deine Armee von hier aus oder von der Kaserne.`, "Krieg:"); return `${r.ruler}: „Ihr wagt es? Dann sehen wir uns auf dem Schlachtfeld!“`; });
+      if (st.rel === "krieg") {
+        act(`Armee schicken: Eroberung (${fmt18(armyN18())} Leute)`, () => war19(r, "erobern"), armyN18() <= 0 || V19.wars.some(w => w.id === r.id));
+        act("Überfall: die Hälfte schicken", () => war19(r, "ueberfall"), armyN18() < 2 || V19.wars.some(w => w.id === r.id));
+        act("Frieden anbieten", () => { if (st.power > strength18() * 1.5 || st.gunst >= 20 || Math.random() < 0.5) { st.rel = "fremd"; st.gunst = 25; saveSoon(); return `${r.ruler}: „Gut. Lasst uns Frieden schließen.“`; } return `${r.ruler}: „Noch nicht. Erst sollt Ihr spüren, wie stark wir sind.“`; });
+      }
+    } else act("Wie geht es meinem Reich?", () => `${r.ruler}: „Alles in Ordnung, Majestät. Die Abgaben gehen jeden Morgen zu Euch.“`);
+    acts.append(btns);
+    card.append(head, msg, info, acts); root.append(card);
+  }
+  function greeting19(r, st) {
+    if (st.rel === "erobert") return `${r.ruler}: „Majestät, ${r.name} gehört nun zu Eurem Reich. Ich verwalte es für Euch.“`;
+    if (st.rel === "bund") return `${r.ruler}: „Mein Freund und Verbündeter! Was kann ich für Euch tun?“`;
+    if (st.rel === "krieg") return `${r.ruler}: „Ihr wagt es, in meinen Thronsaal zu kommen? Sprecht schnell!“`;
+    return st.gunst >= 60 ? `${r.ruler}: „Willkommen, König Markus! Ich hörte viel Gutes von Euch.“` : `${r.ruler}: „Ein König aus dem Norden, hinter der Großen Mauer? Was führt Euch zu mir?“`;
+  }
+  // ---------- Krieg: die Armee zieht los (durch die Südpforte), nach einigen Stunden kommt die Nachricht ----------
+  function war19(r, kind) {
+    const n = kind === "ueberfall" ? Math.floor(armyN18() / 2) : armyN18(), st = V19.realms[r.id];
+    const str = strength18() * n / Math.max(1, armyN18()), hours = 3 + Math.round(Math.hypot(...siteOf19(r)) / 400);
+    V19.wars.push({ id: r.id, kind, n, str, left: hours });
+    if (!WILD && V18.site) marchOut19(n);
+    saveSoon();
+    return `${fmt18(n)} Leute ziehen los nach ${r.name}. In etwa ${hours} Stunden kommt Nachricht.`;
+  }
+  function marchOut19(n) {
+    const show = Math.min(12, 3 + Math.ceil(n / 50)), d = V18.door;
+    for (let i = 0; i < show; i++) {
+      const kind = i % 3 === 2 ? "m" : "k", e = spawnEnt("villager", "p11_" + kind + "18_" + (i === 0 ? 2 : 1), d[0] + (i % 3), d[1], d[2] + Math.floor(i / 3), { name: kind === "k" ? "Ritter" : "Magier", lines: ["Für den König!"], speed: 2.8 });
+      order15(e, [{ go: [96.5 + (i % 3) - 1, G0 + 1, 442.5] }, { fn: ee => setTimeout(() => { if (!ee.gone) removeEnt(ee); }, 0) }]);
+    }
+  }
+  function warTick19(hoursPassed) {
+    for (const w of [...V19.wars]) {
+      w.left -= hoursPassed; if (w.left > 0) continue;
+      V19.wars.splice(V19.wars.indexOf(w), 1);
+      const r = REALMS19.find(q => q.id === w.id), st = V19.realms[w.id], roll = w.str * (0.75 + Math.random() * 0.5);
+      const lose = frac => { for (const k of ["k", "m"]) for (let i = 0; i < 3; i++) V18[k][i] = Math.max(0, Math.round(V18[k][i] * (1 - frac * w.n / Math.max(1, armyN18())))); refreshSoldiers18(); };
+      if (w.kind === "ueberfall") {
+        if (roll > st.power * 0.6) { const g = Math.round(st.power / 25), b = Math.round(st.power / 12); for (const [id, n] of [[I.goldbarren, g], [I.brot, b]]) V13.tc.set(String(id), (V13.tc.get(String(id)) || 0) + n); st.power = Math.round(st.power * 0.8); lose(0.08); announce14(`Der Überfall auf ${r.name} ist gelungen: ${g} Goldbarren und ${b} Brot liegen in der Schatztruhe.`, "Sieg:"); }
+        else { lose(0.3); announce14(`Der Überfall auf ${r.name} ist gescheitert. Die Truppen kehren geschlagen heim.`, "Niederlage:"); }
+      } else {
+        if (roll > st.power) { st.rel = "erobert"; st.gunst = 50; lose(0.15); announce14(`${r.name} ist erobert! ${r.ruler} verwaltet es nun für dich und schickt jeden Tag Abgaben.`, "Sieg:"); }
+        else { st.power = Math.round(st.power * 0.85); lose(0.4); announce14(`Die Schlacht um ${r.name} ist verloren. Wirb mehr Ritter und Magier an!`, "Niederlage:"); }
+      }
+      saveSoon();
+    }
+  }
+  // ---------- Jeden Tag: Boten der Verbündeten und Eroberten bringen Gaben zu Fuß zur Schatztruhe ----------
+  function dayTick19() {
+    const h = hr14();
+    if (V19.prevH >= 0) { let dh = h - V19.prevH; if (dh < 0) dh += 24; if (dh > 0 && dh < 6) warTick19(dh); if (V19.prevH < 9 && h >= 9) V19.day++; }
+    V19.prevH = h;
+    if (WILD || h < 9 || h > 15) return;
+    for (const r of REALMS19) {
+      const st = V19.realms[r.id];
+      if ((st.rel !== "bund" && st.rel !== "erobert") || st.giftDay === V19.day) continue;
+      st.giftDay = V19.day;
+      const list = st.rel === "erobert" ? r.gift.map(([id, n]) => [id, n * 2]).concat([[I.goldbarren, 3]]) : r.gift;
+      const e = spawnEnt("villager", "p11_v19_" + r.id + "_2", ARRIVE15[0], ARRIVE15[1], ARRIVE15[2], { name: "Bote aus " + r.name, lines: [`Gaben aus ${r.name} für die Schatztruhe!`], speed: 2.6 });
+      const give = GIVE14 && GIVE14[0] ? GIVE14[0] : [93.5, G0 + 3, 77.5];
+      order15(e, [{ carry: CHEST }, { go: give.slice(0, 3) }, { deposit: list }, { drop: true }, { go: ARRIVE15 }, { fn: ee => setTimeout(() => { if (!ee.gone) removeEnt(ee); }, 0) }]);
+      announce14(`Ein Bote aus ${r.name} ist unterwegs zur Schatztruhe: ${list.map(([id, n]) => n + " " + itemName(id)).join(", ")}.`, st.rel === "erobert" ? "Abgaben:" : "Geschenk:");
+    }
+  }
+  // ---------- Auf der Karte: Straßen und Reiche ----------
+  MAPDRAW17.push((g, X, Z, s, dpr) => {
+    g.save(); g.setLineDash([6 * dpr, 5 * dpr]); g.strokeStyle = "rgba(110,72,30,.75)"; g.lineWidth = Math.max(1.5, 2.2 * Math.min(1, s)) * dpr;
+    for (const r of REALMS19) {
+      const pts = r.road; if (!pts) continue;
+      g.beginPath(); for (let i = 0; i < pts.length; i += 8) { const p = pts[i]; if (i === 0) g.moveTo(X(p.x), Z(p.z)); else g.lineTo(X(p.x), Z(p.z)); } g.stroke();
+    }
+    g.restore();
+    for (const r of REALMS19) {
+      const [x, z] = siteOf19(r), st = V19.realms[r.id], px = X(x), pz = Z(z), k = 8 * dpr;
+      g.fillStyle = st.rel === "erobert" ? "#c0392b" : `rgb(${r.col.join(",")})`; g.strokeStyle = "#3a2410"; g.lineWidth = 1.5 * dpr;
+      g.beginPath(); g.moveTo(px - k, pz + k * 0.6); g.lineTo(px - k, pz - k * 0.4); g.lineTo(px - k * 0.5, pz); g.lineTo(px, pz - k * 0.8); g.lineTo(px + k * 0.5, pz); g.lineTo(px + k, pz - k * 0.4); g.lineTo(px + k, pz + k * 0.6); g.closePath(); g.fill(); g.stroke();
+      g.font = "700 " + 13 * dpr + "px Georgia, serif"; g.textAlign = "center"; g.lineWidth = 3 * dpr; g.strokeStyle = "rgba(240,224,184,.95)";
+      const t = r.name + (st.visited || st.rel !== "fremd" ? " (" + relText19(st) + ")" : "");
+      g.strokeText(t, px, pz + 22 * dpr); g.fillStyle = "#3a2410"; g.fillText(t, px, pz + 22 * dpr);
+    }
+  });
+  // ---------- Anschluss ----------
+  WILDX17.push(() => { paintRoads19(); for (const r of REALMS19) { r.plaza = null; village19(r); } });
+  (V11.wspawn = V11.wspawn || []).push(() => { for (const r of REALMS19) spawnRealm19(r); });
+  V11.spawn.push(() => { for (const r of REALMS19) road19(r); });   // Straßen für die Karte vorberechnen
+  V11.update.push(() => dayTick19());
+  (V11.wild = V11.wild || []).push(() => dayTick19());
+  function v19Save() { return { realms: V19.realms, day: V19.day, wars: V19.wars }; }
+  function v19Load(o) {
+    if (!o) return;
+    if (o.realms) for (const id in V19.realms) if (o.realms[id]) Object.assign(V19.realms[id], o.realms[id]);
+    if (Number.isFinite(o.day)) V19.day = o.day;
+    if (Array.isArray(o.wars)) V19.wars = o.wars.filter(w => w && V19.realms[w.id]);
+  }
+  // ==================== Version 19: Reiten und die königliche Kutsche ====================
+  // Pferde: E oder Rechtsklick auf ein Pferd zum Aufsitzen, Rechtsklick zum Absteigen. Reiten ist doppelt so schnell, Sprünge über Zäune.
+  // Das Pferd kommt mit in die Wildnis und wieder heim.
+  // Die Kutsche steht vor dem Schlosstor: einsteigen, Ziel wählen, James fährt auf den Straßen dorthin. Zu den fremden Reichen
+  // fährt sie über die Südpforte; die Reise dauert einige Stunden (die Uhr läuft weiter).
+  function v19Mount(e) {
+    if (P.horse || P.boat || P.carriage || e.dead >= 0 || e.harness19) return false;
+    P.horse = e; e.ridden = true; e.ghost = true; e.dvx = e.dvz = 0;
+    P.fly = false; flyTag.hidden = true;
+    SND.neigh && SND.neigh(1, 1);
+    showName(isTouch ? "Du reitest! Tippe „Bauen“ zum Absteigen." : "Du reitest! Shift: Galopp · Rechtsklick: absteigen", 2600);
+    return true;
+  }
+  function dismount19(quiet) {
+    const e = P.horse; if (!e) return;
+    P.horse = null; e.ridden = false; e.ghost = false; e.vx = e.vz = 0;
+    // Absteigen neben das Pferd
+    const sx = Math.cos(P.yaw) * 1.2, sz = -Math.sin(P.yaw) * 1.2;
+    const sp = freeSpotNear(P.x, P.y, P.z, sx, sz); if (sp) { P.x = sp[0]; P.y = sp[1]; P.z = sp[2]; }
+    P.fallTop = P.y; if (!quiet) noiseHit(300, 0.8, 0.12, 0.04);
+  }
+  let hoofT19 = 0;
+  function rideTick19(dt) {
+    const e = P.horse; if (!e) return;
+    if (P.dead || e.gone) { dismount19(true); return; }
+    e.x = P.x; e.y = P.y; e.z = P.z; e.vx = P.vx; e.vz = P.vz; e.vy = 0;
+    const sp = Math.hypot(P.vx, P.vz);
+    if (sp > 0.6) e.yaw = e.yawT = Math.atan2(P.vx, P.vz);
+    e.headYawT = 0;
+    if (P.ground && sp > 1 && (hoofT19 -= dt * sp) <= 0) { hoofT19 = 2.6; noiseHit(500 + Math.random() * 200, 3, 0.04, 0.03); }
+  }
+  // Pferd mitnehmen: in die Wildnis und zurück
+  function horseSpawn19(model, at) {
+    const e = spawnEnt("animal", model, at[0], at[1], at[2], { type: "horse", r: ANIMAL.horse.r, h: ANIMAL.horse.h, eye: 1.6, hp: 15, maxHp: 15, speed: 1.5, voice: "neigh", canGraze: true, yaw: P.yaw + Math.PI, grazeT: 0, g: 0 });
+    return e;
+  }
+
+  // ---------- Die Kutsche ----------
+  const COACH_KEY = "blockwelt-coach";
+  const CO = { x: 0, y: 0, z: 0, yaw: Math.PI, v: 0, mesh: null, wheels: [], horses: [], route: null, ri: 0, onboard: false, james: false, lt: 0, dest: null, where: "home", gx: 0, gz: 0 };
+  function coachMesh19() {
+    const t = b => TEX[b][0], DP = t(DPLANK), SP = t(SPRUCE_PLANKS), GD = t(GOLD), BW = t(BWOOL), GL = t(GLASS), RW = t(RWOOL), LG = t(SPRUCE_LOG);
+    const body = [
+      [-1.0, 0.75, -1.4, 1.0, 0.9, 1.6, DP],                                          // Boden der Kabine
+      [-1.05, 0.9, -1.4, -0.95, 2.5, 1.6, BW], [0.95, 0.9, -1.4, 1.05, 2.5, 1.6, BW],     // Seitenwände
+      [-1.0, 0.9, 1.55, 1.0, 2.5, 1.65, BW], [-1.0, 0.9, -1.45, 1.0, 1.5, -1.35, BW],    // Rückwand, vorne unten
+      [-1.15, 2.5, -1.55, 1.15, 2.65, 1.75, DP], [-0.9, 2.65, -1.3, 0.9, 2.8, 1.5, BW], // Dach
+      [-1.1, 1.55, -1.42, -0.85, 2.45, -1.32, GD], [0.85, 1.55, -1.42, 1.1, 2.45, -1.32, GD], // Rahmen vorne
+      [-1.08, 1.5, -0.6, -1.04, 2.2, 0.8, GL], [1.04, 1.5, -0.6, 1.08, 2.2, 0.8, GL],     // Fenster
+      [-1.1, 2.46, -1.5, 1.1, 2.52, 1.7, GD], [-1.1, 0.86, -1.45, 1.1, 0.92, 1.7, GD],   // Goldleisten
+      [-0.25, 2.8, -0.25, 0.25, 3.15, 0.25, GD], [-0.1, 3.15, -0.1, 0.1, 3.4, 0.1, RW],  // Krone oben
+      [-0.8, 1.0, -0.6, 0.8, 1.3, 1.4, RW],                                             // Sitzbank innen
+      [-0.9, 1.15, -2.6, 0.9, 1.3, -1.6, DP], [-0.9, 1.3, -1.75, 0.9, 1.9, -1.6, DP],    // Kutschbock
+      [-0.06, 0.5, -4.6, 0.06, 0.62, -1.5, LG], [-0.6, 0.55, -4.0, 0.6, 0.62, -3.9, LG], // Deichsel
+      [-1.2, 1.9, -1.6, -1.05, 2.3, -1.45, GD], [1.05, 1.9, -1.6, 1.2, 2.3, -1.45, GD],  // Laternen
+      [-1.0, 0.45, -1.2, 1.0, 0.6, -1.0, LG], [-1.0, 0.45, 1.2, 1.0, 0.6, 1.4, LG],      // Achsen
+    ];
+    const mat = litEnt(new THREE.MeshLambertMaterial({ map: atlasTex }));
+    const g = new THREE.Group(), m = new THREE.Mesh(tileBoxGeo(body), mat); m.castShadow = true; g.add(m);
+    // Räder: vorne kleiner, hinten größer, mit Speichen
+    const wheels = [];
+    for (const [z, r] of [[-1.1, 0.5], [1.3, 0.62]]) for (const x of [-1.12, 1.12]) {
+      const parts = [[-0.06, -r, -0.08, 0.06, r, 0.08, DP], [-0.06, -0.08, -r, 0.06, 0.08, r, DP], [-0.07, -0.14, -0.14, 0.07, 0.14, 0.14, GD]];
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, c = Math.cos(a) * r * 0.92, s = Math.sin(a) * r * 0.92; parts.push([-0.08, c - 0.1, s - 0.1, 0.08, c + 0.1, s + 0.1, LG]); }
+      const w = new THREE.Mesh(tileBoxGeo(parts), mat); w.position.set(x, r, z); w.userData.r = r; g.add(w); wheels.push(w);
+    }
+    scene.add(g);
+    return { g, mat, wheels };
+  }
+  function coachSpot19() {
+    // vor dem Schlosstor, neben der Straße, mit der Deichsel nach Süden
+    for (let dx = 5; dx <= 12; dx++) for (const side of [1, -1]) {
+      const x = C + side * dx, z = 168; let ok = true;
+      for (let zz = z - 5; zz <= z + 2 && ok; zz++) for (let xx = x - 1; xx <= x + 1 && ok; xx++) if (!standable(xx, G0 + 1, zz)) ok = false;
+      if (ok) return [x + 0.5, G0 + 1, z + 0.5];
+    }
+    return [C + 6.5, G0 + 1, 168.5];
+  }
+  function coachInit19() {
+    if (CO.mesh) return;
+    let s = null; try { s = JSON.parse(localStorage.getItem(COACH_KEY) || "null"); } catch (e) {}
+    if (s && s.where === "wild") { CO.where = "wild"; CO.gx = s.gx; CO.gz = s.gz; CO.yaw = s.yaw || 0; }
+    else CO.where = "home";
+    if (!WILD && CO.where === "home") { const p = s && Number.isFinite(s.x) && s.where === "home" ? [s.x, G0 + 1, s.z] : coachSpot19(); CO.x = p[0]; CO.z = p[2]; CO.yaw = s && s.where === "home" && Number.isFinite(s.yaw) ? s.yaw : Math.PI; }
+    else if (WILD && CO.where === "wild") { CO.x = CO.gx - WILD.ox; CO.z = CO.gz - WILD.oz; if (CO.x < 3 || CO.z < 3 || CO.x > W - 4 || CO.z > D - 4) return; }
+    else return;
+    CO.y = groundY19(CO.x, CO.z);
+    const { g, mat, wheels } = coachMesh19(); CO.mesh = g; CO.mat = mat; CO.wheels = wheels;
+    CO.horses = ["white", "black"].map((c, i) => { const e = horseSpawn19("horse_" + c, [CO.x, CO.y, CO.z]); e.harness19 = true; e.ghost = true; return e; });
+    AREAS.unshift(["Die königliche Kutsche", "Rechtsklick: einsteigen und ein Ziel wählen", 0, 0, 0, H - 1, 0, 0]); CO.area = AREAS[0];
+    placeCoach19(0, 0);
+  }
+  function groundY19(x, z) { const fx = Math.floor(x), fz = Math.floor(z); for (let y = Math.min(H - 3, (topY[fx + fz * W] || G0) + 1); y > 2; y--) if (standable(fx, y, fz)) return y; return G0 + 1; }
+  function placeCoach19(dt, t) {
+    const fx = -Math.sin(CO.yaw), fz = -Math.cos(CO.yaw), sx = Math.cos(CO.yaw), sz = -Math.sin(CO.yaw);
+    const bob = CO.v > 0.5 ? Math.sin(t * 9) * 0.03 : 0;
+    CO.mesh.position.set(CO.x, CO.y + bob, CO.z); CO.mesh.rotation.y = CO.yaw;
+    for (const w of CO.wheels) w.rotation.x -= CO.v * dt / w.userData.r;
+    CO.horses.forEach((e, i) => {
+      e.x = CO.x + fx * 4.4 + sx * (i ? 0.75 : -0.75); e.z = CO.z + fz * 4.4 + sz * (i ? 0.75 : -0.75); e.y = groundY19(e.x, e.z);
+      e.vx = fx * CO.v; e.vz = fz * CO.v; e.yaw = e.yawT = Math.atan2(fx, fz); e.headYawT = 0;
+    });
+    if (CO.area) CO.area[1] = CO.onboard ? (CO.route ? "James fährt · Rechtsklick: anhalten und aussteigen" : "Rechtsklick: aussteigen") : "Rechtsklick: einsteigen und ein Ziel wählen";
+    if (CO.area) { CO.area[2] = CO.x - 2.5; CO.area[3] = CO.x + 2.5; CO.area[4] = CO.y - 1; CO.area[5] = CO.y + 4; CO.area[6] = CO.z - 2.5; CO.area[7] = CO.z + 2.5; }
+    if (CO.onboard) {
+      P.x = CO.x + fx * 0.2; P.z = CO.z + fz * 0.2; P.y = CO.y + 0.55; P.vx = fx * CO.v; P.vz = fz * CO.v; P.vy = 0; P.ground = true; P.fallTop = P.y;
+    }
+    if (CO.james && butler) {
+      butler.x = CO.x + fx * 2.05; butler.z = CO.z + fz * 2.05; butler.y = CO.y + 0.6; butler.vx = butler.vz = 0; butler.yaw = butler.yawT = Math.atan2(fx, fz);
+      butler.sit = true; butler.pose = "sit"; butler.ghost = true;
+    }
+  }
+  // Einsteigen, Ziel wählen, aussteigen
+  function v19Use() {
+    if (P.horse) { dismount19(); return true; }
+    if (CO.onboard) { if (CO.route) { CO.route = null; CO.v = 0; say("James", "Wie Ihr wünscht, Majestät. Ich halte an."); } coachLeave19(); return true; }
+    if (!CO.mesh || Math.hypot(P.x - CO.x, P.z - CO.z) > 3.6 || Math.abs(P.y - CO.y) > 3) return false;
+    CO.onboard = true; P.carriage = CO; P.fly = false; flyTag.hidden = true;
+    if (butler && butler.dead < 0 && !butler.stay) { order15(butler, [{ wait: 1e9 }], {}); butler.ghost = true; CO.james = true; }
+    noiseHit(300, 0.8, 0.15, 0.05);
+    openPalette("kutsche");
+    return true;
+  }
+  function coachLeave19() {
+    CO.onboard = false; P.carriage = null;
+    const sx = Math.cos(CO.yaw) * 2, sz = -Math.sin(CO.yaw) * 2;
+    const sp = freeSpotNear(CO.x, CO.y, CO.z, sx, sz) || freeSpotNear(CO.x, CO.y, CO.z, -sx, -sz);
+    if (sp) { P.x = sp[0]; P.y = sp[1]; P.z = sp[2]; }
+    P.vx = P.vz = 0; P.fallTop = P.y;
+    if (CO.james && butler) { CO.james = false; butler.sit = false; butler.pose = "none"; const b = freeSpotNear(P.x, P.y, P.z, 1.2, 1.2) || [P.x + 1, P.y, P.z]; butler.x = b[0]; butler.y = b[1]; butler.z = b[2]; endOrder15(butler, true); butler.stay = false; }
+    saveCoach19();
+  }
+  function saveCoach19() {
+    try { localStorage.setItem(COACH_KEY, JSON.stringify(CO.where === "home" ? { where: "home", x: CO.x, z: CO.z, yaw: CO.yaw } : { where: "wild", gx: CO.gx, gz: CO.gz, yaw: CO.yaw })); } catch (e) {}
+  }
+  const COACHDEST19 = [
+    { t: "Schlosstor", node: "dorf_n", ic: GOLD }, { t: "Dorfbrunnen", node: "dorf_b", ic: TROG }, { t: "Marktplatz", node: "markt_n", ic: THEKE }, { t: "Oststadt", node: "ost_m", ic: PLASTER_Y },
+    { t: "Gutshof", node: "gut_hof", ic: HAY }, { t: "Bootssteg", node: "steg", ic: SPRUCE_PLANKS }, { t: "Mühle", node: "muehle", ic: MUEHLSTEIN }, { t: "Südpforte", pt: [96.5, 428.5], ic: SBRICK },
+  ];
+  function buildCoach19(root) {
+    const items = [];
+    if (!WILD) {
+      for (const d of COACHDEST19) items.push({ t: d.t, ic: d.ic, run: () => coachGo19(d) });
+      items.push({ t: "In ein fremdes Reich", ic: BWOOL, sub: () => ({ title: "Wohin reisen?", items: REALMS19.map(r => ({ t: r.name, ic: r.flag, run: () => coachAbroad19(r) })) }) });
+    } else {
+      items.push({ t: "Heimreise ins Königreich", ic: GOLD, run: () => coachHome19() });
+      for (const r of REALMS19) if (!near19(r)) items.push({ t: "Nach " + r.name, ic: r.flag, run: () => coachAbroad19(r) });
+    }
+    items.push({ t: "Aussteigen", ic: SHIELD_W, run: () => coachLeave19() });
+    cmdStack15 = [{ title: "Wohin, Majestät?", items }];
+    drawCmd15(root);
+  }
+  const near19 = r => r.plaza && WILD && Math.hypot(r.plaza[0] - WILD.ox - P.x, r.plaza[2] - WILD.oz - P.z) < 80;
+  function coachGo19(d) {
+    const to = d.node ? [NODES14[d.node][0], G0 + 1, NODES14[d.node][1]] : [d.pt[0], G0 + 1, d.pt[1]];
+    CO.route = planRoute14([CO.x, CO.y, CO.z], to); CO.ri = 0; CO.dest = d;
+    say("James", fmt11(`sehr wohl{M}, zum ${d.t === "Mühle" || d.t === "Südpforte" || d.t === "Oststadt" ? (d.t === "Mühle" ? "Mühle" : d.t) : d.t}. Haltet Euch fest!`, true).replace("zum Mühle", "zur Mühle").replace("zum Südpforte", "zur Südpforte").replace("zum Oststadt", "in die Oststadt"));
+  }
+  // Fahren: entlang der Wegpunkte, in Kurven langsamer
+  function coachDrive19(dt) {
+    if (!CO.route) { CO.v = Math.max(0, CO.v - dt * 6); return; }
+    const t = CO.route[CO.ri], dx = t[0] - CO.x, dz = t[2] - CO.z, d = Math.hypot(dx, dz);
+    const last = CO.ri === CO.route.length - 1;
+    if (d < (last ? 1.2 : 3)) {
+      CO.ri++;
+      if (CO.ri >= CO.route.length) { CO.route = null; const d0 = CO.dest; CO.dest = null; if (d0 && d0.then) d0.then(); else { say("James", fmt11("wir sind da{M}.", true)); saveCoach19(); } return; }
+      return;
+    }
+    const want = Math.atan2(-dx, -dz);
+    let da = want - CO.yaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+    CO.yaw += Math.max(-1.6 * dt, Math.min(1.6 * dt, da));
+    const vmax = (Math.abs(da) > 0.6 ? 2.5 : 7) * (last && d < 8 ? 0.5 : 1);
+    CO.v += (vmax - CO.v) * Math.min(1, dt * 1.5);
+    CO.x -= Math.sin(CO.yaw) * CO.v * dt; CO.z -= Math.cos(CO.yaw) * CO.v * dt;
+    const gy = groundY19(CO.x, CO.z); CO.y += (gy - CO.y) * Math.min(1, dt * 6);
+    if ((CO.hoofT = (CO.hoofT || 0) - dt * CO.v) <= 0 && Math.hypot(P.x - CO.x, P.z - CO.z) < 40) { CO.hoofT = 2.2; noiseHit(520 + Math.random() * 150, 3, 0.04, 0.03); }
+  }
+  // Reise in ein fremdes Reich: zur Südpforte fahren, dann die lange Fahrt (die Uhr springt weiter)
+  function coachAbroad19(r) {
+    const go = () => {
+      const [sx, sz] = siteOf19(r), dist = Math.hypot(sx - (WILD ? WILD.ox + P.x : P.x), sz - (WILD ? WILD.oz + P.z : P.z)), hours = Math.max(1, Math.round(dist / 350));
+      const ox = Math.round((sx - W / 2) / 16) * 16, oz = Math.round((sz - D / 2) / 16) * 16;
+      // Ankunft: auf der Straße kurz vor dem Dorf
+      const pts = road19(r); let k = pts.length - 1; while (k > 0 && Math.hypot(pts[k].x - sx, pts[k].z - sz) < 44) k--;
+      const ax = pts[k].x, az = pts[k].z;
+      CO.where = "wild"; CO.gx = ax + 3; CO.gz = az; CO.yaw = Math.atan2(-(sx - ax), -(sz - az));
+      saveCoach19();
+      dayT = (dayT + hours / 24) % 1;
+      coachVeil19 = `Die Kutsche fährt nach ${r.name} … (etwa ${hours} Stunde${hours > 1 ? "n" : ""})`;
+      travel17({ wild: { ox, oz, p: [ax - ox, null, az - oz - 3, CO.yaw], kp: WILD ? WILD.kp : [96.5, G0 + 1, 426.5, Math.PI, 0], coach: true } });
+    };
+    if (WILD) { go(); return; }
+    say("James", `Sehr wohl, Majestät. Zuerst zur Südpforte, dann geht es nach ${r.name}.`);
+    CO.route = planRoute14([CO.x, CO.y, CO.z], [96.5, G0 + 1, 428.5]); CO.ri = 0; CO.dest = { t: r.name, then: go };
+  }
+  function coachHome19() {
+    const hours = Math.max(1, Math.round(Math.hypot(WILD.ox + P.x - 96, WILD.oz + P.z - D) / 350));
+    CO.where = "home"; try { localStorage.setItem(COACH_KEY, JSON.stringify({ where: "home", x: 99.5, z: 426.5, yaw: 0 })); } catch (e) {}
+    dayT = (dayT + hours / 24) % 1;
+    coachVeil19 = `Die Kutsche fährt heim ins Königreich … (etwa ${hours} Stunde${hours > 1 ? "n" : ""})`;
+    travel17({ home: { x: 96.5, z: 424.5, coach: true } });
+  }
+  let coachVeil19 = "";
+  function coachTick19(dt, t) {
+    if (!CO.mesh) { coachInit19(); if (!CO.mesh) return; }
+    if (CO.onboard && P.dead) { CO.onboard = false; P.carriage = null; }
+    coachDrive19(dt);
+    if ((CO.lt -= dt) <= 0) { CO.lt = 0.5; const l = lightAt(CO.x, CO.y + 2, CO.z); CO.mat.userData.uLight.value.set(l.x, l.y); }
+    placeCoach19(dt, t);
+  }
+  // Nach der Ankunft mit der Kutsche: im Wagen sitzen bleiben
+  function coachArrive19() {
+    const flag = (WILD && WILD.coach) || (HOME_AT && HOME_AT.coach);
+    if (!flag || !CO.mesh) return;
+    if (WILD) WILD.coach = false;
+    CO.onboard = true; P.carriage = CO;
+    if (butler && butler.dead < 0) { order15(butler, [{ wait: 1e9 }], {}); butler.ghost = true; CO.james = true; }
+    setTimeout(() => say("James", fmt11("wir sind angekommen{M}. Rechtsklick zum Aussteigen.", true)), 1200);
+  }
+  // Im Wagen: nicht laufen (step hält den König auf seinem Platz)
+  function coachStep19() { if (keys.Space) { keys.Space = false; v19Use(); } }
+  V11.update.push((dt, t) => { rideTick19(dt); coachTick19(dt, t || performance.now() / 1000); });
+  (V11.wild = V11.wild || []).push((dt, t) => { rideTick19(dt); coachTick19(dt, t || performance.now() / 1000); });
+  V11.spawn.push(() => {
+    coachInit19(); coachArrive19();
+    // Heimkehr zu Pferd: das Pferd kommt mit (eines aus dem Stall weniger, damit es nicht doppelt da ist)
+    if (HOME_AT && HOME_AT.horse) {
+      const twin = ents.find(e => e.m === HOME_AT.horse && e.type === "horse" && !e.harness19); if (twin) removeEnt(twin);
+      const e = horseSpawn19(HOME_AT.horse, [P.x, P.y, P.z]); v19Mount(e);
+    }
+  });
+  (V11.wspawn = V11.wspawn || []).push(() => {
+    coachInit19(); coachArrive19();
+    if (WILD.horse) { const e = horseSpawn19(WILD.horse, [P.x, P.y, P.z]); v19Mount(e); WILD.horse = null; }
+  });
+  window.addEventListener("pagehide", () => { if (CO.mesh && !CO.onboard) saveCoach19(); });
   // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.
@@ -12679,6 +13284,7 @@
       else if (target && target.door) msg = use + (target.door.h === 1 ? (target.door.open ? "Tor schließen" : "Tor öffnen") : (target.door.open ? "Tür schließen" : "Tür öffnen"));
       else if (target && bigCellAt(target.x, target.y, target.z)) msg = use + (BGATE.open ? "Das Riesentor schließen" : "Das Riesentor öffnen");
       else if (target && paintingTitle(tb)) msg = "Gemälde: „" + paintingTitle(tb) + "“";
+      else if (targetEnt && targetEnt.type === "horse" && !targetEnt.harness19 && !P.horse) msg = act + "Aufsitzen und reiten";
       else if (targetEnt && targetEnt === butler) msg = act + (butler.stay ? "James soll dir wieder folgen" : "James soll hier warten");
       else if (targetEnt && targetEnt.lines) msg = act + "mit " + (targetEnt.talkName || { guard: "der Wache", kid: "dem Kind" }[targetEnt.kind] || "dem Dorfbewohner") + " reden";
       else if (target && !P.seat) {
@@ -12764,7 +13370,7 @@
     setMonsters(!(save && save.mon === false));
     timeRun = !(save && save.tr === false);
     P.fallTop = P.y; updateSky(0); syncTimeUI(); showClock();
-    if (WILD) { spawnAnimals(); spawnButler(save && save.stay); updateJamesTag(); menuText.textContent = "Du bist in der Wildnis hinter der Großen Mauer. Das Land hört nie auf. Mit T oder zurück zur Mauer kommst du heim."; }
+    if (WILD) { spawnAnimals(); spawnButler(save && save.stay); updateJamesTag(); for (const f of V11.wspawn || []) f(); menuText.textContent = "Du bist in der Wildnis hinter der Großen Mauer. Das Land hört nie auf. Mit T oder zurück zur Mauer kommst du heim."; }
     else {
     spawnPeople(); spawnAnimals(); spawnButler(save && save.stay); updateJamesTag(); placeProps(); spawnStaff();
     for (const f of V11.spawn) f();
