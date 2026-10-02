@@ -5864,7 +5864,7 @@
     }
   }
   // Laterne auf einem eisernen Mast (drei Blöcke hoch, oben leuchtet sie)
-  function lampPost(x, z) { setB(x, G0 + 1, z, MAST_FUSS); setB(x, G0 + 2, z, MAST); setB(x, G0 + 3, z, LANTERN_S); }
+  function lampPost11(x, z) { setB(x, G0 + 1, z, MAST_FUSS); setB(x, G0 + 2, z, MAST); setB(x, G0 + 3, z, LANTERN_S); }
   // Bank mit Blick in Richtung (dx, dz); merkt sich den Sitzplatz für die Kundschaft
   function benchAt(x, z, dx, dz) {
     setB(x, G0 + 1, z, rotId(BENCH, dx, dz));
@@ -5896,8 +5896,8 @@
     }
     buildMaypole11(105, 277);
     // Laternen: vier am Brunnen, zwei an jeder Einmündung der Straßen, eine in jeder Ecke
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) lampPost(MB.x + sx * 6, MB.z + sz * 6);
-    for (const [x, z] of [[92, 269], [100, 269], [92, 303], [100, 303], [79, 284], [79, 289], [113, 284], [113, 289], [79, 269], [113, 269], [79, 303], [113, 303]]) lampPost(x, z);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) lampPost11(MB.x + sx * 6, MB.z + sz * 6);
+    for (const [x, z] of [[92, 269], [100, 269], [92, 303], [100, 303], [79, 284], [79, 289], [113, 284], [113, 289], [79, 269], [113, 269], [79, 303], [113, 303]]) lampPost11(x, z);
     // Blumenbeete zwischen den Ständen an der Nord- und Südseite
     for (const bz of [270, 302]) for (const bxx of [86, 106]) {
       setB(bxx, G0, bz, GRASS); setB(bxx, F, bz, [TULIP, FLOWER_R, FLOWER_Y, FLOWER_B][(bxx + bz) % 4]);
@@ -6897,7 +6897,7 @@
     const home = { name: o.name || "Wohnhaus", zone: o.zone, door: [...(([x, z]) => [x + 0.5, F, z + 0.5])(L(doorA, -2))], beds: beds.map(([x, z]) => [x + 0.5, U, z + 0.5]), chest: [cx, U, cz], size: beds.length + (ID >= 5 ? 2 : 1), box: [x0, z0, x1, z1] };
     PLACES11.homes.push(home); HOUSES11.push(home);
     // Laterne an der linken Ecke vorn, Garten hinter dem Haus
-    { const [x, z] = L(-2, -2); if (roadMask[x + z * W] !== 1 && get(x, F, z) === AIR && get(x, G0, z) !== AIR) lampPost(x, z); }
+    { const [x, z] = L(-2, -2); if (roadMask[x + z * W] !== 1 && get(x, F, z) === AIR && get(x, G0, z) !== AIR) lampPost11(x, z); }
     GARDENS11.push(() => backGarden(L, IW, ID, rnd, o));
     return home;
   }
@@ -6944,7 +6944,7 @@
     const rnd = mulberry32(20261103);
     // Die neue Wohngasse der Oststadt
     for (let z = 199; z <= 238; z++) for (let x = 179; x <= 181; x++) { setB(x, G0, z, COBBLE); for (let y = G0 + 1; y <= G0 + 6; y++) if (PLANT[get(x, y, z)]) setB(x, y, z, AIR); }
-    for (const z of [208, 218, 228, 238]) lampPost(178, z);
+    for (const z of [208, 218, 228, 238]) lampPost11(178, z);
     let n = 0;
     for (const [t, x0, z0, w, d, side] of HOUSE_LIST) {
       const st = t === "o" ? OST_STYLE(rnd) : NEU_STYLE(rnd);
@@ -7001,7 +7001,7 @@
       GUT_SPOTS.hof.push([cx + 3.5, F, cz + 0.5, -Math.PI / 2, "look"], [cx - 2.5, F, cz + 0.5, Math.PI / 2, "water"], [cx + 0.5, F, cz - 3.5, 0, "look"]);
     }
     plantLinden(231, G0, 209);
-    for (const [x, z] of [[227, 178], [253, 178], [227, 216], [253, 216], [255, 188], [255, 205]]) lampPost(x, z);
+    for (const [x, z] of [[227, 178], [253, 178], [227, 216], [253, 216], [255, 188], [255, 205]]) lampPost11(x, z);
     buildManor11(rnd);
     AREAS.unshift(["Der Reitplatz", "", ARENA.x0, ARENA.x1, G0 - 2, G0 + 10, ARENA.z0, ARENA.z1]);
     buildStable11(rnd);
