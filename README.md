@@ -2,6 +2,13 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Version 18: Armee und Magie (auf diesem Branch)
+
+- Neben dem Schloss stehen jetzt die **Kaserne** und der **Übungsplatz**. Tagsüber üben die Ritter an den Strohpuppen und die Magier im Zauberkreis, abends gehen alle in die Kaserne.
+- Am **Werbetisch** (Rechtsklick) wirbst du neue Ritter und Magier an, gleich 10, 100 oder 500 auf einmal. Bezahlt wird aus der Schatztruhe (im Kreativ-Spiel ist es umsonst). Die Neuen kommen zu Fuß durch die Südpforte. Wer übt, steigt auf: vom Knappen zum Ritter und Hauptmann, vom Lehrling zum Magier und Erzmagier.
+- Auf der **Karte (M)** klickst du eine Stelle an und schickst eine **Truppe** hin. Sie hält dort Wache und kämpft gegen Zombies. Zurückrufen kannst du sie im Befehlskreis (Q) unter „Armee“. Dort gibt es auch eine **Leibgarde** aus vier Rittern.
+- **Zauber (Taste R):** Feuerball, Blitz, Schutzschild, Heilung und Sturmwind. Jeder Zauber kostet Zauberkraft (blaue Leiste), die von selbst wieder wächst.
+
 ## Version 17: Endlose Welt und Karte (auf diesem Branch)
 
 - Hinter der Großen Mauer geht die Welt jetzt **ohne Ende** weiter. Geh durch die Südpforte: ein Pilgerweg mit Laternen führt in die **Wildnis** mit Wäldern, Bergen mit Schnee, Flüssen, Seen, Wüsten, Höhlen und Erzen. Kommst du an den Rand, lädt kurz das nächste Stück. Gehst du zurück an die Mauer, bist du wieder daheim. Was du in der Wildnis baust, bleibt gespeichert.
@@ -139,6 +146,7 @@ So lädst du sie herunter: Auf GitHub oben auf den grünen Knopf „Code“ und 
 | N | Zeit überspringen: Morgen, Mittag, Abend, Nacht |
 | Strg + G | Zugbrücke und Tor von überall öffnen oder schließen |
 | F | Fliegen an / aus |
+| R | Zauber: Feuerball, Blitz, Schutzschild, Heilung, Sturmwind |
 | M | Karte: Königreich und erkundete Wildnis, Markierungen, Leute hinschicken |
 | T | Zurück vor das Schlosstor, James kommt mit (in der Wildnis: heim ins Königreich) |
 | Esc | Pause |

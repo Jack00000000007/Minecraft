@@ -1455,7 +1455,7 @@
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         v: 2, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false, t: Math.round(dayT * 1e6) / 1e6, tr: timeRun,
         p: WILD ? WILD.kp : P.dead ? null : (P.seat ? [...standSpot(P.seat), P.yaw, P.pitch] : [P.x, P.y, P.z, P.yaw, P.pitch]).map(n => Math.round(n * 1000) / 1000), fly: P.fly,
-        hp: P.dead ? 20 : P.hp, mon: monsters, sp: P.spawn, v13: v13Save(), v14: v14Save(),
+        hp: P.dead ? 20 : P.hp, mon: monsters, sp: P.spawn, v13: v13Save(), v14: v14Save(), v18: v18Save(),
       }));
       if (WILD) v17SaveWild();
     } catch (err) {}
@@ -4351,7 +4351,7 @@
   resetBtn.addEventListener("click", () => {
     if (!resetArmed) { resetArmed = true; resetBtn.textContent = "Wirklich alles zurücksetzen? Nochmal klicken"; setTimeout(() => { resetArmed = false; resetBtn.textContent = "Welt zurücksetzen"; }, 4000); return; }
     noSave = true;
-    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    try { localStorage.removeItem(SAVE_KEY); for (const k of Object.keys(localStorage)) if (k.startsWith("blockwelt-")) localStorage.removeItem(k); } catch (e) {}   // auch Wildnis, Karte, Boot
     location.reload();
   });
   document.addEventListener("pointerlockerror", () => { dragLook = true; });
@@ -6456,7 +6456,7 @@
     const fore = o.rolled ? (f, x, y, w, h, v) => f === "ny" || y >= 3 ? v(y === 11 ? shade(S, 0.9) : S, 6) : v(sleeve, 6) : forearm(sleeve, o.cuff || shade(sleeve, 0.85), S);
     const extra = [];
     const stock = o.stock || [236, 232, 224];
-    if (F_) {
+    if (F_ || o.robe) {   // Version 18: auch Magier tragen einen langen Mantel
       const sk = o.skirt || o.bodice || [80, 70, 90];
       extra.push({ b: "body", f: [-4.7, -o.skirtLen || -8.6, -2.9], t: [4.7, 0.6, 2.9], p: (f, x, y, w, h, v) => {
         if (ap && f === "pz" && x >= 3 && x <= w - 4 && y < h - 1) return apPaint(x, y, v);
@@ -6504,6 +6504,18 @@
         extra.push({ b: "head", f: [-6.4, 7.6, -6.4], t: [6.4, 8.2, 6.4], p: flat(hc, 5) }, { b: "head", f: [-3.8, 8.2, -3.8], t: [3.8, 11, 3.8], p: (f, x, y, w, h, v) => v(f !== "py" && y >= h - 3 ? H.band : hc, 5) });
         for (const [x, z, c] of [[-3.4, 2.6, [220, 50, 70]], [-1.6, 3.6, [246, 246, 240]], [-3.9, 0.6, [240, 200, 60]]]) extra.push({ b: "head", f: [x - 0.9, 8.2, z - 0.9], t: [x + 0.9, 9.8, z + 0.9], p: flat(c, 10) });
         break;
+      case "helm": {   // Version 18: Ritterhelm mit Sehschlitz und Federbusch
+        const steel = (f, x, y, w, h, v) => f === "pz" && y >= 4 && y <= 5 && x >= 1 && x <= w - 2 ? [26, 26, 30] : v((x + y) % 4 === 0 ? [206, 210, 218] : [168, 172, 182], 6);
+        extra.push({ b: "head", f: [-4.5, -0.4, -4.5], t: [4.5, 8.6, 4.5], p: steel },
+          { b: "head", f: [-0.7, 8.6, -3.8], t: [0.7, 12.4, 3.2], p: (f, x, y, w, h, v) => v(hc || [200, 30, 40], 8) });
+        break;
+      }
+      case "wizard":   // Version 18: spitzer Zauberhut mit Sternen
+        extra.push({ b: "head", f: [-6.2, 7.3, -6.2], t: [6.2, 8, 6.2], p: flat(hc, 5) },
+          { b: "head", f: [-4, 8, -4], t: [4, 11.5, 4], p: (f, x, y, w, h, v) => (x * 7 + y * 3) % 11 === 0 ? [250, 230, 120] : v(hc, 6) },
+          { b: "head", f: [-2.6, 11.5, -2.6], t: [2.6, 14.5, 2.6], p: (f, x, y, w, h, v) => (x + y * 5) % 7 === 0 ? [250, 230, 120] : v(hc, 6) },
+          { b: "head", f: [-1.2, 14.5, -1.8], t: [1.2, 17.5, 0.6], p: flat(hc, 6) });
+        break;
       case "veil":
         extra.push({ b: "head", f: [-6.6, 7.4, -6.6], t: [6.6, 8.1, 6.6], p: straw }, { b: "head", f: [-4.4, 8.1, -4.4], t: [4.4, 10.4, 4.4], p: straw },
           { b: "head", f: [-5.6, -1, -5.6], t: [5.6, 7.4, 5.6], skip: ["py", "ny"], p: (f, x, y, w, h, v) => x % 2 === 0 || y % 2 === 0 ? [70, 72, 70, 255] : null });
@@ -6531,6 +6543,10 @@
     if (T_ === "broom") extra.push(stick(-11, 13), { b: "tool", f: [-1.6, -15, -1.6], t: [1.6, -10.5, 1.6], p: (f, x, y, w, h, v) => v([200, 170, 96], 14) });
     if (T_ === "lantern") extra.push({ b: "tool", f: [-0.2, -2.5, -0.2], t: [0.2, 0, 0.2], p: flat([40, 40, 44], 4) }, { b: "tool", f: [-1.5, -6.5, -1.5], t: [1.5, -2.5, 1.5], p: (f, x, y, w, h, v) => (x === 0 || x === w - 1 || y === 0 || y === h - 1) ? [40, 40, 44] : [255, 210, 110] });
     if (T_ === "bucket") extra.push({ b: "tool", f: [-1.8, -6, -1.8], t: [1.8, -2, 1.8], p: (f, x, y, w, h, v) => f === "py" ? v([90, 140, 210], 8) : v(y % 3 === 1 ? [70, 70, 76] : [150, 110, 64], 6) }, { b: "tool", f: [-0.2, -2, -1.6], t: [0.2, 0.6, 1.6], skip: ["px", "nx"], p: flat([70, 70, 76], 4) });
+    // Version 18: Schwert und Zauberstab
+    if (T_ === "sword") extra.push({ b: "tool", f: [-0.4, -3, -0.4], t: [0.4, 0.6, 0.4], p: flat([90, 60, 40], 6) }, { b: "tool", f: [-0.5, 0.6, -2], t: [0.5, 1.4, 2], p: flat([220, 180, 70], 6) },
+      { b: "tool", f: [-0.25, 1.4, -0.7], t: [0.25, 14, 0.7], p: (f, x, y, w, h, v) => v(f === "pz" || f === "nz" ? [236, 240, 248] : [190, 196, 206], 4) });
+    if (T_ === "staff") extra.push(stick(-11, 16), { b: "tool", f: [-1.1, 16, -1.1], t: [1.1, 18.2, 1.1], p: (f, x, y, w, h, v) => v(o.gem || [120, 200, 255], 10) });
     const bones = [{ n: "tool", p: "foreR", at: [0, -5.5, 0] }];
     return human({
       seed: o.seed, bones, extra,
@@ -8779,6 +8795,8 @@
     V13.ui = kind; V13.els = []; UIEL.innerHTML = ""; UIEL.hidden = false;
     if (kind === "befehle") { buildCmd15(UIEL); return; }   // Version 15: der Befehlskreis
     if (kind === "karte") { buildMap17(UIEL); return; }     // Version 17: die Karte
+    if (kind === "armee") { buildArmy18(UIEL); return; }    // Version 18: Werbetisch und Übersicht der Armee
+    if (kind === "zauber") { buildSpell18(UIEL); return; }  // Version 18: Zauberkreis
     if (kind === "werkbank") V13.gridSize = 3; else if (kind === "inventar") V13.gridSize = 2;
     if (kind === "truhe") V13.chest = chestAt(ctx[0], ctx[1], ctx[2]);
     if (kind === "ofen") V13.furnace = furnaceAt(ctx[0], ctx[1], ctx[2]);
@@ -10432,6 +10450,7 @@
   }
 
   // ---------- Der Befehlskreis (Taste Q, am Handy „Befehle“) ----------
+  const EXTRA_CMD15 = [];
   const CMD15 = () => ({
     title: "Befehle", items: [
       { t: "James", ic: TOOLS.axt_eisen, sub: () => ({ title: "James", items: [
@@ -10458,6 +10477,7 @@
         { t: gate.open ? "Zugbrücke hoch" : "Zugbrücke herunter", ic: BARS, run: () => toggleGate() },
         { t: TGATES[0].open ? "Feldtor schließen" : "Feldtor öffnen", ic: BARS, run: () => { for (const gt of TGATES) { setTownGate(gt, !TGATES[0].open); gt.manual = true; } } },
       ] }) },
+      ...EXTRA_CMD15.map(f => f()),   // spätere Versionen hängen hier eigene Punkte an (Version 18: Armee)
     ] });
   function amounts15(fn, list) { return { title: "Wie viel?", items: list.map(n => ({ t: String(n), num: true, run: () => fn(n) })) }; }
   function nearTree15() {
@@ -10773,12 +10793,14 @@
     saveSoon();
   }
   function v16UseBlock(x, y, z) {
+    if (v18UseBlock(x, y, z)) return true;   // Version 18: Werbetisch
     const b = get(x, y, z);
     if (b === GLOCKE) { swingHand(); if (V16.alarm) endAlarm16(); else startAlarm16("Der König"); return true; }
     if (ROTB[b] === KANONE) { swingHand(); V16.cannons = !V16.cannons; showName(V16.cannons ? "Die Kanonen sind scharf." : "Die Kanonen schweigen.", 1800); saveSoon(); return true; }
     return false;
   }
   function v16Hint(tb, use) {
+    const h18 = v18Hint(tb, use); if (h18) return h18;   // Version 18
     if (tb === GLOCKE) return use + (V16.alarm ? "Entwarnung läuten" : "Alarm läuten");
     if (ROTB[tb] === KANONE) return use + (V16.cannons ? "Kanonen abschalten" : "Kanonen einschalten");
     return "";
@@ -11117,6 +11139,7 @@
   // Das Königreich ist ganz eingezeichnet. Die Wildnis zeichnet sich selbst, sobald der König dort gewesen ist (Feld für Feld, 16 Blöcke groß).
   // Ein Klick auf die Karte: Markierung setzen oder James und die Wachen dorthin schicken. Ziehen verschiebt, das Mausrad vergrößert.
   const MAP_KEY = "blockwelt-map", MAPK_KEY = "blockwelt-map-k";
+  const MAPOPT17 = [];
   const MAP17 = { seen: new Set(), flags: [], treasure: [], cx: null, cz: null, zoom: 1 };
   try {
     const s = JSON.parse(localStorage.getItem(MAP_KEY) || "null");
@@ -11344,6 +11367,7 @@
       const gs = ents.filter(e => e.kind === "guard" && e.dead < 0 && !e.gone).sort((a, b) => Math.hypot(a.x - lx, a.z - lz) - Math.hypot(b.x - lx, b.z - lz)).slice(0, 4);
       sendTo17(gs, lx, lz, "Die Wachen");
     });
+    for (const f of MAPOPT17) f(opt, lx, lz, here);    // spätere Versionen: Truppen schicken
     if (!here) pop.append(h("div", "pt", "Zu weit weg – dorthin muss man selbst reisen."));
     mapEl17.wrap.append(pop); mapEl17.pop = pop;
   }
@@ -11607,6 +11631,450 @@
     }
   }
   (V11.wild = V11.wild || []).push(() => treasureTick17());
+  // ==================== Version 18: Armee und Magie – Kaserne, Ritter und Magier, Truppen, Zauber des Königs ====================
+  // Blöcke 380 bis 399. Neben dem Schloss liegt die Kaserne mit dem Übungsplatz. Am Werbetisch wirbt der König Ritter und Magier an
+  // (bezahlt aus der Schatztruhe). Die Neuen kommen zu Fuß durch die Südpforte. Tagsüber üben alle: die Ritter an Strohpuppen, die Magier
+  // im Zauberkreis; wer übt, steigt im Rang auf. Über die Karte zieht eine Truppe los und hält dort Wache. Mit R zaubert der König selbst.
+  const V18B = 380, WERBETISCH = V18B;
+  defShape(WERBETISCH, { name: "Werbetisch der Armee", rot: true, mat: "wood", icon: 15, boxes: [
+    { f: [0, 12, 0], t: [16, 14, 16], tex: 15 }, { f: [1, 0, 1], t: [3, 12, 3], tex: 15 }, { f: [13, 0, 1], t: [15, 12, 3], tex: 15 }, { f: [1, 0, 13], t: [3, 12, 15], tex: 15 }, { f: [13, 0, 13], t: [15, 12, 15], tex: 15 },
+    { f: [3, 14, 4], t: [12, 14.4, 12], tex: TEX[WWOOL][0] }, { f: [3.5, 14.4, 5], t: [11, 14.6, 7], tex: TEX[RWOOL][0] },
+    { f: [12.6, 14, 9], t: [13.4, 19, 9.8], tex: TEX[WWOOL][0] }, { f: [12, 14, 11], t: [14, 16, 13], tex: 17 },
+    { f: [1, 14, 13], t: [6, 18, 15], tex: TEX[RWOOL][0] }, { f: [3, 18, 13.5], t: [4, 26, 14.5], tex: 15 }, { f: [4, 21, 13.8], t: [9, 25.5, 14.2], tex: TEX[RWOOL][0] }] });
+  const RANKS18 = { k: ["Knappen", "Ritter", "Hauptleute"], m: ["Lehrlinge", "Magier", "Erzmagier"] };
+  const V18 = { k: [6, 4, 2], m: [4, 3, 1], mana: 100, manaShow: 0, site: null, door: null, soldiers: [], batches: [], squads: [], trainH: -1, shieldT: 0, bubble: null, shots: [], bolts: [] };
+  const armyN18 = () => V18.k[0] + V18.k[1] + V18.k[2] + V18.m[0] + V18.m[1] + V18.m[2];
+  const strength18 = () => V18.k[0] + V18.k[1] * 2 + V18.k[2] * 4 + (V18.m[0] + V18.m[1] * 2 + V18.m[2] * 4) * 1.5;
+  const fmt18 = n => Math.round(n).toLocaleString("de-DE");
+
+  // ---------- Aussehen: Ritter (Helm mit Federbusch nach Rang), Magier (Hut und Mantel nach Rang), Rekruten in Alltagskleidern ----------
+  Object.assign(PEOPLE11, {
+    k18_0: { name: "Knappe", skin: [236, 196, 166], hair: [120, 80, 40], coat: [150, 154, 164], vest: [200, 200, 210], pants: [110, 110, 120], boots: true, shoe: [80, 80, 86], hat: { t: "helm", c: [240, 240, 240] }, tool: "sword" },
+    k18_1: { name: "Ritter", skin: [222, 176, 140], hair: [60, 40, 30], coat: [168, 172, 182], vest: [170, 30, 40], pants: [120, 122, 132], boots: true, shoe: [80, 80, 86], hat: { t: "helm", c: [200, 30, 40] }, tool: "sword", belt: [80, 50, 30] },
+    k18_2: { name: "Hauptmann", skin: [230, 186, 150], hair: [90, 90, 96], coat: [190, 192, 200], vest: [30, 50, 140], pants: [130, 132, 140], boots: true, shoe: [60, 60, 66], hat: { t: "helm", c: [230, 190, 60] }, tool: "sword", belt: [200, 160, 60], scale: 1.05 },
+    m18_0: { name: "Lehrling", skin: [240, 204, 176], hair: [140, 90, 50], coat: [130, 100, 70], vest: [210, 190, 150], robe: true, skirt: [120, 92, 64], skirtLen: 10.5, hat: { t: "wizard", c: [120, 92, 64] }, tool: "staff", gem: [160, 220, 120] },
+    m18_1: { name: "Magier", skin: [228, 190, 160], hair: [200, 200, 204], beard: [214, 214, 218], coat: [40, 70, 160], vest: [200, 200, 230], robe: true, skirt: [36, 62, 150], skirtLen: 11, hat: { t: "wizard", c: [36, 62, 150] }, tool: "staff", gem: [120, 200, 255] },
+    m18_2: { name: "Erzmagier", skin: [232, 196, 170], hair: [240, 240, 240], beard: [246, 246, 246], coat: [100, 40, 140], vest: [230, 200, 90], robe: true, skirt: [90, 34, 130], skirtLen: 11.5, hat: { t: "wizard", c: [90, 34, 130] }, tool: "staff", gem: [255, 120, 220], scale: 1.04 },
+    r18_0: { name: "Rekrut", skin: [226, 180, 144], hair: [90, 60, 36], shirt: [200, 186, 160], vest: [110, 80, 50], pants: [90, 80, 64], tool: "bag", bagc: [130, 100, 60] },
+    r18_1: { name: "Rekrutin", female: true, skin: [240, 204, 176], hair: [170, 110, 50], bodice: [120, 90, 60], skirt: [100, 80, 60], tool: "bag", bagc: [140, 90, 50] },
+  });
+  for (const k of ["k18_0", "k18_1", "k18_2", "m18_0", "m18_1", "m18_2", "r18_0", "r18_1"]) { const o = PEOPLE11[k]; o.seed = pseed++; MODEL_DEFS["p11_" + k] = () => defPerson(o); }
+
+  // ---------- Kaserne und Übungsplatz neben dem Schloss ----------
+  V11.build.push(() => {
+    const f = freeRect14(36, 90, 150, 192, 32, 22) || freeRect14(110, 170, 230, 270, 32, 22) || [120, 238];
+    const x0 = f[0], z0 = f[1], x1 = x0 + 31, z1 = z0 + 21, F = G0 + 1, kx1 = x0 + 10;
+    V18.site = { x0, z0, x1, z1 };
+    // Boden: Kies und Sand auf dem Platz, Bretter in der Kaserne
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      for (let y = F; y <= F + 12; y++) if (get(x, y, z) !== AIR) setB(x, y, z, AIR);
+      setB(x, G0, z, x <= kx1 ? SPRUCE_PLANKS : (hash(x, z, 181) < 0.55 ? GRAVEL : SAND));
+    }
+    // Die Kaserne: Steinsockel, Fachwerk, Fenster, Schieferdach, Tür zum Platz
+    const top = F + 4;
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= kx1; x++) {
+      const wall = x === x0 || x === kx1 || z === z0 || z === z1;
+      if (!wall) continue;
+      for (let y = F; y <= top; y++) {
+        const corner = (x === x0 || x === kx1) && (z === z0 || z === z1), post = (z - z0) % 4 === 0 || corner;
+        let b = y === F ? COBBLE : post ? SPRUCE_LOG : y === top ? SPRUCE_PLANKS : PLASTER_W;
+        if (!post && y >= F + 2 && y <= F + 3 && (z - z0) % 4 === 2 && (x === x0 || x === kx1)) b = GLASS;
+        setB(x, y, z, b);
+      }
+    }
+    for (let i = 0; i <= 6; i++) for (let z = z0 - 1; z <= z1 + 1; z++) {
+      const xa = x0 - 1 + i, xb = kx1 + 1 - i;
+      if (xa > xb) break;
+      for (let x = xa; x <= xb; x++) setB(x, top + 1 + i, z, x === xa || x === xb ? SLATE : (z === z0 || z === z1) ? SPRUCE_PLANKS : AIR);
+    }
+    const dz = z0 + 10;
+    for (const z of [dz, dz + 1]) for (let y = F; y <= F + 2; y++) setB(kx1, y, z, AIR);
+    V18.door = [kx1 + 1.5, F, dz + 1];
+    // Innen: Stockbetten an der Westwand, Waffenständer, Rüstungen, Truhen, Tisch, Laternen
+    for (let z = z0 + 2; z <= z1 - 3; z += 3) { bed2(x0 + 1, F, z, 1, 0, BED_B); bed2(x0 + 1, F + 2, z, 1, 0, BED_B); setB(x0 + 3, F + 1, z, SPRUCE_PLANKS); setB(x0 + 3, F, z, FENCE); }
+    for (const z of [z0 + 1, z1 - 1]) { setB(kx1 - 1, F, z, rotId(WAFFENST, -1, 0)); setB(kx1 - 2, F, z, CHEST); }
+    for (const z of [z0 + 4, z0 + 15]) mGood("armor_" + (z < dz ? "royal" : "diamond"), kx1 - 1.4, F, z + 0.5, -Math.PI / 2);
+    for (let z = z0 + 6; z <= z0 + 8; z++) setB(x0 + 6, F, z, TABLE_D);
+    setB(x0 + 7, F, z0 + 6, rotId(CHAIR_D, -1, 0)); setB(x0 + 5, F, z0 + 8, rotId(CHAIR_D, 1, 0));
+    for (const z of [z0 + 5, z0 + 11, z0 + 17]) setB(x0 + 5, top, z, LANTERN_H);
+    for (let z = z0 + 1; z <= z1 - 1; z += 2) setB(kx1 - 1, F + 3, z, [WEAPON_S, SHIELD_W, WEAPON_A, SHIELD_W, WEAPON_B][((z - z0) >> 1) % 5]);
+    // Der Platz: Zaun mit Durchgängen, Strohpuppen, Zauberkreis aus Quarz mit Licht, Fahnen, Werbetisch am Eingang
+    for (let x = kx1 + 1; x <= x1; x++) for (const z of [z0, z1]) if (Math.abs(x - (kx1 + 11)) > 1) setB(x, F, z, FENCE);
+    for (let z = z0; z <= z1; z++) if (Math.abs(z - (z0 + 11)) > 1) setB(x1, F, z, FENCE);
+    for (const z of [z0 + 4, z0 + 8, z0 + 12]) mGood("scarecrow", x1 - 2.5, F, z + 0.5, -Math.PI / 2, 1);
+    const mc = [kx1 + 12, z0 + 17];
+    for (let a = 0; a < 32; a++) { const x = Math.round(mc[0] + Math.cos(a / 32 * Math.PI * 2) * 3.6), z = Math.round(mc[1] + Math.sin(a / 32 * Math.PI * 2) * 3.6); setB(x, G0, z, QUARTZ); }
+    setB(mc[0], G0, mc[1], LAMP);
+    V18.circle = [mc[0] + 0.5, F, mc[1] + 0.5];
+    for (const [x, z] of [[kx1 + 1, z0], [x1, z0], [kx1 + 1, z1], [x1, z1]]) { fill(x, F, z, x, F + 3, z, SPRUCE_LOG); setB(x, F + 4, z, BANNER_C); setB(x, F + 3, z, BANNER); }
+    setB(kx1 + 9, F, z0 + 1, rotId(WERBETISCH, 0, 1));
+    V18.desk = [kx1 + 9, F, z0 + 1];
+    AREAS.unshift(["Die Kaserne", "Schlafsaal der Ritter und Magier", x0, kx1, G0, top + 8, z0, z1], ["Der Übungsplatz", "Ritter üben an den Strohpuppen, Magier im Zauberkreis", kx1 + 1, x1, G0, F + 10, z0, z1]);
+  });
+
+  // ---------- Die Soldaten auf dem Übungsplatz (höchstens 12 Ritter und 8 Magier sind zu sehen, der Rest ist in der Kaserne) ----------
+  function drillSpots18() {
+    const s = V18.site, kx1 = s.x0 + 10, spots = { k: [], m: [] };
+    for (const z of [s.z0 + 4, s.z0 + 8, s.z0 + 12]) for (let i = 0; i < 4; i++) spots.k.push([kx1 + 5 + i * 3 + 0.5, G0 + 1, z + 0.5, Math.PI / 2]);
+    for (let a = 0; a < 8; a++) { const an = a / 8 * Math.PI * 2; spots.m.push([V18.circle[0] + Math.cos(an) * 2.4, G0 + 1, V18.circle[2] + Math.sin(an) * 2.4, Math.atan2(-Math.cos(an), -Math.sin(an))]); }
+    return spots;
+  }
+  function rankOf18(kind, i) {
+    // die Ränge so auf die sichtbaren Plätze verteilen, wie sie in der Armee vorkommen (die Hohen vorne)
+    const c = V18[kind], tot = c[0] + c[1] + c[2] || 1, f = (i + 0.5) / (kind === "k" ? 12 : 8);
+    return f < c[2] / tot ? 2 : f < (c[2] + c[1]) / tot ? 1 : 0;
+  }
+  function refreshSoldiers18() {
+    if (!V18.site || WILD) return;
+    const sp = drillSpots18(), want = { k: Math.min(12, V18.k[0] + V18.k[1] + V18.k[2]), m: Math.min(8, V18.m[0] + V18.m[1] + V18.m[2]) };
+    for (const kind of ["k", "m"]) {
+      const have = V18.soldiers.filter(e => e.kind18 === kind && !e.gone);
+      for (let i = 0; i < Math.max(have.length, want[kind]); i++) {
+        const e = have[i], r = rankOf18(kind, i);
+        if (i >= want[kind]) { if (e) removeEnt(e); continue; }
+        if (e && e.rank18 === r) continue;
+        if (e) removeEnt(e);
+        const s = sp[kind][i], key = kind + "18_" + r, nm = (kind === "k" ? ["Knappe", "Ritter", "Hauptmann"] : ["Lehrling", "Magier", "Erzmagier"])[r];
+        const n = spawnEnt("villager", "p11_" + key, s[0], s[1], s[2], { think: drillThink18, kind18: kind, rank18: r, spot18: s, yaw: s[3], speed: 2.4, scale: PEOPLE11[key].scale || 1,
+          name: nm + " " + SOLDNAMES18[(i * 7 + r * 3 + (kind === "m" ? 5 : 0)) % SOLDNAMES18.length], talkName: kind === "k" ? "dem " + nm : "dem " + nm, lines: soldierLines18(kind, r, i % 2 === 0), formal: i % 2 === 0, swingDur: 0.3 });
+        V18.soldiers.push(n);
+      }
+    }
+    V18.soldiers = V18.soldiers.filter(e => !e.gone);
+  }
+  const SOLDNAMES18 = ["Konrad", "Ulrich", "Gottfried", "Hildegard", "Siegfried", "Brunhild", "Eberhard", "Wendelin", "Adelheid", "Lambert", "Richard", "Gisela", "Bertram", "Irmgard", "Leopold", "Kunigunde", "Hartmut", "Mechthild", "Rupert", "Walburga"];
+  function soldierLines18(kind, r, formal) {
+    // Nur jeder zweite sagt „Majestät“
+    const all = { toString: () => fmt11(`die Armee zählt ${fmt18(armyN18())} Leute{M}: ${fmt18(V18.k[0] + V18.k[1] + V18.k[2])} Ritter und ${fmt18(V18.m[0] + V18.m[1] + V18.m[2])} Magier.`, formal) };
+    return (kind === "k"
+      ? ["zu Befehl{M}! Wir üben jeden Tag von acht bis vier.", "{M_}mein Schwert gehört Euch.", r ? "wer fleißig übt, wird Hauptmann. So wie ich." : "ich bin noch Knappe, aber bald werde ich Ritter!"]
+      : ["Feuer, Blitz und Wind gehorchen uns{M}.", r === 2 ? "ich lehre die Lehrlinge im Zauberkreis." : "der Zauberkreis gibt uns Kraft.", "{M_}mit R könnt auch Ihr zaubern, wenn Eure Kraft reicht."]).map(t => fmt11(t, formal)).concat([all]);
+  }
+  // Tagsüber üben, abends in die Kaserne
+  function drillThink18(e, dt, dp) {
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, true); return; }
+    const h = hr14(), day = h >= 7 && h < 18.5, s = e.spot18;
+    if (!day && !V16.alarm) {
+      if (e.in18) { e.dvx = e.dvz = 0; return; }
+      const d = V18.door; if (Math.hypot(e.x - d[0], e.z - d[2]) > 0.8) { steerTo(e, d[0], d[2], e.speed); lookAhead(e); e.act = null; return; }
+      e.in18 = true; e.ghost = true; e.y = 2; e.dvx = e.dvz = 0; return;
+    }
+    if (e.in18) { e.in18 = false; e.ghost = false; const d = V18.door; e.x = d[0]; e.y = d[1]; e.z = d[2]; }
+    if (Math.hypot(e.x - s[0], e.z - s[2]) > 0.35) { steerTo(e, s[0], s[2], e.speed); lookAhead(e); e.act = null; return; }
+    e.dvx = e.dvz = 0; e.yawT = s[3];
+    if (V16.alarm) { e.act = null; return; }
+    if ((e.drillT = (e.drillT || Math.random() * 2) - dt) > 0) return;
+    if (e.kind18 === "k") { e.drillT = 0.9 + Math.random() * 0.9; e.swingT = 0; e.swingDur = 0.32; if (dp < 24 && Math.random() < 0.5) noiseHit(600 + Math.random() * 300, 1.2, 0.06, 0.025); }
+    else {
+      e.drillT = 2.6 + Math.random() * 2.5; e.cast18 = 0.9;
+      if (dp < 40) { const c = V18.circle, col = [[160, 220, 120], [120, 200, 255], [255, 120, 220]][e.rank18]; bolt18(e.x, e.y + 2.1, e.z, c[0], c[1] + 1.2, c[2], col, null); }
+    }
+  }
+
+  // ---------- Werbung: am Werbetisch, bezahlt aus der Schatztruhe ----------
+  const COST18 = { k: () => [[I.goldbarren, 1], [I.brot, 2]], m: () => [[I.goldbarren, 2], [I.buch, 1]] };
+  const tcN18 = id => V13.tc.get(String(id)) || 0;
+  function canPay18(kind, n) { return survival() ? COST18[kind]().every(([id, c]) => tcN18(id) >= c * n) : true; }
+  function recruit18(kind, n) {
+    if (!canPay18(kind, n)) { showName("In der Schatztruhe ist nicht genug dafür.", 2200); return false; }
+    if (survival()) for (const [id, c] of COST18[kind]()) V13.tc.set(String(id), tcN18(id) - c * n);
+    // Die Neuen kommen zu Fuß: von der Südpforte zur Kaserne
+    const batch = { kind, n, walkers: [] }, show = Math.min(8, 2 + Math.ceil(Math.sqrt(n)));
+    for (let i = 0; i < show; i++) {
+      const g = ARRIVE15, e = spawnEnt("villager", "p11_r18_" + (i % 3 === 2 ? 1 : 0), g[0] + (i % 2) - 0.5, g[1], g[2] + Math.floor(i / 2) * 1.6, { name: "Rekrut", lines: ["Ich will dem König dienen!", "Ist das der Weg zur Kaserne?"], speed: 2.2 + (i % 3) * 0.1, phase0: i });
+      e.batch18 = batch; batch.walkers.push(e);
+      const d = V18.door;
+      order15(e, [{ go: [d[0] + 1 + (i % 3), d[1], d[2] - 2 + Math.floor(i / 3)] }, { fn: ee => arrive18(ee) }]);
+    }
+    V18.batches.push(batch);
+    announce14(`${fmt18(n)} ${kind === "k" ? "angehende Ritter" : "angehende Magier"} sind unterwegs von der Südpforte zur Kaserne.`, "Werbung:");
+    saveSoon(); return true;
+  }
+  function arrive18(e) {
+    const b = e.batch18;
+    if (b && !b.done) { b.done = true; V18[b.kind][0] += b.n; refreshSoldiers18(); announce14(`${fmt18(b.n)} ${b.kind === "k" ? "Knappen" : "Lehrlinge"} sind in der Kaserne angekommen.`, "Armee:"); saveSoon(); }
+    setTimeout(() => { if (!e.gone) removeEnt(e); if (b && b.walkers.every(w => w.gone)) V18.batches.splice(V18.batches.indexOf(b), 1); }, 0);
+  }
+  // Üben: jede volle Spielstunde zwischen 8 und 16 Uhr steigen einige im Rang auf
+  function train18() {
+    const h = Math.floor(hr14());
+    if (h === V18.trainH) return; V18.trainH = h;
+    if (h < 8 || h >= 16 || V16.alarm) return;
+    let up = 0;
+    for (const kind of ["k", "m"]) {
+      const c = V18[kind], a = Math.round(c[0] * 0.06 + (c[0] > 0 && Math.random() < 0.5 ? 1 : 0)), b = Math.round(c[1] * 0.025 + (c[1] > 0 && Math.random() < 0.25 ? 1 : 0));
+      const da = Math.min(a, c[0]), db = Math.min(b, c[1]);
+      c[0] -= da; c[1] += da - db; c[2] += db; up += da + db;
+    }
+    if (up) { refreshSoldiers18(); saveSoon(); }
+  }
+  // Fenster am Werbetisch
+  const armyCss = document.createElement("style");
+  armyCss.textContent = `
+  #v13 .army18 { width: min(720px, calc(100vw - 32px)); padding: 16px; box-sizing: border-box; display: grid; gap: 12px; }
+  #v13 .army18 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  #v13 .army18 .box { border: 1px solid var(--panel-line); border-radius: 8px; padding: 10px; display: grid; gap: 6px; }
+  #v13 .army18 .box h3 { margin: 0; font: 700 18px "Pixelify Sans", monospace; color: var(--sun); }
+  #v13 .army18 .row { display: flex; justify-content: space-between; font: 500 14px "Nunito", system-ui, sans-serif; color: var(--ink); }
+  #v13 .army18 .row b { font-variant-numeric: tabular-nums; }
+  #v13 .army18 .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  #v13 .army18 .note { font: 500 13px "Nunito", system-ui, sans-serif; color: var(--ink-dim); }
+  @media (max-width: 560px) { #v13 .army18 .cols { grid-template-columns: 1fr; } }`;
+  document.head.append(armyCss);
+  function buildArmy18(root) {
+    root = root || UIEL; root.innerHTML = "";
+    const card = h("div", "card army18"), head = h("div", "v13head");
+    head.append(h("h2", "", "Kaserne: Werbung und Armee"), h("span", "v13mode", survival() ? "Spielart: Überleben" : "Spielart: Kreativ"));
+    const close = h("button", "v13btn", "Fertig"); close.type = "button"; close.addEventListener("click", () => closePalette()); head.append(close);
+    const cols = h("div", "cols");
+    for (const kind of ["k", "m"]) {
+      const box = h("div", "box"), c = V18[kind];
+      box.append(h("h3", "", kind === "k" ? "Ritter" : "Magier"));
+      for (let r = 2; r >= 0; r--) { const row = h("div", "row"); row.append(h("span", "", RANKS18[kind][r]), h("b", "", fmt18(c[r]))); box.append(row); }
+      const cost = COST18[kind]().map(([id, n]) => n + " " + itemName(id)).join(" und ");
+      box.append(h("div", "note", survival() ? `Ein ${kind === "k" ? "Knappe" : "Lehrling"} kostet ${cost} aus der Schatztruhe.` : "Spielart Kreativ: anwerben kostet nichts."));
+      const btns = h("div", "btns");
+      for (const n of [1, 10, 100, 500]) {
+        const b = h("button", "v13btn alt", "+" + n); b.type = "button"; b.disabled = !canPay18(kind, n);
+        b.addEventListener("click", () => { clickSound(); if (recruit18(kind, n)) buildArmy18(); });
+        btns.append(b);
+      }
+      box.append(btns); cols.append(box);
+    }
+    const info = h("div", "box");
+    info.append(h("h3", "", "Übersicht"));
+    const row = (a, b) => { const r = h("div", "row"); r.append(h("span", "", a), h("b", "", b)); info.append(r); };
+    row("Alle zusammen", fmt18(armyN18())); row("Stärke (Hauptleute und Erzmagier zählen vierfach)", fmt18(strength18()));
+    if (survival()) row("In der Schatztruhe", `${fmt18(tcN18(I.goldbarren))} Goldbarren · ${fmt18(tcN18(I.brot))} Brot · ${fmt18(tcN18(I.buch))} Bücher`);
+    const walking = V18.batches.filter(b => !b.done).reduce((s, b) => s + b.n, 0);
+    if (walking) row("Unterwegs zur Kaserne", fmt18(walking));
+    for (const q of V18.squads) row(`Truppe bei X ${Math.round(q.at[0])}, Z ${Math.round(q.at[2])}`, `${fmt18(q.n)} Leute${q.back ? " (auf dem Heimweg)" : ""}`);
+    info.append(h("div", "note", "Tagsüber von 8 bis 16 Uhr üben alle; wer übt, steigt auf. Truppen schickst du über die Karte (M) los, zurück rufst du sie im Befehlskreis (Q) unter „Armee“."));
+    card.append(head, cols, info); root.append(card);
+  }
+
+  // ---------- Truppen: über die Karte losschicken, dort Wache halten und Zombies bekämpfen ----------
+  function sendSquad18(n, x, z) {
+    if (WILD || !V18.site) return;
+    n = Math.min(n, armyN18() - V18.squads.reduce((s, q) => s + q.n, 0));
+    if (n <= 0) { showName("Alle Leute sind schon unterwegs.", 2000); return; }
+    let y = H - 2; while (y > 1 && !standable(x, y, z)) y--;
+    if (y <= 1) { showName("Dort kann niemand stehen.", 1800); return; }
+    const q = { n, at: [x + 0.5, y, z + 0.5], ents: [], back: false }, show = Math.min(12, 3 + Math.ceil(n / 12));
+    const fk = (V18.k[0] + V18.k[1] + V18.k[2]) / Math.max(1, armyN18());
+    for (let i = 0; i < show; i++) {
+      const kind = i === 0 || i / show < fk ? "k" : "m", r = Math.min(2, Math.max(0, rankOf18(kind, i % 6))), key = kind + "18_" + r, d = V18.door;
+      const e = spawnEnt("villager", "p11_" + key, d[0] + (i % 3), d[1], d[2] + Math.floor(i / 3), { think: squadThink18, kind18: kind, rank18: r, squad18: q, speed: 3.2, scale: PEOPLE11[key].scale || 1,
+        name: (kind === "k" ? "Ritter " : "Magier ") + SOLDNAMES18[(i * 5 + 3) % SOLDNAMES18.length], lines: [fmt11("wir halten hier Wache{M}!", i % 2 === 0), "Kein Zombie kommt hier vorbei."], swingDur: 0.3 });
+      const a = i / show * Math.PI * 2, rr = i === 0 ? 0 : 2.2 + (i % 2) * 1.4;
+      e.post18 = freeSpotNear(q.at[0] + Math.cos(a) * rr, y, q.at[2] + Math.sin(a) * rr, 0, 0) || q.at;
+      e.yawPost = a;
+      order15(e, [{ go: e.post18 }, { fn: ee => { ee.yawT = ee.yawPost; } }]);
+      q.ents.push(e);
+    }
+    V18.squads.push(q);
+    announce14(`Eine Truppe von ${fmt18(n)} Leuten zieht los nach X ${x}, Z ${z}.`, "Armee:");
+    if (!MAP17.flags.some(f => Math.hypot(f[0] - x, f[1] - z) < 4)) { MAP17.flags.push([x, z, "Truppe (" + fmt18(n) + ")"]); mapSave17(); }
+  }
+  function recallSquads18() {
+    if (!V18.squads.length) { showName("Keine Truppe ist unterwegs.", 1800); return; }
+    for (const q of V18.squads) {
+      q.back = true;
+      for (const e of q.ents) { if (e.gone) continue; const d = V18.door; order15(e, [{ go: [d[0] + 1, d[1], d[2]] }, { fn: ee => setTimeout(() => { if (!ee.gone) removeEnt(ee); }, 0) }]); }
+      MAP17.flags = MAP17.flags.filter(f => !(Math.hypot(f[0] - q.at[0], f[1] - q.at[2]) < 4 && /^Truppe/.test(f[2])));
+    }
+    mapSave17();
+    announce14("Die Truppen kehren in die Kaserne zurück.", "Armee:");
+  }
+  function squadThink18(e, dt, dp) {
+    const q = e.squad18;
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, true); return; }
+    // Nahe Zombies angreifen: Ritter mit dem Schwert, Magier mit Feuer aus der Ferne
+    let z = null, bd = 22;
+    for (const m of ents) if (m.kind === "zombie" && m.dead < 0 && !(m.rise > 0)) { const d = Math.hypot(m.x - q.at[0], m.z - q.at[2]); if (d < bd) { bd = d; z = m; } }
+    const mult = [1, 1.6, 2.6][e.rank18] * (1 + Math.min(3, q.n / 60));
+    if (z) {
+      const d = Math.hypot(z.x - e.x, z.z - e.z);
+      if (e.kind18 === "k") {
+        if (d > 1.5) { steerTo(e, z.x, z.z, 3.6); lookAhead(e); }
+        else { e.dvx = e.dvz = 0; lookAt(e, z.x, z.y + 1.4, z.z, true); if ((e.hitT18 = (e.hitT18 || 0) - dt) <= 0) { e.hitT18 = 0.75; e.swingT = 0; damage(z, 4 * mult, e, 7); noiseHit(700, 1, 0.09, 0.05); } }
+      } else {
+        e.dvx = e.dvz = 0; lookAt(e, z.x, z.y + 1.4, z.z, true);
+        if ((e.hitT18 = (e.hitT18 || Math.random()) - dt) <= 0 && d < 20) { e.hitT18 = 2.2; e.cast18 = 0.7; bolt18(e.x, e.y + 2.1, e.z, z.x, z.y + 1.2, z.z, [255, 150, 60], z, 6 * mult); }
+      }
+      return;
+    }
+    e.act = null;
+    const p = e.post18;
+    if (Math.hypot(e.x - p[0], e.z - p[2]) > 0.5) { steerTo(e, p[0], p[2], 2.6); lookAhead(e); return; }
+    e.dvx = e.dvz = 0; e.yawT = e.yawPost || 0;
+  }
+  // Ein Zauber-Geschoss (Magier und Übungskreis): fliegt sichtbar, trifft vielleicht einen Zombie
+  function bolt18(x, y, z, tx, ty, tz, col, hit, dmg) { V18.bolts.push({ x, y, z, tx, ty, tz, col, hit, dmg: dmg || 0, t: 0 }); }
+  function updateBolts18(dt) {
+    for (let i = V18.bolts.length - 1; i >= 0; i--) {
+      const b = V18.bolts[i], dx = b.tx - b.x, dy = b.ty - b.y, dz = b.tz - b.z, d = Math.hypot(dx, dy, dz), st = Math.min(d, 26 * dt);
+      b.x += dx / (d || 1) * st; b.y += dy / (d || 1) * st; b.z += dz / (d || 1) * st; b.t += dt;
+      if (Math.hypot(b.x - P.x, b.z - P.z) < 60) emit(b.x, b.y, b.z, 2, () => b.col, 0.11, 0.4, -0.5);
+      if (d < 0.4 || b.t > 3) {
+        if (Math.hypot(b.x - P.x, b.z - P.z) < 60) { emit(b.x, b.y, b.z, 14, () => b.col, 0.14, 2.6, 2); noiseHit(300, 0.8, 0.12, 0.03); }
+        if (b.hit && b.hit.dead < 0) damage(b.hit, b.dmg, { x: b.x - dx, z: b.z - dz }, 8);
+        V18.bolts.splice(i, 1);
+      }
+    }
+  }
+
+  // ---------- Zauber des Königs (Taste R): Feuerball, Blitz, Schutzschild, Heilung, Sturmwind ----------
+  const SPELLS18 = [
+    { t: "Feuerball", ic: TORCH, mana: 20, run: () => fireball18() },
+    { t: "Blitz", ic: GOLD, mana: 30, run: () => lightning18() },
+    { t: "Schutzschild", ic: SHIELD_W, mana: 35, run: () => shield18() },
+    { t: "Heilung", ic: I.goldapfel, mana: 25, run: () => heal18() },
+    { t: "Sturmwind", ic: WWOOL, mana: 25, run: () => wind18() },
+  ];
+  function buildSpell18(root) {
+    cmdStack15 = [{ title: "Zauber", items: SPELLS18.map(s => ({ t: s.t + " (" + s.mana + ")", ic: s.ic, run: () => cast18(s) })) }];
+    drawCmd15(root);
+    const sm = (root || UIEL).querySelector(".hub small"); if (sm) sm.textContent = "Kraft " + Math.floor(V18.mana) + " von 100 · Schließen (R)";
+  }
+  function cast18(s) {
+    if (V18.mana < s.mana) { showName("Deine Zauberkraft reicht nicht. Sie wächst von selbst wieder nach.", 2200); beep(180, 0.2, "square", 0.02); return; }
+    V18.mana -= s.mana; V18.manaShow = 4; s.run();
+  }
+  const eye18 = () => [P.x, P.y + 1.55, P.z];
+  const look18 = () => [-Math.sin(P.yaw) * Math.cos(P.pitch), Math.sin(P.pitch), -Math.cos(P.yaw) * Math.cos(P.pitch)];
+  const fireGeo18 = new THREE.SphereGeometry(0.35, 10, 8), fireMat18 = new THREE.MeshBasicMaterial({ color: 0xff8a2a });
+  function fireball18() {
+    const [x, y, z] = eye18(), d = look18(), m = new THREE.Mesh(fireGeo18, fireMat18);
+    m.position.set(x + d[0], y + d[1], z + d[2]); scene.add(m);
+    V18.shots.push({ x: x + d[0], y: y + d[1], z: z + d[2], d, m, t: 0 });
+    noiseHit(220, 0.7, 0.35, 0.06); swingHand();
+  }
+  function boom18(x, y, z, r, dmg) {
+    emit(x, y, z, 50, i => i % 3 ? [255, 150 + Math.random() * 80, 40] : [90, 80, 76], 0.2, 7, 3);
+    noiseHit(90, 0.6, 0.5, 0.12); noiseHit(160, 0.8, 0.3, 0.08, 0.05);
+    for (const e of ents) if (e.kind === "zombie" && e.dead < 0 && Math.hypot(e.x - x, e.y - y, e.z - z) < r) damage(e, dmg, { x, z }, 12);
+  }
+  function lightning18() {
+    let tx, ty, tz;
+    if (target) { tx = target.x + 0.5; ty = target.y + 1; tz = target.z + 0.5; }
+    else { const d = look18(); tx = P.x + d[0] * 22; tz = P.z + d[2] * 22; let y = H - 2; while (y > 1 && !solid(get(Math.floor(tx), y, Math.floor(tz)))) y--; ty = y + 1; }
+    // Zickzack vom Himmel herab
+    const g = new THREE.Group(), mat = new THREE.MeshBasicMaterial({ color: 0xe8f0ff, transparent: true, opacity: 0.95 });
+    let x = tx + (Math.random() - 0.5) * 4, z = tz + (Math.random() - 0.5) * 4, y = ty + 46;
+    while (y > ty) {
+      const ny = Math.max(ty, y - 3 - Math.random() * 3), nx = ny === ty ? tx : x + (Math.random() - 0.5) * 3, nz = ny === ty ? tz : z + (Math.random() - 0.5) * 3;
+      const len = Math.hypot(nx - x, ny - y, nz - z), seg = new THREE.Mesh(new THREE.BoxGeometry(0.22, len, 0.22), mat);
+      seg.position.set((x + nx) / 2, (y + ny) / 2, (z + nz) / 2); seg.lookAt(nx, ny, nz); seg.rotateX(Math.PI / 2); g.add(seg);
+      x = nx; y = ny; z = nz;
+    }
+    scene.add(g); V18.flash = { g, t: 0.35 };
+    emit(tx, ty, tz, 40, () => [220, 235, 255], 0.16, 6, 4);
+    noiseHit(60, 0.4, 1.4, 0.16); noiseHit(1400, 1, 0.12, 0.08);
+    for (const e of ents) if (e.kind === "zombie" && e.dead < 0 && Math.hypot(e.x - tx, e.z - tz) < 4.5) damage(e, 40, { x: tx, z: tz }, 10);
+    swingHand();
+  }
+  function shield18() {
+    V18.shieldT = 30; P.inv = Math.max(P.inv, 30);
+    if (!V18.bubble) { V18.bubble = new THREE.Mesh(new THREE.SphereGeometry(1.6, 24, 16), new THREE.MeshBasicMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide })); scene.add(V18.bubble); }
+    V18.bubble.visible = true; beep(520, 0.3, "sine", 0.04); beep(780, 0.4, "sine", 0.03);
+    showName("Schutzschild: 30 Sekunden kann dir nichts geschehen.", 2200);
+  }
+  function heal18() {
+    P.hp = MAX_HP; emit(P.x, P.y + 1.2, P.z, 30, () => [255, 226, 120], 0.09, 1.6, -1.5);
+    beep(660, 0.2, "triangle", 0.03); beep(990, 0.3, "triangle", 0.03);
+  }
+  function wind18() {
+    for (let a = 0; a < 36; a++) { const an = a / 36 * Math.PI * 2; emit(P.x + Math.cos(an) * 1.5, P.y + 0.8, P.z + Math.sin(an) * 1.5, 1, () => [235, 240, 245], 0.14, 3, 0); }
+    noiseHit(400, 0.3, 0.9, 0.06);
+    for (const e of ents) if ((e.kind === "zombie" || e.kind === "animal") && e.dead < 0) {
+      const dx = e.x - P.x, dz = e.z - P.z, d = Math.hypot(dx, dz);
+      if (d < 12 && d > 0.1) { const k = (12 - d) * 2.2; e.vx += dx / d * k; e.vz += dz / d * k; e.vy = 7; if (e.kind === "zombie") damage(e, 3, P, 1); }
+    }
+  }
+  function updateSpells18(dt) {
+    V18.mana = Math.min(100, V18.mana + dt * 4);
+    // Feuerbälle fliegen, bis sie etwas treffen
+    for (let i = V18.shots.length - 1; i >= 0; i--) {
+      const s = V18.shots[i]; let hit = false;
+      for (let k = 0; k < 6 && !hit; k++) {
+        s.x += s.d[0] * 28 * dt / 6; s.y += s.d[1] * 28 * dt / 6; s.z += s.d[2] * 28 * dt / 6;
+        const b = get(Math.floor(s.x), Math.floor(s.y), Math.floor(s.z));
+        if (b !== AIR && b !== WATER && solid(b)) hit = true;
+        for (const e of ents) if (e.kind === "zombie" && e.dead < 0 && Math.hypot(e.x - s.x, e.y + 1 - s.y, e.z - s.z) < 1.2) hit = true;
+      }
+      s.t += dt; s.m.position.set(s.x, s.y, s.z);
+      emit(s.x, s.y, s.z, 2, () => [255, 120 + Math.random() * 100, 30], 0.12, 0.5, -0.8);
+      if (hit || s.t > 3) { boom18(s.x, s.y, s.z, 4, 30); scene.remove(s.m); V18.shots.splice(i, 1); }
+    }
+    if (V18.flash && (V18.flash.t -= dt) <= 0) { scene.remove(V18.flash.g); V18.flash.g.children.forEach(c => c.geometry.dispose()); V18.flash = null; }
+    if (V18.shieldT > 0) {
+      V18.shieldT -= dt; V18.bubble.position.set(P.x, P.y + 0.9, P.z); V18.bubble.material.opacity = 0.12 + Math.sin(performance.now() / 160) * 0.04;
+      for (const e of ents) if (e.kind === "zombie" && e.dead < 0) { const dx = e.x - P.x, dz = e.z - P.z, d = Math.hypot(dx, dz); if (d < 2.4 && d > 0.05) { e.vx += dx / d * 6; e.vz += dz / d * 6; } }
+      if (V18.shieldT <= 0) V18.bubble.visible = false;
+    }
+    updateBolts18(dt);
+    // Zauberkraft-Leiste
+    if (V18.manaShow > 0 || V18.mana < 100) { V18.manaShow -= dt; manaEl.hidden = false; manaEl.firstChild.style.width = V18.mana + "%"; } else manaEl.hidden = true;
+  }
+  const manaEl = document.createElement("div");
+  manaEl.id = "mana18"; manaEl.hidden = true; manaEl.innerHTML = "<i></i>";
+  const manaCss = document.createElement("style");
+  manaCss.textContent = `#mana18 { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: 162px; height: 7px; border-radius: 4px; background: rgba(10,16,30,.6); border: 1px solid rgba(160,200,255,.5); z-index: 3; pointer-events: none; }
+  #mana18 i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4a7bff, #9fd8ff); }`;
+  document.head.append(manaCss); document.body.append(manaEl);
+  window.addEventListener("keydown", e => {
+    if (e.target && e.target.tagName === "INPUT") return;
+    if (e.code === "KeyR" && !e.repeat && !palOpen && playing && !P.dead && sleepT < 0) { e.stopImmediatePropagation(); openPalette("zauber"); return; }
+    if (!palOpen || V13.ui !== "zauber") return;
+    if (e.code === "KeyR") { e.stopImmediatePropagation(); closePalette(); return; }
+    if (e.code.startsWith("Digit")) { const n = +e.code.slice(5) - 1, lvl = cmdStack15[0]; if (lvl.items[n]) { e.stopImmediatePropagation(); pickCmd15(lvl.items[n]); } }
+  }, true);
+  (() => {
+    const tb = document.querySelector(".tbtns");
+    if (tb) { const b = document.createElement("button"); b.id = "tSpell"; b.textContent = "Zauber"; tb.append(b); b.addEventListener("touchstart", e => { e.preventDefault(); initAudio(); openPalette("zauber"); }, { passive: false }); }
+    const kl = document.getElementById("keyList");
+    if (kl) { const kb = document.createElement("kbd"), dv = document.createElement("div"); kb.textContent = "R"; dv.textContent = "Zauber: Feuerball, Blitz, Schutzschild, Heilung, Sturmwind (kostet Zauberkraft)"; kl.append(kb, dv); }
+  })();
+
+  // ---------- Anschluss an Befehlskreis, Karte, Rechtsklick, Hinweis und Speichern ----------
+  EXTRA_CMD15.push(() => ({ t: "Armee", ic: TOOLS.schwert_eisen, sub: () => ({ title: "Armee", items: [
+    { t: "Übersicht", ic: WERBETISCH, run: () => openPalette("armee") },
+    { t: "Truppen zurückrufen", ic: BANNER, run: recallSquads18 },
+    { t: "Leibgarde: 4 Ritter", ic: SHIELD_W, run: () => { const ks = V18.soldiers.filter(e => e.kind18 === "k" && !e.gone && !e.in18).slice(0, 4); if (!ks.length) { showName("Gerade ist kein Ritter auf dem Übungsplatz.", 2000); return; } ks.forEach((e, i) => order15(e, [{ follow: true, fight: true, dist: 3 + i * 1.3 }])); say(ks[0].name, "Wir beschützen Euch, Majestät!"); } },
+    { t: "Leibgarde entlassen", ic: BANNER_C, run: () => { for (const e of V18.soldiers) if (e.order15) endOrder15(e, true); } },
+  ] }) }));
+  MAPOPT17.push((opt, lx, lz, here) => {
+    if (!here || WILD || !V18.site || armyN18() <= 0) return;
+    const free = armyN18() - V18.squads.reduce((s, q) => s + q.n, 0);
+    if (free > 0) { opt(`Truppe hierher (${fmt18(Math.min(20, free))})`, () => sendSquad18(20, lx, lz)); if (free > 20) opt(`Große Truppe hierher (${fmt18(Math.min(200, free))})`, () => sendSquad18(200, lx, lz)); }
+  });
+  function v18UseBlock(x, y, z) {
+    if (ROTB[get(x, y, z)] === WERBETISCH) { swingHand(); openPalette("armee"); return true; }
+    return false;
+  }
+  function v18Hint(tb, use) { return ROTB[tb] === WERBETISCH ? use + "Ritter und Magier anwerben" : ""; }
+  function v18Save() { return { k: V18.k.slice(), m: V18.m.slice(), mana: Math.round(V18.mana) }; }
+  function v18Load(s) {
+    const o = s && s.v18; if (!o) return;
+    const ok = a => Array.isArray(a) && a.length === 3 && a.every(n => Number.isFinite(n) && n >= 0);
+    if (ok(o.k)) V18.k = o.k.map(Math.floor); if (ok(o.m)) V18.m = o.m.map(Math.floor);
+    if (Number.isFinite(o.mana)) V18.mana = Math.max(0, Math.min(100, o.mana));
+  }
+  // Magier heben beim Zaubern den Stab
+  function poses18(dt, t) {
+    for (const e of V18.soldiers.concat(...V18.squads.map(q => q.ents))) {
+      if (e.gone || !(e.cast18 > 0)) continue;
+      e.cast18 -= dt;
+      if (!e.mesh.visible) continue;
+      const k = Math.sin(t * 9 + e.phase0) * 0.08;
+      e.B.armR.rotation.set(-2.7 + k, 0, -0.15); e.B.foreR.rotation.set(-0.15, 0, 0); e.B.armL.rotation.set(-1.2 - k, 0, 0.25); e.B.foreL.rotation.set(-0.5, 0, 0);
+      if (Math.random() < dt * 14) emit(e.x + Math.sin(e.yaw) * 0.3, e.y + 2.9 * e.scale, e.z + Math.cos(e.yaw) * 0.3, 1, () => [180, 220, 255], 0.07, 0.6, -1);
+    }
+  }
+  V11.spawn.push(() => refreshSoldiers18());
+  V11.update.push((dt, t) => { poses18(dt, t || performance.now() / 1000); train18(); updateSpells18(dt); for (const q of V18.squads) if (q.back && q.ents.every(e => e.gone)) q.done = true; V18.squads = V18.squads.filter(q => !q.done); });
+  (V11.wild = V11.wild || []).push(dt => updateSpells18(dt));
   // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.
@@ -12250,6 +12718,7 @@
   if (save && Array.isArray(save.bar) && save.bar.length === HOTBAR.length && save.bar.every(b => PALETTE.includes(b))) HOTBAR.splice(0, HOTBAR.length, ...save.bar);
   v14Load(save);   // Version 14: Tore und Abgaben-Zug
   v13Load(save);   // Version 13: Inventar, Truhen, Öfen, Schatztruhe, Felder, Spielart
+  v18Load(save);   // Version 18: Armee und Zauberkraft
   buildBar(); buildPalette();
   let savedQ = null; try { savedQ = localStorage.getItem("blockwelt-quality"); } catch (e) {}
   if (savedQ !== null && savedQ !== "auto") { auto = false; applyLevel(+savedQ); }

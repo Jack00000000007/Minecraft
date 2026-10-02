@@ -58,8 +58,11 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Karte (Taste M): Königreich ganz, Wildnis sobald erkundet, Namen der Gegenden, Schätze, Markierungen; per Klick James oder vier Wachen hinschicken
 
 ## Version 18: Armee und Magie
-- [ ] Über 1000 Leute anwerben, jeder Ritter oder Magier, Training im Hof
-- [ ] Truppen über die Karte schicken; Zauber für den König: Schild und Feuer
+- [x] Kaserne mit Übungsplatz neben dem Schloss: Schlafsaal mit Stockbetten, Waffenständer, Rüstungen; Strohpuppen, Zauberkreis aus Quarz, Fahnen
+- [x] Werbetisch: Ritter (Knappen) und Magier (Lehrlinge) anwerben, 1, 10, 100 oder 500 auf einmal, bezahlt aus der Schatztruhe (im Kreativ-Spiel umsonst); die Neuen kommen zu Fuß durch die Südpforte
+- [x] Ränge: Knappe, Ritter, Hauptmann und Lehrling, Magier, Erzmagier; täglich von 8 bis 16 Uhr wird geübt und befördert. Bis zu 12 Ritter und 8 Magier sind auf dem Platz zu sehen, abends gehen sie in die Kaserne
+- [x] Truppen über die Karte schicken (20 oder 200): sie marschieren hin, halten Wache und bekämpfen Zombies (Ritter mit Schwert, Magier mit Feuer); zurückrufen im Befehlskreis unter „Armee“, dort auch Leibgarde aus 4 Rittern
+- [x] Zauber des Königs (Taste R): Feuerball, Blitz, Schutzschild (30 Sekunden unverwundbar), Heilung, Sturmwind; Zauberkraft wächst von selbst nach
 
 ## Version 19: Fremde Dörfer und Reisen
 - [ ] Fremde Dörfer zum Handeln, Überfallen oder Einnehmen; fremde Könige und Bündnisse
@@ -86,6 +89,7 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 | Version 14: Lebendiges Dorf | 340–359 | keine neuen |
 | Version 16: Mauer und Schutz | 360–379 | keine neuen |
 | Version 17: Endlose Welt und Karte | keine neuen | keine neuen |
+| Version 18: Armee und Magie | 380–399 | keine neuen |
 
 ## Änderungen am alten Code (außerhalb der eigenen Abschnitte)
 - `updateEnts`: `else if (e.think) e.think(e, dt, dp);` für Leute mit eigenem Tagesablauf
@@ -95,3 +99,4 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - Version 15: `updateEnts` fragt zuerst `orderThink15` (Aufträge); `interact` fragt `guestTalk15` (Gäste); Q schließt offene Fenster; `v13Chopped` zählt Holz für James' Auftrag.
 - Version 16: Nach `buildGreatWall()` laufen die Bauten aus `V11.post` (Südpforte, Treppen, Kanonen), weil die Große Mauer erst nach allen anderen Bauten entsteht. `workerThink` läuft nur noch innerhalb der Arbeitszeit.
 - Version 17: Beim Start entscheidet `WILD` (aus dem Speicher), ob das Königreich (`generate`) oder ein Stück Wildnis (`genWild17`) gebaut wird. In der Wildnis: nur Tiere und James, eigene Bauten in `blockwelt-wild-edits` (`recordEdit` → `v17WildEdit`), das Königreich-Spiel wird nicht verändert (`saveNow` behält die alten Änderungen), `toGate` und T führen heim, das Bild-Update läuft über `V11.wild`. `placeBlock` fragt zuerst `v17Ship` (Boot), `step` lenkt im Boot über `shipStep17`, die Spielerfigur sitzt im Boot (`updatePlayerModel`). `chestKey` zählt in der Wildnis nach Weltzahlen; Truhen-Inhalte für „Vergrabener Schatz“, „Ruine“, „Höhle“. `guestTalk15` fragt `talk17`.
+- Version 18: `saveNow`/Laden speichern die Armee (`v18Save`/`v18Load`); „Welt zurücksetzen“ löscht auch Wildnis, Karte und Boot. Im eigenen Abschnitt: `defPerson` kennt Ritterhelm, Zauberhut, langen Mantel (`robe`), Schwert und Zauberstab; der Befehlskreis hat `EXTRA_CMD15`, die Karte `MAPOPT17` für spätere Punkte.
