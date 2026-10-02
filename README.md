@@ -2,6 +2,17 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Version 15: Befehle und Gäste (auf diesem Branch)
+
+- Mit **Q** (am Handy „Befehle“) öffnet sich der Befehlskreis. Mit der Maus oder den Zifferntasten wählst du, wem du was befiehlst:
+  - **James:** folgen oder warten, die Bäume hier fällen, eine bestimmte Menge Holz holen, Tee und Kuchen bringen, am Thron warten.
+  - **Alle Bewohner:** an die Arbeit, nach Hause, zum Marktplatz, „Kommt zu mir“, den Abgaben-Zug sofort starten.
+  - **Holen lassen:** Holz, Weizen, Kartoffeln, Äpfel oder Wolle, 10 bis 250 Stück. Die Leute gehen los, arbeiten, tragen es sichtbar zurück und legen es in deine Schatztruhe.
+  - **Köche:** Essen bringen, wo immer du gerade bist.
+  - **Dienerinnen:** hier aufräumen, dich begleiten.
+  - **Wachen:** Leibwache (zwei Wachen folgen dir und kämpfen gegen Zombies), zurück auf Posten, Zugbrücke, Feldtor.
+- Ab und zu kommt ein Gast durch die neue **Südpforte** in der Großen Mauer: ein Händler aus dem Morgenland (Tauschhandel), ein Gesandter aus dem Nordreich (bringt ein Geschenk), ein Gaukler (jongliert am Brunnen), ein fremder Ritter (schenkt dir sein Schwert) oder eine Pilgerin (segnet dich). Ein Bote läuft dann los, sucht dich, wo immer du bist, und erzählt dir, wie viele Schritte er laufen musste.
+
 ## Version 14: Lebendiges Dorf (auf diesem Branch)
 
 - Zwischen der Neustadt und den Feldern steht jetzt eine Stadtmauer mit zwei Toren, dem Feldtor und dem Gutstor, mit Türmen, Kronenbannern und Fallgitter. Um 6 Uhr geht das Tor auf, um 17:30 Uhr schließt es sich von selbst, sobald alle Bauern drin sind. Mit Rechtsklick auf die Winde neben dem Tor öffnest und schließt du es jederzeit.
@@ -107,6 +118,7 @@ So lädst du sie herunter: Auf GitHub oben auf den grünen Knopf „Code“ und 
 | 1–9 / Mausrad | Block auswählen |
 | B | Alle Blöcke und Sachen, mit Reitern und Suche |
 | I | Inventar: herstellen, Rezeptbuch, Sachen sortieren |
+| Q | Befehlskreis: Aufträge an James, Bewohner, Köche, Dienerinnen und Wachen |
 | Mittlere Maustaste | Angeschauten Block in die Hand nehmen |
 | V | Ansicht wechseln: Ich-Ansicht, von hinten, von vorne |
 | E | Türen öffnen und schließen, Hebel umlegen, reden, hinsetzen, schlafen, James warten oder folgen lassen |

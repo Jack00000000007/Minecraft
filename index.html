@@ -3171,7 +3171,8 @@
       const dp = distP(e), active = dp < 96 || e === butler || e.kind === "staff";
       e.mesh.visible = dp < visR;
       if (!active) continue;
-      if (e.kind === "animal") animalThink(e, dt);
+      if (e.order15 && orderThink15(e, dt, dp)) {}   // Version 15: Aufträge aus dem Befehlskreis
+      else if (e.kind === "animal") animalThink(e, dt);
       else if (e.kind === "butler") butlerThink(e, dt);
       else if (e.kind === "zombie") zombieThink(e, dt, dp);
       else if (e.kind === "staff") staffThink(e, dt);
@@ -4221,6 +4222,7 @@
       updateJamesTag(); saveSoon();
       return;
     }
+    if (e.guest15 && guestTalk15(e)) return;   // Version 15: Gäste schenken, handeln, segnen
     if (e.lines) { e.talkT = 3; say(e.name, pick(e.lines)); }
     else if (e.voice) SND[e.voice](1, 1);
   }
@@ -4350,7 +4352,7 @@
     if (document.pointerLockElement !== canvas && playing && !dragLook && !palOpen && !P.dead) pause();
   });
   document.addEventListener("keydown", e => {
-    if (palOpen) { if (e.code === "Escape" || (!(e.target && e.target.tagName === "INPUT") && (e.code === "KeyB" || e.code === "KeyI" || e.code === "KeyE"))) closePalette(); return; }
+    if (palOpen) { if (e.code === "Escape" || (!(e.target && e.target.tagName === "INPUT") && (e.code === "KeyB" || e.code === "KeyI" || e.code === "KeyE" || e.code === "KeyQ"))) closePalette(); return; }
     if (!playing) { if (e.code === "Enter" && !playBtn.disabled) start(); return; }
     if (P.dead) return;
     initAudio();
@@ -8766,6 +8768,7 @@
   // ---------- Fenster öffnen und schließen ----------
   function v13Open(kind, ctx) {
     V13.ui = kind; V13.els = []; UIEL.innerHTML = ""; UIEL.hidden = false;
+    if (kind === "befehle") { buildCmd15(UIEL); return; }   // Version 15: der Befehlskreis
     if (kind === "werkbank") V13.gridSize = 3; else if (kind === "inventar") V13.gridSize = 2;
     if (kind === "truhe") V13.chest = chestAt(ctx[0], ctx[1], ctx[2]);
     if (kind === "ofen") V13.furnace = furnaceAt(ctx[0], ctx[1], ctx[2]);
@@ -9146,7 +9149,10 @@
     refreshBar();
   }
   // James fällt Bäume: im Überleben fallen die Stämme als Holz herunter
-  function v13Chopped(x, y, z, b) { if (survival() && LOGB[b]) spawnDrop(b, 1, 0, x + 0.5, y + 0.3, z + 0.5); }
+  function v13Chopped(x, y, z, b) {
+    if (butler && butler.chop15 && LOGB[b]) { butler.chop15(b); return; }   // Version 15: James sammelt das Holz für den König
+    if (survival() && LOGB[b]) spawnDrop(b, 1, 0, x + 0.5, y + 0.3, z + 0.5);
+  }
 
   // ---------- Rechtsklick mit Essen, Hacke, Schaufel, Saat oder Fackel ----------
   function v13UseItem(t) {
@@ -9826,9 +9832,9 @@
     e.dvx = e.dvz = 0;
     if (e.state === "work") { workerThink(e, dt, dp); return; }
     if (e.state === "go") { e.state = "nav"; navTo14(e, e.spot[5] || e.spot, ee => { ee.state = "go"; wArrive(ee); }); return; }
-    if (e.state === "house" || e.state === "gather" || e.state === "queue" || e.state === "zugwait") {
+    if (e.state === "house" || e.state === "gather" || e.state === "queue" || e.state === "zugwait" || e.state === "idle14") {
       if (dp < 6 && Math.abs(P.y - e.y) < 3) lookAt(e, P.x, P.y + 1.62, P.z); else { e.headYawT = 0; e.headPitchT = e.act === "arrange" ? 0.45 : 0.05; }
-      if (e.state !== "house") e.yawT = Math.PI;
+      if (e.state !== "house" && e.state !== "idle14") e.yawT = Math.PI;
       return;
     }
     if (e.state === "give") { e.headPitchT = 0.4; return; }
@@ -9849,8 +9855,9 @@
     for (const e of WORKERS) {
       if (e.gone || !e.home14 && !e.bed14) continue;
       if (e.zug14) { if (e.nav && distP(e) > FAR14) navVirtual14(e, dt); continue; }
-      const m = wantMode14(e, h);
-      if (m !== e.mode14 && e.talkT <= 0) setMode14(e, m);
+      if (e.order15) continue;
+      const ov = ovrMode15(e), m = ov || wantMode14(e, h);
+      if (m !== e.mode14 && e.talkT <= 0) { if (m === "market" || m === "king") setOvrMode15(e, m); else setMode14(e, m); }
       if (e.nav && distP(e) > FAR14) navVirtual14(e, dt);
     }
   }
@@ -10162,7 +10169,7 @@
   let chopSndT = 0;
   function poses14(dt, t) {
     chopSndT -= dt;
-    for (const e of WORKERS) {
+    for (const e of WORKERS.concat([...ORDERS15].filter(o => !WORKERS.includes(o)))) {
       if (e.gone || !e.mesh.visible || e.sleep || e.sit || e.state !== "work" || e.talkT > 0) continue;
       const B = e.B, k = t + e.phase0, a = e.act, dp = distP(e);
       let aR = null, aL = null, fR = 0, fL = 0, zR = -0.06, zL = 0.06, tr = null;
@@ -10191,6 +10198,449 @@
     }
   }
   V11.update.push((dt, t) => poses14(dt, t));
+  // ==================== Version 15: Befehle und Gäste – Aufträge und der Befehlskreis ====================
+  // Ein Auftrag ist eine Liste von Schritten (hingehen, arbeiten, tragen, abgeben, sagen). Wer einen Auftrag hat, folgt ihm,
+  // in der Nähe des Königs Block für Block, weit weg geradlinig (wie im Tagesablauf). Nichts taucht einfach auf: was gebracht wird, wird getragen.
+  const ORDERS15 = new Set();
+  let OVR15 = null;                                    // Befehl an alle Bewohner: { mode, until, spots }
+  function order15(e, steps, opts) {
+    if (!e || e.gone) return;
+    if (e.order15) endOrder15(e, true);
+    if (e.kind === "staff") { e.sleep = false; e.mesh.rotation.order = "XYZ"; e.mesh.rotation.x = 0; e.pose = "none"; staffTools(e, true); }
+    if (WORKERS.includes(e)) { rise14(e); wFree(e); e.zug14 = false; }
+    if (!e.post15 && e.kind === "guard") e.post15 = [e.x, e.y, e.z];
+    e.order15 = Object.assign({ steps, i: -1, t: 0 }, opts || {});
+    e.nav = null; e.path = null; e.act = null; e.lean = 0;
+    ORDERS15.add(e);
+    nextStep15(e);
+  }
+  function endOrder15(e, silent) {
+    const o = e.order15; if (!o) return;
+    e.order15 = null; e.nav = null; e.path = null; e.ghost = false; e.act = null; e.lean = 0; e.state = "idle";
+    dropCarry14(e); ORDERS15.delete(e);
+    if (e.speed15) { e.speed = e.speed15; e.speed15 = 0; }
+    if (!silent && o.done) o.done(e);
+    // Zurück in den gewohnten Ablauf
+    if (WORKERS.includes(e)) setMode14(e, wantMode14(e, hr14()));
+    else if (e.kind === "staff") { e.state = "walk"; e.path = null; e.poi = pick(e.pois); e.pose = e.walkPose; }
+  }
+  const kingSpot15 = () => { const s = freeSpotNear(P.x, P.y, P.z, -Math.sin(P.yaw) * 2, -Math.cos(P.yaw) * 2); return s || [P.x + 1.5, P.y, P.z + 1.5]; };
+  function nextStep15(e) {
+    const o = e.order15; if (!o) return;
+    o.i++;
+    if (o.i >= o.steps.length) { if (o.loop && o.loop(e)) { o.i = -1; return nextStep15(e); } endOrder15(e); return; }
+    const s = o.steps[o.i];
+    o.t = s.wait || 0; e.act = null; e.lean = 0;
+    if (s.go) { e.state = "nav"; navTo14(e, typeof s.go === "function" ? s.go(e) : s.go, ee => { ee.state = "o15"; const st = ee.order15 && ee.order15.steps[ee.order15.i]; if (st && st.yaw !== undefined) ee.yawT = st.yaw; nextStep15(ee); }); return; }
+    if (s.king) { e.state = "nav"; o.kingAt = [P.x, P.z]; navTo14(e, kingSpot15(), ee => { ee.state = "o15"; nextStep15(ee); }); return; }
+    e.state = "o15";
+    if (s.carry) { dropCarry14(e); const m = new THREE.Mesh(s.carry >= IB ? spriteGeo(s.carry) : blockItemGeo(s.carry), s.carry >= IB ? spriteMat : itemMat(s.carry)); m.scale.setScalar(s.carry >= IB ? 0.6 : 0.52); m.position.set(0, 1.02, 0.42); e.mesh.add(m); e.carry14 = m; }
+    if (s.drop) dropCarry14(e);
+    if (s.say && (!s.near || distP(e) < s.near)) { e.talkT = 0; say(e.name || "James", typeof s.say === "function" ? s.say(e) : s.say); }
+    if (s.give) { const list = typeof s.give === "function" ? s.give(e) : s.give; for (const [id, n] of list) if (n > 0) giveItem(id, n); e.swingT = 0; noiseHit(900, 1.4, 0.1, 0.05); }
+    if (s.deposit) { const list = typeof s.deposit === "function" ? s.deposit(e) : s.deposit; for (const [id, n] of list) if (n > 0) V13.tc.set(String(id), (V13.tc.get(String(id)) || 0) + n); if (distP(e) < 30) noiseHit(340, 1.2, 0.2, 0.08); if (V13.ui === "schatz") render(); saveSoon(); }
+    if (s.fn) s.fn(e);
+    if (s.act) { e.act = s.act; e.lean = ACT_LEAN[s.act] || 0; if (s.yaw !== undefined) e.yawT = s.yaw; }
+    if (!s.wait && !s.follow) nextStep15(e);
+  }
+  // Denken mit Auftrag (in der Nähe)
+  function orderThink15(e, dt, dp) {
+    const o = e.order15;
+    if (o.passive) return false;                       // James beim Holzfällen: sein eigenes Denken macht die Arbeit
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, true); return true; }
+    const s = o.steps[o.i];
+    if (e.state === "nav" && e.nav) {
+      if (dp > FAR14) { e.dvx = e.dvz = 0; return true; }
+      // Der König ist weitergegangen: neu zu ihm
+      if (s && s.king && o.kingAt && Math.hypot(P.x - o.kingAt[0], P.z - o.kingAt[1]) > 6) { o.kingAt = [P.x, P.z]; navTo14(e, kingSpot15(), ee => { ee.state = "o15"; nextStep15(ee); }); }
+      navReal14(e, dt, dp);
+      return true;
+    }
+    e.dvx = e.dvz = 0;
+    if (s && s.follow) { follow15(e, dt, dp, s); return true; }
+    if (s && s.act) { e.state = "work"; }
+    if (dp < 6 && !(s && s.act)) lookAt(e, P.x, P.y + 1.62, P.z);
+    return true;
+  }
+  // Mitgehen (Leibwache, Dienerin): hinter dem König bleiben, Zombies in der Nähe angreifen
+  function follow15(e, dt, dp, s) {
+    e.state = "o15";
+    if (s.fight) {
+      let z = null, bd = 9;
+      for (const m of ents) if (m.kind === "zombie" && m.dead < 0 && !(m.rise > 0)) { const d = Math.hypot(m.x - e.x, m.z - e.z); if (d < bd && Math.hypot(m.x - P.x, m.z - P.z) < 14) { bd = d; z = m; } }
+      if (z) {
+        if (bd > 1.5) steerTo(e, z.x, z.z, 3.4); else { e.dvx = e.dvz = 0; lookAt(e, z.x, z.y + 1.4, z.z, true); if ((e.hitT15 = (e.hitT15 || 0) - dt) <= 0) { e.hitT15 = 0.8; e.swingT = 0; e.swingDur = 0.3; damage(z, 5, e, 7); noiseHit(700, 1, 0.09, 0.05); } }
+        return;
+      }
+    }
+    if (dp > 40) { const sp = freeSpotNear(P.x, P.y, P.z, Math.sin(P.yaw) * 3, Math.cos(P.yaw) * 3); if (sp && dp > 60) { wPlace(e, sp); return; } }
+    if (dp > (s.dist || 3.5)) {
+      if (!e.path || (e.repath15 = (e.repath15 || 0) - dt) <= 0) {
+        e.repath15 = 1;
+        if (pathQuota > -1) { pathQuota--; const c = playerCell() || [Math.floor(P.x), Math.floor(P.y), Math.floor(P.z)]; const p = findPath(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z), c[0], c[1], c[2], 2, 4000); e.path = p && p.length ? p : null; e.pi = 0; }
+      }
+      if (e.path) { if (followPath(e, dp > 10 ? 4.2 : 2.6)) e.path = null; } else steerTo(e, P.x, P.z, 2.6);
+      lookAhead(e);
+    } else { e.path = null; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z); }
+  }
+  // Für alle mit Auftrag, jedes Bild: weit weg geradlinig gehen, Arbeitszeiten herunterzählen
+  function updateOrders15(dt) {
+    for (const e of [...ORDERS15]) {
+      if (e.gone || !e.order15) { ORDERS15.delete(e); continue; }
+      const o = e.order15; if (o.passive) { if (o.tick) o.tick(e, dt); continue; }
+      const dp = distP(e), s = o.steps[o.i];
+      if (e.nav && (dp > FAR14 || (dp >= 96 && e.kind !== "staff"))) navVirtual14(e, dt);
+      if (s && s.wait && e.state !== "nav" && (o.t -= dt) <= 0) nextStep15(e);
+      if (s && s.king && e.state !== "nav" && dp > 4) { e.state = "nav"; o.kingAt = [P.x, P.z]; navTo14(e, kingSpot15(), ee => { ee.state = "o15"; nextStep15(ee); }); }
+    }
+    // Befehl an alle: abgelaufen?
+    if (OVR15 && OVR15.until !== null && hourPassed15(OVR15.from, OVR15.until)) { OVR15 = null; for (const e of WORKERS) if (!e.order15 && !e.zug14) setMode14(e, wantMode14(e, hr14())); }
+  }
+  const hourPassed15 = (from, until) => { const h = hr14(), span = (until - from + 24) % 24, now = (h - from + 24) % 24; return now >= span; };
+
+  // ---------- Holen lassen: Leute gehen los, arbeiten, tragen zurück, legen in die Schatztruhe ----------
+  const FETCH15 = {
+    holz: { name: "Holz", id: LOG, act: "chop", carry: LOG, who: /^(holz|frei|zimmer)/, spots: () => treeSpots14() },
+    weizen: { name: "Weizen", id: () => I.weizen, act: "scythe", carry: HAY, who: /^(f\d|frei)/, spots: () => [].concat(...FPLOTS.filter(p => p[4] === "wheat" || p[4] === "stubble").map(p => p.spots)), fields: true },
+    kartoffel: { name: "Kartoffeln", id: () => I.kartoffel, act: "hoe", carry: 990, who: /^(f\d|frei)/, spots: () => [].concat(...FPLOTS.filter(p => p[4] === "potato").map(p => p.spots)), fields: true },
+    apfel: { name: "Äpfel", id: () => I.apfel, act: "reach", carry: 988, who: /^(f\d|frei)/, spots: () => [].concat(...FPLOTS.filter(p => p[4] === "orchard").map(p => p.spots)), fields: true },
+    wolle: { name: "Wolle", id: WWOOL, act: "pick", carry: WWOOL, who: /^(g\d|frei)/, spots: () => GUT_SPOTS.schaf.length ? GUT_SPOTS.schaf : GUT_SPOTS.hof },
+  };
+  const JOBS15 = [];
+  function fetch15(kind, total) {
+    const F = FETCH15[kind], id = typeof F.id === "function" ? F.id() : F.id, spots = F.spots();
+    if (!spots.length) { announce14("Dafür gibt es gerade keinen Platz zum Arbeiten."); return; }
+    const crewN = Math.max(1, Math.min(8, Math.ceil(total / 16)));
+    const free = WORKERS.filter(e => !e.gone && !e.order15 && !e.zug14 && !e.kid14 && !e.dayBed14 && e.home14 && !e.home14.pseudo);
+    free.sort((a, b) => (F.who.test(b.key14) - F.who.test(a.key14)) || (/^frei/.test(b.key14) - /^frei/.test(a.key14)) || (distP(a) - distP(b)));
+    const crew = free.slice(0, crewN);
+    if (!crew.length) { announce14("Gerade ist niemand frei für diese Arbeit."); return; }
+    const job = { kind, id, total, left: total, given: 0, crew: crew.length, name: F.name };
+    JOBS15.push(job);
+    if (F.fields) for (const gt of TGATES) if (!gt.open) { setTownGate(gt, true); gt.manual = true; }
+    crew.forEach((e, i) => {
+      e.speed15 = e.speed; e.speed = Math.max(e.speed, 2.1);
+      const sp = spots[(i * 3 + Math.floor(Math.random() * spots.length)) % spots.length];
+      const trip = () => {
+        const n = Math.min(16, job.left); job.left -= n; e.trip15 = n;
+        return [{ go: sp.slice(0, 3), yaw: sp[3] }, { act: F.act, yaw: sp[3], wait: 14 + Math.random() * 6 }, { carry: F.carry }, { go: GIVE14[i % 2] }, { act: "arrange", wait: 1.2 },
+          { deposit: ee => { job.given += ee.trip15; return [[id, ee.trip15]]; } }, { drop: true }];
+      };
+      order15(e, trip(), { loop: ee => { if (job.left <= 0) return false; ee.order15.steps = trip(); return true; }, done: () => {
+        if (job.given >= job.total && !job.said) { job.said = true; announce14(`${job.total} ${job.name} liegen jetzt in deiner Schatztruhe.`, "Erledigt:"); }
+      } });
+    });
+    announce14(`${crew.length === 1 ? crew[0].name + " holt" : crew.length + " Leute holen"} dir ${total} ${F.name}. Sie bringen alles in deine Schatztruhe.`, "Befehl:");
+  }
+
+  // ---------- Befehle an James ----------
+  function jamesFetchWood15(total) {
+    const e = butler; if (!e) return;
+    e.stay = false; e.target = null;
+    const got = new Map(); let n = 0;
+    const findTrees = () => {
+      const trees = [], seen = new Set();
+      for (let r = 4; r <= 30 && trees.length < 4; r += 4) for (let dz = -r; dz <= r && trees.length < 4; dz += 2) for (let dx = -r; dx <= r && trees.length < 4; dx += 2) {
+        const x = Math.floor(e.x) + dx, z = Math.floor(e.z) + dz;
+        for (let y = Math.floor(e.y) - 4; y <= Math.floor(e.y) + 6; y++) if (LOGB[get(x, y, z)] && !LOGB[get(x, y - 1, z)] && !seen.has(x + "," + z)) { seen.add(x + "," + z); const t = treeAt(x, y, z); if (t) trees.push(t); break; }
+      }
+      return trees;
+    };
+    order15(e, [], { passive: true, tick: (ee, dt) => {
+      if (n >= total) return;
+      if (!ee.job) { const t = findTrees(); if (!t.length) { endOrder15(ee, true); say("James", "Hier stehen keine Bäume mehr, Majestät. Ich bringe, was ich habe."); deliver(); return; } ee.job = { trees: t, cur: null, hits: 0, t: 0, giveUp: 0 }; ee.path = null; }
+    } });
+    e.chop15 = (b) => { got.set(b, (got.get(b) || 0) + 1); n++; if (n >= total) { e.job = null; endOrder15(e, true); deliver(); } };
+    const deliver = () => {
+      e.chop15 = null;
+      const list = [...got].filter(([, k]) => k > 0);
+      if (!list.length) return;
+      order15(e, [{ carry: LOG }, { king: true }, { give: list, say: `Ihr Holz, Majestät: ${n} Stämme.` }, { drop: true }]);
+    };
+    say("James", `Sehr wohl, Majestät. Ich hole ${total} Holz.`);
+  }
+  function jamesTea15() {
+    const e = butler; if (!e) return;
+    e.stay = false;
+    order15(e, [{ go: STAFF_POI.kitchen[2].slice(0, 3) }, { act: "arrange", yaw: 0, wait: 4 }, { carry: I.brot }, { king: true },
+      { give: [[I.brot, 2], [I.apfel, 2], [I.goldapfel, 1]], say: "Tee und Kuchen, Majestät. Und ein goldener Apfel, ganz frisch." }, { drop: true }]);
+    say("James", "Sehr wohl. Ich gehe in die Küche, Majestät.");
+  }
+  // ---------- Befehle an Köche, Dienerinnen und Wachen ----------
+  const nearestOf15 = (list, n) => list.filter(e => !e.gone).sort((a, b) => distP(a) - distP(b)).slice(0, n);
+  function cookFood15() {
+    const c = nearestOf15(staff.filter(e => e.role === "cook"), 1)[0]; if (!c) return;
+    order15(c, [{ go: STAFF_POI.kitchen[0].slice(0, 3) }, { act: "stir", yaw: 0, wait: 6 }, { carry: I.steak }, { king: true },
+      { give: [[I.steak, 2], [I.brot, 3], [I.ofenkartoffel, 2], [I.pilzsuppe, 1]], say: c.formal ? "Frisch aus der Küche, Majestät! Wohl bekomm's." : "Frisch aus der Küche! Lasst es Euch schmecken." }, { drop: true }]);
+    announce14(c.name + " kocht etwas und bringt es dir, wo immer du bist.", "Befehl:");
+  }
+  function maidTidy15() {
+    const m = nearestOf15(staff.filter(e => e.role === "maid"), 1)[0]; if (!m) return;
+    order15(m, [{ king: true }, { act: "sweep", wait: 25, say: "Ich mache hier sauber, Majestät." }]);
+  }
+  function maidFollow15() { const m = nearestOf15(staff.filter(e => e.role === "maid"), 1)[0]; if (m) { order15(m, [{ follow: true, dist: 3 }]); say(m.name, "Ich begleite Euch, Majestät."); } }
+  function guardsFollow15() {
+    const g = nearestOf15(ents.filter(e => e.kind === "guard"), 2);
+    g.forEach((e, i) => order15(e, [{ follow: true, fight: true, dist: 3 + i * 1.5 }]));
+    if (g.length) say("Wache", "Zu Befehl! Wir schützen Euch, Majestät.");
+  }
+  function guardsBack15() {
+    for (const e of [...ORDERS15]) if (e.kind === "guard") { const p = e.post15; endOrder15(e, true); if (p) order15(e, [{ go: p }, { fn: ee => { ee.yawT = ee.post; } }]); }
+    say("Wache", "Zurück auf unsere Posten!");
+  }
+  function staffBack15(role) { for (const e of [...ORDERS15]) if (e.kind === "staff" && e.role === role) endOrder15(e, true); }
+  // ---------- Befehle an alle Bewohner ----------
+  function residentsAll15(mode) {
+    const h = hr14();
+    if (mode === "work") { OVR15 = null; announce14("Alle gehen wieder ihrem Tagwerk nach.", "Befehl:"); }
+    else if (mode === "home") { OVR15 = { mode: "home", from: h, until: 6 }; announce14("Alle Bewohner gehen jetzt nach Hause.", "Befehl:"); }
+    else if (mode === "market") { OVR15 = { mode: "market", from: h, until: (h + 1.5) % 24 }; announce14("Alle Bewohner kommen auf den Marktplatz.", "Befehl:"); }
+    else if (mode === "king") {
+      const spots = []; for (let k = 0; k < 30; k++) { const a = k * 2.4, r = 3 + (k % 4) * 1.6; const s = freeSpotNear(P.x + Math.sin(a) * r, P.y, P.z + Math.cos(a) * r, 0, 0); if (s) spots.push(s); }
+      OVR15 = { mode: "king", from: h, until: (h + 1) % 24, spots, at: [P.x, P.y, P.z], range: 90 };
+      announce14("Die Bewohner in der Nähe kommen zu dir.", "Befehl:");
+    }
+    for (const e of WORKERS) if (!e.order15 && !e.zug14) { e.mode14 = null; }
+  }
+  // Wie der Tagesablauf den Befehl an alle beachtet
+  function ovrMode15(e) {
+    if (!OVR15 || e.dayBed14 && OVR15.mode !== "king") return null;
+    if (OVR15.mode === "king" && Math.hypot(e.x - OVR15.at[0], e.z - OVR15.at[2]) > OVR15.range && e.mode14 !== "king") return null;
+    return OVR15.mode;
+  }
+  const MARKET15 = () => GATHER14.concat(MLOOK.map(s => s.slice(0, 3)));
+  function setOvrMode15(e, m) {
+    e.mode14 = m; rise14(e); wFree(e);
+    const spots = m === "market" ? MARKET15() : OVR15.spots;
+    const sp = spots.length ? spots[WORKERS.indexOf(e) % spots.length] : [P.x, P.y, P.z];
+    e.state = "nav"; navTo14(e, sp, ee => { ee.state = "idle14"; ee.dvx = ee.dvz = 0; ee.yawT = Math.atan2(P.x - ee.x, P.z - ee.z); });
+  }
+
+  // ---------- Der Befehlskreis (Taste Q, am Handy „Befehle“) ----------
+  const CMD15 = () => ({
+    title: "Befehle", items: [
+      { t: "James", ic: TOOLS.axt_eisen, sub: () => ({ title: "James", items: [
+        { t: butler && butler.stay ? "Folge mir" : "Warte hier", ic: 637, run: () => { if (butler) { endOrder15(butler, true); interact(butler); } } },
+        { t: "Fälle die Bäume hier", ic: LOG, run: () => { if (butler) { endOrder15(butler, true); butler.stay = false; butlerHelpTree(...nearTree15()); } } },
+        { t: "Hol Holz", ic: LOG, sub: () => amounts15(n => jamesFetchWood15(n), [8, 16, 32, 64]) },
+        { t: "Tee und Kuchen", ic: I.apfel, run: jamesTea15 },
+        { t: "Komm zum Thron", ic: THRONTRUHE, run: () => { if (butler) { order15(butler, [{ go: [97.5, G0 + 3, 76.5] }, { fn: e => { e.stay = true; } }]); say("James", "Ich erwarte Euch am Thron, Majestät."); } } },
+      ] }) },
+      { t: "Bewohner", ic: 1005, sub: () => ({ title: "Alle Bewohner", items: [
+        { t: "An die Arbeit", ic: TOOLS.hacke_eisen, run: () => residentsAll15("work") },
+        { t: "Nach Hause", ic: BED_R, run: () => residentsAll15("home") },
+        { t: "Zum Marktplatz", ic: 993, run: () => residentsAll15("market") },
+        { t: "Kommt zu mir", ic: 1011, run: () => residentsAll15("king") },
+        { t: "Abgaben-Zug jetzt", ic: CHEST, run: () => { for (const e of WORKERS) e.tribDone14 = false; ZUG.day = -1; if (!ZUG.active) startZug14(); } },
+      ] }) },
+      { t: "Holen lassen", ic: CHEST, sub: () => ({ title: "Was sollen sie holen?", items: Object.keys(FETCH15).map(k => ({ t: FETCH15[k].name, ic: typeof FETCH15[k].id === "function" ? FETCH15[k].id() : FETCH15[k].id, sub: () => amounts15(n => fetch15(k, n), [10, 25, 50, 100, 250]) })) }) },
+      { t: "Köche", ic: OVEN, sub: () => ({ title: "Köche", items: [{ t: "Bringt mir Essen", ic: I.steak, run: cookFood15 }, { t: "Zurück in die Küche", ic: OVEN, run: () => staffBack15("cook") }] }) },
+      { t: "Dienerinnen", ic: CANDLE, sub: () => ({ title: "Dienerinnen", items: [{ t: "Räumt hier auf", ic: CARPET_R, run: maidTidy15 }, { t: "Begleite mich", ic: 637, run: maidFollow15 }, { t: "Zurück an die Arbeit", ic: CANDLE, run: () => staffBack15("maid") }] }) },
+      { t: "Wachen", ic: TOOLS.schwert_eisen, sub: () => ({ title: "Wachen", items: [
+        { t: "Leibwache", ic: TOOLS.schwert_diamant, run: guardsFollow15 }, { t: "Zurück auf Posten", ic: SHIELD_W, run: guardsBack15 },
+        { t: gate.open ? "Zugbrücke hoch" : "Zugbrücke herunter", ic: BARS, run: () => toggleGate() },
+        { t: TGATES[0].open ? "Feldtor schließen" : "Feldtor öffnen", ic: BARS, run: () => { for (const gt of TGATES) { setTownGate(gt, !TGATES[0].open); gt.manual = true; } } },
+      ] }) },
+    ] });
+  function amounts15(fn, list) { return { title: "Wie viel?", items: list.map(n => ({ t: String(n), num: true, run: () => fn(n) })) }; }
+  function nearTree15() {
+    for (let r = 2; r <= 16; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      const x = Math.floor(P.x) + dx, z = Math.floor(P.z) + dz;
+      for (let y = Math.floor(P.y) - 3; y <= Math.floor(P.y) + 4; y++) if (LOGB[get(x, y, z)] && !LOGB[get(x, y - 1, z)]) return [x, y, z];
+    }
+    say("James", "Hier in der Nähe stehen keine Bäume, Majestät."); return [0, 0, 0];
+  }
+  const cmdCss = document.createElement("style");
+  cmdCss.textContent = `
+  #v13 .ring15 { position: relative; width: min(560px, calc(100vw - 32px)); height: min(560px, calc(100vw - 32px)); }
+  #v13 .ring15 .hub { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 34%; height: 34%; border-radius: 50%; display: grid; place-items: center; text-align: center;
+    background: var(--panel); border: 2px solid var(--sun); color: var(--sun); font: 700 20px/1.1 "Pixelify Sans", monospace; cursor: pointer; padding: 8px; box-sizing: border-box; }
+  #v13 .ring15 .hub small { display: block; font: 500 12px "Nunito", system-ui, sans-serif; color: var(--ink-dim); margin-top: 6px; }
+  #v13 .ring15 .it { position: absolute; width: 23%; height: 23%; transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid var(--panel-line); background: var(--panel);
+    color: var(--ink); display: grid; place-items: center; align-content: center; gap: 2px; text-align: center; cursor: pointer; font: 500 13px/1.1 "Pixelify Sans", monospace; padding: 6px; box-sizing: border-box; }
+  #v13 .ring15 .it canvas { width: 34%; height: 34%; image-rendering: pixelated; }
+  #v13 .ring15 .it b { position: absolute; top: 6%; left: 50%; transform: translateX(-50%); font: 700 11px "Pixelify Sans", monospace; color: var(--sun); }
+  #v13 .ring15 .it.num { font-size: 24px; color: var(--sun); }
+  #v13 .ring15 .it:hover, #v13 .ring15 .it:focus-visible { background: rgba(240,181,65,.25); border-color: var(--sun); outline: none; }
+  @media (max-width: 520px) { #v13 .ring15 .it { font-size: 11px; } }`;
+  document.head.append(cmdCss);
+  let cmdStack15 = [];
+  function buildCmd15(root) {
+    cmdStack15 = [CMD15()];
+    drawCmd15(root);
+  }
+  function drawCmd15(root) {
+    root = root || UIEL;
+    root.innerHTML = "";
+    const lvl = cmdStack15[cmdStack15.length - 1], ring = h("div", "ring15");
+    const hub = h("button", "hub"); hub.type = "button";
+    hub.append(document.createTextNode(lvl.title)); const sm = h("small", "", cmdStack15.length > 1 ? "Zurück (Esc)" : "Schließen (Q)"); hub.append(sm);
+    hub.addEventListener("click", () => { if (cmdStack15.length > 1) { cmdStack15.pop(); drawCmd15(); } else closePalette(); });
+    ring.append(hub);
+    lvl.items.forEach((it, i) => {
+      const a = -Math.PI / 2 + i / lvl.items.length * Math.PI * 2, b = h("button", "it" + (it.num ? " num" : "")); b.type = "button";
+      b.style.left = (50 + Math.cos(a) * 37) + "%"; b.style.top = (50 + Math.sin(a) * 37) + "%";
+      b.append(h("b", "", String(i + 1)));
+      if (it.ic) { const cv = h("canvas"); cv.width = cv.height = 32; drawSlotIcon(cv, it.ic); b.append(cv); }
+      b.append(h("span", "", it.t));
+      b.addEventListener("click", () => pickCmd15(it));
+      ring.append(b);
+    });
+    root.append(ring);
+  }
+  function pickCmd15(it) {
+    clickSound();
+    if (it.sub) { cmdStack15.push(it.sub()); drawCmd15(); return; }
+    closePalette();
+    it.run();
+  }
+  // Tasten: Q öffnet und schließt, Ziffern wählen, Esc geht zurück
+  window.addEventListener("keydown", e => {
+    if (e.code === "KeyQ" && !e.repeat && !palOpen && playing && !P.dead && sleepT < 0) { e.stopImmediatePropagation(); openPalette("befehle"); return; }
+    if (!palOpen || V13.ui !== "befehle") return;
+    if (e.code === "KeyQ") { e.stopImmediatePropagation(); closePalette(); return; }
+    if (e.code === "Escape" && cmdStack15.length > 1) { e.stopImmediatePropagation(); cmdStack15.pop(); drawCmd15(); return; }
+    if (e.code.startsWith("Digit")) { const n = +e.code.slice(5) - 1, lvl = cmdStack15[cmdStack15.length - 1]; if (lvl.items[n]) { e.stopImmediatePropagation(); pickCmd15(lvl.items[n]); } }
+  }, true);
+  (() => {
+    const tb = document.querySelector(".tbtns");
+    if (tb) { const b = document.createElement("button"); b.id = "tCmd"; b.textContent = "Befehle"; tb.append(b); b.addEventListener("touchstart", e => { e.preventDefault(); initAudio(); openPalette("befehle"); }, { passive: false }); }
+    const kl = document.getElementById("keyList");
+    if (kl) { const kb = document.createElement("kbd"), dv = document.createElement("div"); kb.textContent = "Q"; dv.textContent = "Befehlskreis: James, Bewohner, Köche, Dienerinnen und Wachen Aufträge geben, etwas holen lassen"; const ik = [...kl.querySelectorAll("kbd")].find(k => k.textContent === "I"); if (ik) ik.nextElementSibling.after(kb, dv); else kl.append(kb, dv); }
+  })();
+  V11.update.push(dt => updateOrders15(dt));
+  // ==================== Version 15: Befehle und Gäste – seltene Gäste und der Bote ====================
+  // Ab und zu (alle ein bis zwei Tage, tagsüber) kommt ein Gast durch die Südpforte der Großen Mauer. Ein Bote läuft los, sucht den König,
+  // wo immer er ist, und erzählt, wie weit er laufen musste. Der Gast geht zu seinem Platz (Thronsaal, Markt oder Dorfbrunnen) und bleibt bis zum Abend.
+  const PFORTE15 = { x0: 95, x1: 97, z0: 434, z1: 440 };
+  V11.build.push(() => {
+    // Südpforte: ein Torbogen durch die Große Mauer am Ende des Feldwegs, mit Laternen und Bannern
+    const { x0, x1, z0, z1 } = PFORTE15, y0 = G0 + 1;
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { setB(x, G0, z, PATH); for (let y = y0; y <= y0 + 3; y++) setB(x, y, z, AIR); }
+    for (let z = z0; z <= z1; z++) { setB(x0 - 1, y0 + 4, z, GOLD_TRIM); setB(x1 + 1, y0 + 4, z, GOLD_TRIM); for (let x = x0; x <= x1; x++) setB(x, y0 + 4, z, SBRICK); }
+    for (const z of [z0 - 1, z1 + 1]) { setB(x0 - 1, y0 + 2, z, LANTERN_S); setB(x1 + 1, y0 + 2, z, LANTERN_S); setB(x0 + 1, y0 + 5, z, BANNER_C); }
+    // Weg draußen vor der Mauer bis zum Rand der Welt
+    for (let z = z1 + 1; z < D - 1; z++) for (let x = x0 - 1; x <= x1 + 1; x++) { setB(x, G0, z, PATH); for (let y = y0; y <= y0 + 3; y++) if (get(x, y, z) !== SBRICK) setB(x, y, z, AIR); }
+    AREAS.unshift(["Südpforte", "das Tor in der Großen Mauer", x0 - 3, x1 + 3, G0 - 2, G0 + 10, z0 - 2, z1 + 2]);
+    Object.assign(NODES14, { pforte: [96.5, 431.5], feld_s2: [96.5, 410.5] });
+    EDGES14.push(["feld_s", "feld_s2"], ["feld_s2", "pforte"]);
+    for (const [a, b] of [["feld_s", "feld_s2"], ["feld_s2", "pforte"]]) { NADJ[a] = NADJ[a] || []; NADJ[b] = NADJ[b] || []; const d = Math.hypot(NODES14[a][0] - NODES14[b][0], NODES14[a][1] - NODES14[b][1]); NADJ[a].push([b, d]); NADJ[b].push([a, d]); }
+  });
+  const ARRIVE15 = [96.5, G0 + 1, 444.5];
+  // Die Gäste und der Bote
+  Object.assign(PEOPLE11, {
+    bote: { name: "Bote Florentin", talk: "dem Boten Florentin", skin: [236, 196, 166], hair: [160, 100, 50], shirt: [240, 236, 220], coat: [40, 70, 150], vest: [230, 190, 70], pants: [230, 226, 214], hat: { t: "beret", c: [40, 70, 150], feather: [240, 240, 240] }, tool: "bag", bagc: [120, 70, 40], boots: true },
+    g_haendler: { name: "Händler Abdul aus dem Morgenland", talk: "dem Händler Abdul", skin: [170, 120, 86], hair: [30, 24, 20], beard: [40, 30, 24], coat: [120, 40, 110], vest: [230, 190, 80], pants: [70, 50, 70], hat: { t: "turban", c: [230, 230, 220] }, tool: "bag", bagc: [150, 90, 40] },
+    g_gesandter: { name: "Gesandter Sigismund aus dem Nordreich", talk: "dem Gesandten Sigismund", skin: [240, 210, 190], hair: [220, 220, 210], beard: [230, 230, 220], coat: [30, 60, 110], vest: [220, 220, 230], pants: [30, 40, 70], hat: { t: "tophat", c: [30, 40, 70] }, tool: "cane", shoe: [20, 20, 24] },
+    g_gaukler: { name: "Gaukler Pippo", talk: "dem Gaukler Pippo", skin: [236, 196, 166], hair: [200, 60, 40], shirt: [230, 60, 60], vest: [60, 160, 220], pants: [240, 200, 40], hat: { t: "beret", c: [60, 160, 220], feather: [240, 60, 60] } },
+    g_ritter: { name: "Ritter Wolfram von Eichenfels", talk: "dem Ritter Wolfram", skin: [222, 176, 140], hair: [90, 70, 50], beard: [90, 70, 50], coat: [150, 150, 160], vest: [180, 30, 40], pants: [120, 120, 130], boots: true, shoe: [90, 90, 96], tool: "axe", scale: 1.08 },
+    g_pilger: { name: "Pilgerin Benedikta", talk: "der Pilgerin Benedikta", female: true, skin: [232, 196, 170], hair: [120, 100, 80], bodice: [120, 100, 80], skirt: [100, 84, 66], skirtLen: 11.5, hat: { t: "straw", c: [120, 100, 80] }, tool: "cane" },
+  });
+  for (const k of ["bote", "g_haendler", "g_gesandter", "g_gaukler", "g_ritter", "g_pilger"]) { const o = PEOPLE11[k]; o.seed = pseed++; MODEL_DEFS["p11_" + k] = () => defPerson(o); }
+  const GUESTS15 = [
+    { key: "g_haendler", what: "ein fahrender Händler aus dem Morgenland", where: "auf dem Marktplatz", spot: [104.5, G0 + 1, 272.5, Math.PI], act: "sell",
+      lines: ["Seide, Gewürze, Edelsteine aus fernen Ländern{M}!", "Ich bin drei Monde gereist, um Euer Königreich zu sehen.", "{M_}zeigt mir Euer Gold, und ich zeige Euch meine Schätze."],
+      trade: [[[I.goldbarren, 3], [I.diamant, 1]], [[I.goldbarren, 2], [I.smaragd, 2]], [[I.kohle, 16], [I.goldbarren, 1]]] },
+    { key: "g_gesandter", what: "ein Gesandter des Königs aus dem Nordreich", where: "im Thronsaal", spot: [100.5, G0 + 1, 83.5, Math.PI], act: "look",
+      lines: ["Mein König im Nordreich lässt Euch herzlich grüßen{M}.", "Unsere Reiche sollten Freunde sein.", "{M_}im Norden fällt der Schnee bis über die Dächer."],
+      gift: [[I.goldbarren, 12], [I.smaragd, 4], [I.diamant, 2]], giftText: "Mein König schickt Euch dieses Geschenk als Zeichen der Freundschaft: 12 Goldbarren, 4 Smaragde und 2 Diamanten." },
+    { key: "g_gaukler", what: "ein Gaukler", where: "am Marktbrunnen", spot: [96.5, G0 + 1, 276.5, Math.PI], act: "juggle",
+      lines: ["Hereinspaziert, hereinspaziert{M}!", "Seht nur, fünf Bälle auf einmal!", "{M_}lacht ruhig, das ist der beste Lohn für einen Gaukler."] },
+    { key: "g_ritter", what: "ein fremder Ritter", where: "im Thronsaal", spot: [92.5, G0 + 1, 83.5, Math.PI], act: "look",
+      lines: ["Ich habe von Eurem Reich gehört und möchte Euch dienen{M}.", "Mein Schwert gehört dem gerechtesten König.", "{M_}sobald Ihr ein Heer aufstellt, reite ich in der ersten Reihe."],
+      gift: [[TOOLS.schwert_diamant, 1]], giftText: "Nehmt mein bestes Schwert, Majestät, als Zeichen meiner Treue." },
+    { key: "g_pilger", what: "eine Pilgerin", where: "am Dorfbrunnen", spot: [93.5, G0 + 1, 200.5, Math.PI / 2], act: "look",
+      lines: ["Ich wandere von Brunnen zu Brunnen{M}.", "Euer Dorf ist friedlich, das spürt man.", "{M_}ich bete für Euer Wohl."],
+      heal: true },
+  ];
+  const G15 = { next: null, guest: null, bote: null, count: 0, lastKey: "" };
+  function spawnGuest15(forceKey) {
+    if (G15.guest) return;
+    const opts = GUESTS15.filter(g => g.key !== G15.lastKey);
+    const T = forceKey ? GUESTS15.find(g => g.key === forceKey) : opts[Math.floor(Math.random() * opts.length)];
+    G15.lastKey = T.key; G15.count++;
+    const formal = true;
+    const lines = T.lines.map(s => fmt11(s, formal));
+    const g = spawnEnt("villager", "p11_" + T.key, ARRIVE15[0], ARRIVE15[1], ARRIVE15[2], { think: guestThink15, name: PEOPLE11[T.key].name, talkName: PEOPLE11[T.key].talk, lines, speed: 1.5,
+      scale: PEOPLE11[T.key].scale || 1, guest15: T, state: "nav", formal, phase0: Math.random() * 6 });
+    g.dayLines = lines;
+    G15.guest = g;
+    navTo14(g, T.spot, e => { e.state = "work"; e.act = T.act; e.yawT = T.spot[3]; });
+    // Der Bote
+    const b = spawnEnt("villager", "p11_bote", ARRIVE15[0] + 1, ARRIVE15[1], ARRIVE15[2] - 1, { think: boteThink15, name: "Bote Florentin", talkName: "dem Boten Florentin", lines: ["Ich laufe, so schnell ich kann, Majestät!"], speed: 4.2, state: "nav", walked: 0, last: [ARRIVE15[0] + 1, ARRIVE15[2] - 1], phase0: 1 });
+    G15.bote = b; b.forGuest = T;
+    navTo14(b, kingSpot15(), boteArrive15); b.kingAt = [P.x, P.z];
+  }
+  function boteArrive15(b) {
+    if (Math.hypot(P.x - b.x, P.z - b.z) > 4) { b.state = "nav"; b.kingAt = [P.x, P.z]; navTo14(b, kingSpot15(), boteArrive15); return; }
+    const steps = Math.round(b.walked * 1.4), T = b.forGuest;
+    b.state = "told"; b.dvx = b.dvz = 0; b.talkT = 4; lookAt(b, P.x, P.y + 1.62, P.z, true);
+    say("Bote Florentin", `Majestät! Ein Gast ist da: ${T.what}. Er wartet ${T.where}. Ich bin ${steps.toLocaleString("de-DE")} Schritte gelaufen, um Euch zu finden!`);
+    announce14(`${PEOPLE11[T.key].name} wartet ${T.where}.`, "Gast:");
+    setTimeout(() => { if (!b.gone) { b.state = "nav"; navTo14(b, [96.5, G0 + 1, 268.5], e => { e.state = "leave15"; }); } }, 4500);
+  }
+  function boteThink15(e, dt, dp) {
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, true); return; }
+    if (e.state === "nav" && e.nav) {
+      if (dp > FAR14) { e.dvx = e.dvz = 0; return; }
+      if (e.nav.then === boteArrive15 && Math.hypot(P.x - e.kingAt[0], P.z - e.kingAt[1]) > 6) { e.kingAt = [P.x, P.z]; navTo14(e, kingSpot15(), boteArrive15); }
+      if (e.nav.then === boteArrive15 && dp < 2.6) { e.nav = null; boteArrive15(e); return; }
+      navReal14(e, dt, dp); return;
+    }
+    e.dvx = e.dvz = 0;
+  }
+  function guestThink15(e, dt, dp) {
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, true); return; }
+    if (e.state === "nav" && e.nav) { if (dp > FAR14) { e.dvx = e.dvz = 0; return; } navReal14(e, dt, dp); return; }
+    e.dvx = e.dvz = 0;
+    if (e.state === "work") { if (dp < 7) lookAt(e, P.x, P.y + 1.62, P.z); else { e.headYawT = 0; e.yawT = e.guest15.spot[3]; } }
+  }
+  // Reden mit Gästen: Geschenk, Handel, Segen
+  function guestTalk15(e) {
+    const T = e.guest15; if (!T) return false;
+    e.talkT = 3.5;
+    if (T.gift && !e.gave15) {
+      e.gave15 = true; e.swingT = 0;
+      for (const [id, n] of T.gift) giveItem(id, n);
+      say(e.name, T.giftText); noiseHit(900, 1.4, 0.1, 0.05); beep(880, 0.15, "triangle", 0.03); return true;
+    }
+    if (T.trade) {
+      const off = T.trade[(e.tradeI15 = ((e.tradeI15 || 0) + (e.traded15 ? 1 : 0)) % T.trade.length)];
+      const [[pid, pn], [gid, gn]] = off;
+      if (countInv(pid) >= pn) { takeInv(pid, pn); giveItem(gid, gn); e.traded15 = true; say(e.name, `Ein gutes Geschäft{M}: ${gn} ${itemName(gid)} für ${pn} ${itemName(pid)}. Sprecht mich wieder an für das nächste Angebot!`.replace("{M}", ", Majestät")); refreshBar(); }
+      else { e.traded15 = false; say(e.name, `Mein Angebot, Majestät: ${gn} ${itemName(gid)} für ${pn} ${itemName(pid)}. Bringt mir die ${itemName(pid)} (aus Eurer Schatztruhe ins Inventar), dann tauschen wir.`); }
+      return true;
+    }
+    if (T.heal && !e.healed15) { e.healed15 = true; P.hp = MAX_HP; say(e.name, "Ich segne Euch, Majestät. Möge Euch nie ein Leid geschehen. (Deine Herzen sind wieder voll.)"); emit(P.x, P.y + 1.5, P.z, 16, () => [255, 240, 160], 0.07, 1.4, -1); return true; }
+    return false;
+  }
+  // Gaukler: jongliert mit bunten Bällen
+  const JUGGLE_C = [[230, 60, 60], [60, 160, 220], [240, 200, 40], [80, 200, 90]];
+  function updateGuests15(dt, t) {
+    // Nächster Besuch: alle 18 bis 36 Spielstunden, nur zwischen 8 und 15 Uhr
+    const h = hr14();
+    if (G15.next === null) G15.next = 10 + Math.random() * 20;
+    if (!G15.guest) { G15.next -= dt / 50; if (G15.next <= 0 && h >= 8 && h < 15) { G15.next = 18 + Math.random() * 18; spawnGuest15(); } }
+    for (const e of [G15.guest, G15.bote]) if (e && !e.gone && e.nav && distP(e) > FAR14) { navVirtual14(e, dt); if (e === G15.bote) e.walked += e.speed * 1.05 * dt; }
+    const b = G15.bote;
+    if (b && !b.gone) {
+      const d = Math.hypot(b.x - b.last[0], b.z - b.last[1]); if (d < 3) b.walked += d; b.last = [b.x, b.z];
+      if (b.state === "leave15" && distP(b) > 40) { removeEnt(b); G15.bote = null; }
+    }
+    const g = G15.guest;
+    if (g && !g.gone) {
+      if (g.state === "work" && g.guest15.act === "juggle" && g.mesh.visible) {
+        const k = t * 5 + g.phase0, B = g.B;
+        B.armR.rotation.set(-1.3 + Math.sin(k) * 0.4, 0, -0.1); B.armL.rotation.set(-1.3 - Math.sin(k) * 0.4, 0, 0.1); B.foreR.rotation.set(-0.6, 0, 0); B.foreL.rotation.set(-0.6, 0, 0);
+        if (distP(g) < 30 && Math.random() < dt * 9) { const c = JUGGLE_C[Math.floor(Math.random() * 4)]; emit(g.x + Math.sin(g.yaw) * 0.4, g.y + 2.3, g.z + Math.cos(g.yaw) * 0.4, 1, () => c, 0.12, 1.6, 9); }
+      }
+      // Am Abend reist der Gast wieder ab
+      if ((h >= 19 || h < 6) && g.state === "work") { g.state = "nav"; navTo14(g, ARRIVE15, e => { e.state = "leave15"; }); }
+      if (g.state === "leave15" && distP(g) > 40) { removeEnt(g); G15.guest = null; }
+    }
+  }
+  V11.update.push((dt, t) => updateGuests15(dt, t));
   // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.

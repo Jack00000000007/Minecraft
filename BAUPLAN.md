@@ -39,8 +39,9 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Wegenetz durchs ganze Land: in der Nähe des Königs gehen die Leute Block für Block, weit weg geradlinig weiter, damit alle zur richtigen Zeit am richtigen Ort sind
 
 ## Version 15: Befehle und Gäste
-- [ ] Befehlskreis (Taste Q, am Handy „Befehle“) für James, Bewohner, Köche, Dienerinnen, Wachen, auch mit Mengen („bringt 50 Holz“)
-- [ ] Seltene Gäste; ein Bote läuft zum König und erzählt, wie weit er laufen musste
+- [x] Befehlskreis (Taste Q, am Handy „Befehle“, Ziffern wählen): James (folgen/warten, Bäume fällen, Holz holen mit Menge, Tee und Kuchen, zum Thron), alle Bewohner (an die Arbeit, nach Hause, zum Marktplatz, kommt zu mir, Abgaben-Zug jetzt), Köche (Essen bringen), Dienerinnen (aufräumen, begleiten), Wachen (Leibwache gegen Zombies, zurück auf Posten, Zugbrücke, Feldtor)
+- [x] Holen lassen mit Mengen (10, 25, 50, 100, 250): Holz, Weizen, Kartoffeln, Äpfel, Wolle. Die Leute gehen los, arbeiten, tragen es sichtbar zurück und legen es in die Schatztruhe
+- [x] Seltene Gäste durch die neue Südpforte in der Großen Mauer: Händler (Tauschhandel), Gesandter (Geschenk), Gaukler (jongliert), Ritter (Schwert), Pilgerin (Segen). Ein Bote läuft zum König und erzählt, wie viele Schritte er laufen musste
 
 ## Version 16: Mauer und Schutz
 - [ ] Begehbare Mauer, Sensor-Kanonen rundum, die nachts Monster draußen erledigen
@@ -84,3 +85,4 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - Spieler (`step`, `stepUp`, `placeCamera`, Figur des Spielers): Stufen bis ein Block hoch werden ohne Springen erstiegen, die Kamera gleitet mit `P.camLift` weich nach. Möbel (`SHAPE`), Truhen, Fässer, Öfen, Theken, Werkbank, Regale und Goldgeländer bleiben Hindernisse.
 - Version 13: `breakBlock` (`v13Break`, `v13Broken`), `useTarget` (`v13UseBlock`), `placeBlock` (`v13UseItem`, `heldBlockId`, `v13Placed`), `attack` (`v13Dmg`, `v13Hit`), Schnellleiste (`buildBar`, `refreshBar`, `select`, `putInHand` zeigen das Inventar), `setHeld`/`buildHand`/`makePlayerModel` (`applyHeld`), `openPalette`/`closePalette` (neue Fenster), Tasten bei offenem Fenster (Esc, B, I, E schließen), Speichern (`v13Save`/`v13Load`), `house` (Truhe in jedem Dorfhaus), James beim Bäumefällen (`v13Chopped`).
 - Version 14: `entPhysics` wird für Leute übersprungen, die außer Sicht geradlinig gehen (`e.ghost`); das Riesentor öffnet sich auch für den Abgaben-Zug (`e.zug14`); `useTarget` (`v14UseBlock` für die Torwinden); Hinweis beim Anschauen (`v14Hint`); Speichern (`v14Save`/`v14Load`). Im eigenen Abschnitt: Häuser speichern Betten, Stühle, Küche (`townHouse`), neue Werkzeuge in `defPerson`.
+- Version 15: `updateEnts` fragt zuerst `orderThink15` (Aufträge); `interact` fragt `guestTalk15` (Gäste); Q schließt offene Fenster; `v13Chopped` zählt Holz für James' Auftrag.
