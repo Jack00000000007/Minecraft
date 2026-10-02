@@ -628,6 +628,7 @@
     setB(x0 + 1, y + 1, z0 + 1, WWOOL); setB(x0 + 1, y + 1, z0 + 2, rnd() < 0.5 ? RWOOL : BWOOL);
     setB(x0 + w - 2, y + 1, z0 + 1, DPLANK); setB(x0 + w - 2, y + 2, z0 + 1, LAMP);
     fill(x0 + 1, y + 1, z0 + d - 2, x0 + 1, y + 2, z0 + d - 2, SHELF);
+    setB(x0 + w - 2, y + 1, z0 + d - 2, CHEST);   // Version 13: eine Truhe in jedem Haus
   }
   function stall(x, z, c) {
     for (const [dx, dz] of [[0, 0], [4, 0], [0, 3], [4, 3]]) fill(x + dx, G0 + 1, z + dz, x + dx, G0 + 3, z + dz, DPLANK);
@@ -1453,7 +1454,7 @@
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         v: 2, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false, t: Math.round(dayT * 1e6) / 1e6, tr: timeRun,
         p: P.dead ? null : (P.seat ? [...standSpot(P.seat), P.yaw, P.pitch] : [P.x, P.y, P.z, P.yaw, P.pitch]).map(n => Math.round(n * 1000) / 1000), fly: P.fly,
-        hp: P.dead ? 20 : P.hp, mon: monsters, sp: P.spawn,
+        hp: P.dead ? 20 : P.hp, mon: monsters, sp: P.spawn, v13: v13Save(),
       }));
     } catch (err) {}
   }
@@ -2872,7 +2873,7 @@
         blockParticles(lx, ly, lz, lb, 4);
         if (J.hits >= 3) {
           blockParticles(lx, ly, lz, lb, 18); blockSound(lb, "break", 0.07 * Math.max(0, 1 - distP(e) / 30));
-          editBlock(lx, ly, lz, AIR); scheduleDecay(lx, ly, lz); J.cur = null;
+          v13Chopped(lx, ly, lz, get(lx, ly, lz)); editBlock(lx, ly, lz, AIR); scheduleDecay(lx, ly, lz); J.cur = null;
         }
       }
       return;
@@ -3997,13 +3998,12 @@
     handArm.rotation.order = "YXZ";
     handArm.position.set(0.56, -0.62, -0.42); handArm.rotation.set(2.05, 0.28, 0.1);
     handRoot.add(handArm);
-    handItem = new THREE.Mesh(blockItemGeo(HOTBAR[sel]), itemMat(HOTBAR[sel]));
-    handItem.position.set(0.37, -0.28, -0.92); handItem.rotation.set(0.12, 0.72, 0); handItem.scale.setScalar(0.19);
-    handRoot.add(handItem);
+    handItem = new THREE.Mesh(); handRoot.add(handItem);
+    applyHeld(handItem, heldId(), true);
   }
   function setHeld(b) {
-    if (handItem) { handItem.geometry.dispose(); handItem.geometry = blockItemGeo(b); handItem.material = itemMat(b); handEquip = 1; }
-    if (PM) { PM.item.geometry.dispose(); PM.item.geometry = blockItemGeo(b); PM.item.material = itemMat(b); }
+    if (handItem) { applyHeld(handItem, b, true); handEquip = 1; }
+    if (PM) applyHeld(PM.item, b, false);
   }
   function swingHand() { handSwing = 0; if (PM) { PM.swingT = 0; PM.swingDur = 0.26; } }
   function updateHand(dt) {
@@ -4058,9 +4058,8 @@
     PM = { B: rig.B, mesh: rig.mesh, walk: 0, phase: 0, phase0: 0, swingT: -1, headYaw: 0, headPitch: 0, headYawT: 0, headPitchT: 0, vx: 0, vz: 0, ground: true, inWater: false, pose: "", kind: "player" };
     PM.mesh.visible = false;
     scene.add(PM.mesh);
-    PM.item = new THREE.Mesh(blockItemGeo(HOTBAR[sel]), itemMat(HOTBAR[sel]));
-    PM.item.scale.setScalar(0.26); PM.item.position.set(0, -7 * PXS, 1.8 * PXS); PM.item.castShadow = true;
-    PM.B.foreR.add(PM.item);
+    PM.item = new THREE.Mesh(); PM.item.castShadow = true;
+    PM.B.foreR.add(PM.item); applyHeld(PM.item, heldId(), false);
   }
   function updatePlayerModel(dt, t, show) {
     PM.mesh.visible = show;
@@ -4144,6 +4143,7 @@
     if (!target) return;
     if (target.door) { breakDoor(target.door); return; }
     const { x, y, z } = target, b = get(x, y, z);
+    if (v13Break(x, y, z, b)) return;   // Version 13: im Überleben wird gehackt, nicht sofort abgebaut
     swingHand();
     blockParticles(x, y, z, b, 18); blockSound(b, "break", 0.08);
     editBlock(x, y, z, AIR);
@@ -4152,6 +4152,7 @@
     if (bs) { const ox = bs.part === 1 ? bs.dx : -bs.dx, oz = bs.part === 1 ? bs.dz : -bs.dz, pb = BED_SHAPE[get(x + ox, y, z + oz)]; if (pb && pb.part !== bs.part) editBlock(x + ox, y, z + oz, AIR); }
     if (b === LEVER || b === LEVER_ON) { const i = levers.findIndex(l => l[0] === x && l[1] === y && l[2] === z); if (i >= 0) levers.splice(i, 1); }
     if (LOGB[b]) { scheduleDecay(x, y, z); butlerHelpTree(x, y, z); }
+    v13Broken(x, y, z, b);              // Version 13: Fundstücke, Truheninhalt, Abnutzung
   }
   // Hebel, Betten und Sitze benutzen; gibt true zurück, wenn etwas passiert ist
   function useTarget() {
@@ -4162,14 +4163,16 @@
     if (bigCellAt(x, y, z)) { swingHand(); toggleBig(true); return true; }
     const bed = bedAt(x, y, z); if (bed) { useBed(bed); return true; }
     const seat = seatAt(x, y, z); if (seat) { sitDown(seat); return true; }
+    if (v13UseBlock(x, y, z, tb)) return true;   // Version 13: Werkbank, Ofen, Truhe, Schatztruhe
     return false;
   }
   function placeBlock() {
     if (P.dead || sleepT >= 0) return;
     if (targetEnt) { interact(targetEnt); return; }
-    if (!target) return;
+    if (!target) { v13UseItem(null); return; }
     // Rechtsklick benutzt Hebel, Betten und Sitze; mit Shift setzt man stattdessen einen Block
     if (!(keys.ShiftLeft || keys.ShiftRight) && useTarget()) return;
+    if (v13UseItem(target)) return;     // Version 13: essen, hacken, säen, Fackel an die Wand
     const tb = get(target.x, target.y, target.z);
     if (tb === LEVER || tb === LEVER_ON) return;
     const { px, py, pz } = target;
@@ -4177,7 +4180,7 @@
     const cur = get(px, py, pz); if (cur !== AIR && cur !== WATER) return;
     const overlap = px + 1 > P.x - 0.3 && px < P.x + 0.3 && pz + 1 > P.z - 0.3 && pz < P.z + 0.3 && py + 1 > P.y && py < P.y + 1.8;
     if (overlap || entOverlaps(px, py, pz)) return;
-    let b = HOTBAR[sel];
+    let b = heldBlockId(); if (!b) return;
     if (b === LEVER) { b = gate.open ? LEVER_ON : LEVER; levers.push([px, py, pz]); }
     // Möbel mit Blickrichtung (Version 11): Stühle und Bänke schauen zu dir, ein Bett legt sein Kopfteil einen Block weiter weg
     if (ROTB[b] !== undefined) {
@@ -4191,17 +4194,18 @@
     }
     editBlock(px, py, pz, b);
     swingHand(); blockSound(b, "place", 0.07);
+    v13Placed();
   }
   function attack(e) {
     if (atkCd > 0) return;
     atkCd = 0.32; swingHand();
     if (e.kind === "zombie") {
       noiseHit(700, 1, 0.09, 0.06);
-      damage(e, 3, P, 7);
+      damage(e, 3 * v13Dmg(), P, 7); v13Hit();
       if (butler && !butler.target && (!butler.stay || Math.hypot(butler.x - e.x, butler.z - e.z) < 10)) { butler.target = e; butler.path = null; }
     } else if (e.kind === "animal") {
       noiseHit(700, 1, 0.09, 0.06);
-      const killed = damage(e, 2.5, P) && e.dead >= 0;
+      const killed = damage(e, 2.5 * v13Dmg(), P) && e.dead >= 0; v13Hit();
       if (!killed && butler && !butler.stay && butler !== e && Math.hypot(butler.x - e.x, butler.z - e.z) < 28) {
         if (!butler.target) say("James", pick(["Erlauben Sie, Majestät!", "Ich helfe Ihnen!", "Überlassen Sie das mir."]));
         butler.target = e; butler.job = null;
@@ -4235,32 +4239,32 @@
     const g = cv.getContext("2d"); g.imageSmoothingEnabled = false; g.clearRect(0, 0, 16, 16);
     const t = TEX[b][2]; g.drawImage(atlasCanvas, (t % N) * T, Math.floor(t / N) * T, T, T, 0, 0, 16, 16);
   }
+  // Version 13: die Schnellleiste zeigt die ersten neun Plätze des Inventars (mit Anzahl und Abnutzung)
   function buildBar() {
-    HOTBAR.forEach((b, i) => {
+    for (let i = 0; i < 9; i++) {
       const s = document.createElement("div"); s.className = "slot"; s.tabIndex = 0; s.setAttribute("role", "button");
-      const cv = document.createElement("canvas"); cv.width = cv.height = 16;
+      const cv = document.createElement("canvas"); cv.width = cv.height = 32;
       const n = document.createElement("span"); n.textContent = i + 1;
-      s.append(cv, n);
+      const c = document.createElement("b"); c.className = "cnt";
+      const d = document.createElement("i"); d.className = "dur";
+      s.append(cv, n, c, d);
       s.addEventListener("pointerdown", e => { e.stopPropagation(); select(i); });
       bar.appendChild(s);
-    });
+    }
     refreshBar();
-    select(0);
+    select(sel);
   }
   function refreshBar() {
-    [...bar.children].forEach((s, i) => { drawIcon(s.firstChild, HOTBAR[i]); s.setAttribute("aria-label", NAMES[HOTBAR[i]]); });
+    [...bar.children].forEach((s, i) => { const st = V13.inv[i]; paintSlot(s, st, !survival()); s.setAttribute("aria-label", st ? itemLabel(st.id) : "leer"); });
   }
   function select(i) {
-    sel = (i + HOTBAR.length) % HOTBAR.length;
+    sel = (i + 9) % 9;
     [...bar.children].forEach((c, j) => c.classList.toggle("sel", j === sel));
-    showName(NAMES[HOTBAR[sel]]);
-    setHeld(HOTBAR[sel]);
+    const st = V13.inv[sel];
+    showName(st ? itemLabel(st.id) : "Leere Hand");
+    setHeld(st ? st.id : 0);
   }
-  function putInHand(b) {
-    const i = HOTBAR.indexOf(b);
-    if (i >= 0) { select(i); return; }
-    HOTBAR[sel] = b; refreshBar(); select(sel); saveSoon();
-  }
+  function putInHand(b) { v13PutInHand(b); }
   // Mittlere Maustaste: angeschauten Block nehmen
   function pickBlock() {
     if (!target) return;
@@ -4280,15 +4284,18 @@
       palGrid.appendChild(btn);
     }
   }
-  function openPalette() {
+  // Version 13: statt der alten Blockliste öffnen sich die neuen Fenster (Blockmenü, Inventar, Werkbank, Ofen, Truhe, Schatztruhe)
+  function openPalette(kind, at) {
     if (palOpen) return;
-    palOpen = true; palEl.hidden = false;
+    palOpen = true;
+    MINE.on = false;
+    v13Open(typeof kind === "string" ? kind : survival() ? "inventar" : "kreativ", at);
     for (const k in keys) keys[k] = false;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
   }
   function closePalette() {
     if (!palOpen) return;
-    palOpen = false; palEl.hidden = true;
+    palOpen = false; palEl.hidden = true; v13Close();
     if (playing && !isTouch && !dragLook) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
   }
   document.getElementById("palClose").addEventListener("click", closePalette);
@@ -4342,7 +4349,7 @@
     if (document.pointerLockElement !== canvas && playing && !dragLook && !palOpen && !P.dead) pause();
   });
   document.addEventListener("keydown", e => {
-    if (palOpen) { if (e.code === "Escape" || e.code === "KeyB") closePalette(); return; }
+    if (palOpen) { if (e.code === "Escape" || (!(e.target && e.target.tagName === "INPUT") && (e.code === "KeyB" || e.code === "KeyI" || e.code === "KeyE"))) closePalette(); return; }
     if (!playing) { if (e.code === "Enter" && !playBtn.disabled) start(); return; }
     if (P.dead) return;
     initAudio();
@@ -7868,6 +7875,1454 @@
       nightLines: ["Zzz … die Bücher … Zzz", "Oh! Majestät. Ich habe nur kurz die Augen ausgeruht."], exit: [71.5, F1, 109.5, 71.5, 109.5] });
     if (inHours(7, 22)) wArrive(e); else { e.state = "toBed"; wArrive(e); }
   });
+  // ==================== Version 13: Inventar und Handwerk – Gegenstände, Werkzeuge, Erze, Rezepte ====================
+  // Blöcke 300 bis 339, Atlas-Kacheln 170 bis 189, Gegenstände (keine Blöcke) ab Nummer 1100 mit eigenem Bilder-Atlas.
+  // Ein Platz im Inventar ist { id, n, d }: id ist ein Block (unter 1024) oder ein Gegenstand (ab 1100), n die Anzahl, d die Abnutzung eines Werkzeugs.
+  const V13B = 300, V13T = 170, IB = 1100;
+  const ORE_COAL = V13B, ORE_IRON = V13B + 1, ORE_GOLD = V13B + 2, ORE_DIAMOND = V13B + 3, ORE_EMERALD = V13B + 4;
+  const CROP_W1 = V13B + 5, CROP_W2 = V13B + 6, CROP_W3 = V13B + 7, SPROUT_C = V13B + 8, SPROUT_P = V13B + 9, SPROUT_B = V13B + 10;
+  const TORCH = V13B + 11, TORCH_W = V13B + 12, THRONTRUHE = V13B + 16;
+
+  // ---------- Kacheln: Erze im Gestein, junge Pflanzen ----------
+  V11.atlas.push((tile, vary, rnd) => {
+    const stone = () => rnd() < 0.1 ? vary([96, 96, 100], 14) : vary([128, 128, 132], 28);
+    // Erzbrocken: kleine Klumpen aus dunklem Rand, Farbe und Glanzpunkt
+    const ore = (t, spots, c, hi, dk) => {
+      const m = new Map();
+      for (const [cx, cy, r] of spots) for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++) {
+        if (x < 0 || y < 0 || x > 15 || y > 15) continue;
+        const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy), k = y * 16 + x;
+        if (d <= r) m.set(k, d < r * 0.45 && (x + y) % 3 === 0 ? 2 : (x - cx < 0 && y - cy < 0) ? 3 : 1);
+        else if (d <= r + 0.75 && !m.has(k)) m.set(k, 4);
+      }
+      tile(t, (x, y) => { const v = m.get(y * 16 + x); return v === 1 ? vary(c, 18) : v === 2 || v === 3 ? vary(hi, 10) : v === 4 ? vary(dk, 10) : stone(); });
+    };
+    const SP = [[3.5, 3.5, 1.6], [11.5, 2.8, 1.3], [8.2, 8.4, 1.9], [2.8, 12, 1.4], [12.6, 11.6, 1.7], [6.5, 13.6, 1]];
+    ore(V13T, SP, [36, 36, 38], [70, 70, 74], [74, 74, 78]);                       // Steinkohle
+    ore(V13T + 1, SP.slice(0, 5), [214, 168, 128], [240, 206, 172], [92, 74, 62]);   // Eisenerz
+    ore(V13T + 2, SP.slice(0, 5), [246, 208, 60], [255, 246, 160], [110, 90, 30]);  // Golderz
+    ore(V13T + 3, [[4, 4, 1.4], [11.6, 4.6, 1.5], [7.6, 10.4, 1.7], [13, 12.4, 1.1]], [80, 230, 214], [210, 255, 250], [26, 92, 88]);   // Diamanterz
+    ore(V13T + 4, [[5, 6, 1.5], [11, 10.5, 1.6]], [40, 200, 90], [170, 255, 190], [10, 80, 40]);                                      // Smaragderz
+    // Junger Weizen in drei Stufen, Keimling für Karotten und Kartoffeln, junge Rote Bete
+    const stalks = (h, col, head) => (x, y) => {
+      const s = x % 3 === 1 && x > 0 && x < 15, top = 15 - Math.floor(h * (0.75 + hash(x, 7, 61) * 0.5));
+      if (s && y >= top) return y < top + 2 && head ? vary(head, 16) : vary(col, 24);
+      if ((x % 3 === 2) && y >= top + 3 && y < top + 5 && hash(x, y, 62) < 0.6) return vary(col, 24);
+      return [0, 0, 0, 0];
+    };
+    tile(V13T + 5, stalks(4, [70, 160, 50]));
+    tile(V13T + 6, stalks(8, [84, 168, 54], [120, 180, 60]));
+    tile(V13T + 7, stalks(12, [150, 170, 60], [200, 180, 70]));
+    const leafy = (stem) => (x, y) => {
+      const d = Math.hypot(x - 7.5, (y - 11) * 1.4);
+      if (y >= 9 && d < 5.5 && hash(x, y, 63) < 0.78) return vary([62, 150, 48], 30);
+      if (stem && y >= 12 && (x === 7 || x === 8)) return vary([170, 40, 70], 16);
+      return [0, 0, 0, 0];
+    };
+    tile(V13T + 8, leafy(false));
+    tile(V13T + 9, leafy(true));
+  });
+  defBlock(ORE_COAL, { name: "Steinkohle", tex: [V13T, V13T, V13T], mat: "stone" });
+  defBlock(ORE_IRON, { name: "Eisenerz", tex: [V13T + 1, V13T + 1, V13T + 1], mat: "stone" });
+  defBlock(ORE_GOLD, { name: "Golderz", tex: [V13T + 2, V13T + 2, V13T + 2], mat: "stone" });
+  defBlock(ORE_DIAMOND, { name: "Diamanterz", tex: [V13T + 3, V13T + 3, V13T + 3], mat: "stone", emit: 0 });
+  defBlock(ORE_EMERALD, { name: "Smaragderz", tex: [V13T + 4, V13T + 4, V13T + 4], mat: "stone" });
+  defBlock(CROP_W1, { name: "Junger Weizen", tex: [V13T + 5, V13T + 5, V13T + 5], plant: true, mat: "grass", hidden: true });
+  defBlock(CROP_W2, { name: "Junger Weizen", tex: [V13T + 6, V13T + 6, V13T + 6], plant: true, mat: "grass", hidden: true });
+  defBlock(CROP_W3, { name: "Junger Weizen", tex: [V13T + 7, V13T + 7, V13T + 7], plant: true, mat: "grass", hidden: true });
+  defBlock(SPROUT_C, { name: "Junge Karotten", tex: [V13T + 8, V13T + 8, V13T + 8], plant: true, mat: "grass", hidden: true });
+  defBlock(SPROUT_P, { name: "Junge Kartoffeln", tex: [V13T + 8, V13T + 8, V13T + 8], plant: true, mat: "grass", hidden: true });
+  defBlock(SPROUT_B, { name: "Junge Rote Bete", tex: [V13T + 9, V13T + 9, V13T + 9], plant: true, mat: "grass", hidden: true });
+  // Fackel: auf dem Boden stehend oder schräg an der Wand
+  defShape(TORCH, { name: "Fackel", nonsolid: true, emit: 14, mat: "wood", icon: WOOD, boxes: [
+    { f: [7, 0, 7], t: [9, 9.5, 9], tex: 5 }, { f: [6.6, 9.5, 6.6], t: [9.4, 11, 9.4], tex: 22 },
+    { f: [7, 11, 7], t: [9, 13.6, 9], tex: FLAME, glow: true }, { f: [7.5, 13.6, 7.5], t: [8.5, 15, 8.5], tex: FLAME, glow: true }] });
+  defShape(TORCH_W, { name: "Fackel", rot: true, nonsolid: true, emit: 14, mat: "wood", icon: WOOD, hidden: true, boxes: [
+    { f: [7, 3, 3], t: [9, 11, 5], tex: 5 }, { f: [7.4, 5, 0], t: [8.6, 6.2, 3], tex: 22 }, { f: [6.6, 11, 2.6], t: [9.4, 12.5, 5.4], tex: 22 },
+    { f: [7, 12.5, 3], t: [9, 15, 5], tex: FLAME, glow: true }, { f: [7.5, 15, 3.5], t: [8.5, 16.4, 4.5], tex: FLAME, glow: true }] });
+  // Schatztruhe des Königs: dunkles Holz, Goldbeschläge, Deckel aus rotem Samt, oben eine kleine Krone
+  defShape(THRONTRUHE, { name: "Schatztruhe des Königs", rot: true, mat: "wood", icon: GOLDT, hidden: true, boxes: [
+    { f: [1, 0, 1.5], t: [15, 9, 14.5], tex: WOOD }, { f: [0.6, 9, 1.1], t: [15.4, 13, 14.9], tex: T_SAMT },
+    { f: [0.6, 0, 1.1], t: [15.4, 1, 14.9], tex: GOLDT }, { f: [0.4, 8.6, 0.9], t: [15.6, 9.4, 15.1], tex: GOLDT },
+    { f: [3, 0, 1], t: [4.2, 13.3, 15], tex: GOLDT }, { f: [11.8, 0, 1], t: [13, 13.3, 15], tex: GOLDT },
+    { f: [6.8, 6, 14.5], t: [9.2, 10, 15.4], tex: GOLDT }, { f: [7.4, 6.6, 15.3], t: [8.6, 7.8, 15.6], tex: 22 },
+    { f: [6, 13, 6], t: [10, 14, 10], tex: GOLDT }, { f: [6, 14, 6], t: [7, 16, 7], tex: GOLDT }, { f: [9, 14, 6], t: [10, 16, 7], tex: GOLDT },
+    { f: [6, 14, 9], t: [7, 16, 10], tex: GOLDT }, { f: [9, 14, 9], t: [10, 16, 10], tex: GOLDT }, { f: [7.4, 14.6, 7.4], t: [8.6, 15.8, 8.6], tex: T_SAMT }] });
+
+  // ---------- Erze im Gestein (beim Erzeugen der Welt, nur dort, wo Stein ist) ----------
+  V11.build.push(() => {
+    const rnd = mulberry32(13013);
+    const vein = (b, n, y0, y1, size) => {
+      for (let i = 0; i < n; i++) {
+        let x = Math.floor(rnd() * W), z = Math.floor(rnd() * D), y = y0 + Math.floor(rnd() * (y1 - y0 + 1));
+        const len = size[0] + Math.floor(rnd() * (size[1] - size[0] + 1));
+        for (let k = 0; k < len; k++) {
+          if (x > 0 && z > 0 && x < W - 1 && z < D - 1 && y > 0 && world[idx(x, y, z)] === STONE) world[idx(x, y, z)] = b;
+          const r = rnd(); if (r < 0.33) x += rnd() < 0.5 ? 1 : -1; else if (r < 0.66) z += rnd() < 0.5 ? 1 : -1; else y += rnd() < 0.5 ? 1 : -1;
+        }
+      }
+    };
+    vein(ORE_COAL, 2600, 4, G0 - 3, [5, 12]);
+    vein(ORE_IRON, 1300, 2, G0 - 6, [4, 8]);
+    vein(ORE_GOLD, 320, 1, 14, [3, 7]);
+    vein(ORE_DIAMOND, 150, 1, 9, [2, 5]);
+    vein(ORE_EMERALD, 90, 2, 16, [1, 2]);
+  });
+
+  // ---------- Gegenstände ----------
+  const ITEMS = [], IT = {};
+  function defItem(key, o) { const id = IB + ITEMS.length; ITEMS.push(Object.assign({ id, key, stack: 64, cat: "roh" }, o)); IT[key] = id; return id; }
+  const isItem = id => id >= IB;
+  const itemDef = id => id >= IB ? ITEMS[id - IB] : null;
+  // Werkzeuge: fünf Stufen wie in Minecraft. speed: Abbaugeschwindigkeit, dur: Haltbarkeit, lvl: welche Erze es schafft
+  const TIERS = [
+    { key: "holz", name: "Holz", lvl: 0, speed: 2, dur: 59, c: [[72, 50, 26], [140, 104, 58], [176, 136, 80], [104, 76, 40]] },
+    { key: "stein", name: "Stein", lvl: 1, speed: 4, dur: 131, c: [[52, 52, 54], [124, 124, 126], [160, 160, 162], [92, 92, 94]] },
+    { key: "eisen", name: "Eisen", lvl: 2, speed: 6, dur: 250, c: [[60, 60, 64], [204, 204, 206], [250, 250, 250], [150, 150, 154]] },
+    { key: "gold", name: "Gold", lvl: 0, speed: 12, dur: 32, c: [[120, 80, 10], [246, 208, 60], [255, 248, 170], [200, 150, 30]] },
+    { key: "diamant", name: "Diamant", lvl: 3, speed: 8, dur: 1561, c: [[16, 80, 76], [74, 226, 208], [200, 255, 248], [40, 160, 150]] },
+  ];
+  const KINDS = [
+    { key: "spitzhacke", name: "spitzhacke", dmg: [2, 3, 4, 2, 5] },
+    { key: "axt", name: "axt", dmg: [6, 8, 8, 6, 8] },
+    { key: "schaufel", name: "schaufel", dmg: [2.5, 3.5, 4.5, 2.5, 5.5] },
+    { key: "hacke", name: "hacke", dmg: [1, 1, 1, 1, 1] },
+    { key: "schwert", name: "schwert", dmg: [4, 5, 6, 4, 7] },
+  ];
+  const TOOLS = {};
+  for (const k of KINDS) for (let t = 0; t < TIERS.length; t++) {
+    const T = TIERS[t];
+    TOOLS[k.key + "_" + T.key] = defItem(k.key + "_" + T.key, { name: T.name + k.name, stack: 1, cat: "werkzeug",
+      tool: { kind: k.key, tier: t, lvl: T.lvl, speed: T.speed, dur: T.dur, dmg: k.dmg[t] }, fuel: t === 0 ? 10 : 0, draw: ["tool", k.key, t] });
+  }
+  // Rohstoffe
+  defItem("stock", { name: "Stock", fuel: 5, draw: ["stick"] });
+  defItem("kohle", { name: "Kohle", fuel: 80, draw: ["blob", [[18, 18, 20], [44, 44, 48], [80, 80, 86], [8, 8, 10]]] });
+  defItem("holzkohle", { name: "Holzkohle", fuel: 80, draw: ["blob", [[34, 26, 20], [60, 48, 38], [96, 80, 64], [14, 10, 8]], 1] });
+  defItem("roheisen", { name: "Roheisen", draw: ["blob", [[150, 118, 92], [210, 170, 136], [238, 210, 182], [70, 56, 46]], 2] });
+  defItem("eisenbarren", { name: "Eisenbarren", draw: ["ingot", [[220, 220, 222], [250, 250, 250], [160, 160, 166], [70, 70, 76]]] });
+  defItem("rohgold", { name: "Rohgold", draw: ["blob", [[222, 176, 40], [250, 214, 80], [255, 244, 170], [110, 80, 16]], 3] });
+  defItem("goldbarren", { name: "Goldbarren", draw: ["ingot", [[246, 208, 60], [255, 248, 170], [200, 150, 30], [110, 76, 10]]] });
+  defItem("diamant", { name: "Diamant", draw: ["gem", [[74, 226, 208], [200, 255, 248], [40, 160, 150], [16, 80, 76]]] });
+  defItem("smaragd", { name: "Smaragd", draw: ["gem2", [[40, 200, 90], [170, 255, 190], [20, 140, 60], [8, 70, 30]]] });
+  defItem("leder", { name: "Leder", draw: ["hide"] });
+  defItem("feder", { name: "Feder", draw: ["feather"] });
+  defItem("papier", { name: "Papier", draw: ["paper"] });
+  defItem("buch", { name: "Buch", draw: ["book"] });
+  defItem("weizen", { name: "Weizen", draw: ["wheat"] });
+  defItem("weizensamen", { name: "Weizensamen", draw: ["seeds", [[110, 160, 50], [170, 200, 80]]], plant: CROP_W1 });
+  defItem("betesamen", { name: "Rote-Bete-Samen", draw: ["seeds", [[120, 70, 40], [170, 110, 70]]], plant: SPROUT_B });
+  defItem("schuessel", { name: "Schüssel", fuel: 5, draw: ["bowl"] });
+  // Essen: food = halbe Herzen, die es heilt
+  defItem("apfel", { name: "Apfel", cat: "essen", food: 4, draw: ["apple", [[200, 30, 36], [236, 70, 60], [255, 170, 150], [90, 10, 14]]] });
+  defItem("goldapfel", { name: "Goldener Apfel", cat: "essen", food: 8, draw: ["apple", [[236, 190, 40], [255, 226, 90], [255, 250, 200], [120, 80, 10]]] });
+  defItem("brot", { name: "Brot", cat: "essen", food: 5, draw: ["bread"] });
+  defItem("karotte", { name: "Karotte", cat: "essen", food: 3, draw: ["carrot"], plant: SPROUT_C });
+  defItem("kartoffel", { name: "Kartoffel", cat: "essen", food: 1, draw: ["potato", 0], plant: SPROUT_P });
+  defItem("ofenkartoffel", { name: "Ofenkartoffel", cat: "essen", food: 5, draw: ["potato", 1] });
+  defItem("rotebete", { name: "Rote Bete", cat: "essen", food: 2, draw: ["beet"] });
+  defItem("melonenscheibe", { name: "Melonenscheibe", cat: "essen", food: 2, draw: ["melon"] });
+  defItem("rind_roh", { name: "Rohes Rindfleisch", cat: "essen", food: 3, draw: ["meat", [[190, 50, 50], [220, 90, 80], [250, 230, 220], [100, 20, 24]]] });
+  defItem("steak", { name: "Steak", cat: "essen", food: 8, draw: ["meat", [[120, 70, 40], [160, 100, 56], [210, 170, 120], [60, 30, 16]]] });
+  defItem("schwein_roh", { name: "Rohes Schweinefleisch", cat: "essen", food: 3, draw: ["meat", [[236, 150, 150], [250, 190, 186], [255, 240, 236], [150, 80, 84]]] });
+  defItem("schweinebraten", { name: "Schweinebraten", cat: "essen", food: 8, draw: ["meat", [[196, 120, 60], [226, 160, 90], [250, 220, 170], [110, 60, 24]]] });
+  defItem("huhn_roh", { name: "Rohes Hähnchen", cat: "essen", food: 2, draw: ["leg", [[236, 196, 170], [250, 222, 200], [255, 246, 236], [150, 110, 90]]] });
+  defItem("brathuhn", { name: "Brathähnchen", cat: "essen", food: 6, draw: ["leg", [[196, 130, 60], [230, 170, 90], [250, 216, 150], [110, 66, 24]]] });
+  defItem("hammel_roh", { name: "Rohes Hammelfleisch", cat: "essen", food: 2, draw: ["meat", [[170, 40, 50], [200, 76, 80], [240, 220, 220], [90, 16, 24]]] });
+  defItem("hammelbraten", { name: "Hammelbraten", cat: "essen", food: 6, draw: ["meat", [[110, 60, 36], [150, 90, 52], [200, 160, 110], [56, 26, 14]]] });
+  defItem("pilzsuppe", { name: "Pilzsuppe", cat: "essen", food: 6, stack: 1, back: "schuessel", draw: ["stew"] });
+  const I = IT;   // kurz: I.kohle, I.stock, ...
+
+  // Allgemeine Angaben zu jeder Nummer (Block oder Gegenstand)
+  function itemName(id) { const d = itemDef(id); return d ? d.name : NAMES[id] || "?"; }
+  function maxStack(id) { const d = itemDef(id); return d ? d.stack : 64; }
+  function toolOf(id) { const d = itemDef(id); return d && d.tool || null; }
+  const LOG_FUEL = new Set([LOG, SPRUCE_LOG, BIRCH_LOG, PLANKS, SPRUCE_PLANKS, BIRCH_PLANKS, DPLANK, CRAFT, CHEST, SHELF, BARREL, FENCE]);
+  function fuelOf(id) { const d = itemDef(id); if (d) return d.fuel || 0; return LOG_FUEL.has(id) ? 15 : id === HAY ? 10 : 0; }
+
+  // ---------- Pixelbilder der Gegenstände (16 x 16, eigener Atlas für die Hand und herumliegende Sachen) ----------
+  const ICV = document.createElement("canvas"); ICV.width = ICV.height = 256;
+  const icx = ICV.getContext("2d");
+  const ipix = new Uint8ClampedArray(256 * 256 * 4);
+  function drawItemPixels(id) {
+    const d = itemDef(id), P2 = new Array(256).fill(null), r = mulberry32(id * 7919);
+    const put = (x, y, c) => { if (x >= 0 && y >= 0 && x < 16 && y < 16) P2[y * 16 + x] = c; };
+    const get2 = (x, y) => (x >= 0 && y >= 0 && x < 16 && y < 16) ? P2[y * 16 + x] : null;
+    const jit = (c, a) => { const v = (r() - 0.5) * (a || 10); return [c[0] + v, c[1] + v, c[2] + v]; };
+    // Rand: jede leere Zelle neben einer gefüllten wird dunkel
+    const outline = (c, diag) => {
+      const add = [];
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (!get2(x, y)) {
+        if (get2(x - 1, y) || get2(x + 1, y) || get2(x, y - 1) || get2(x, y + 1) || (diag && (get2(x - 1, y - 1) || get2(x + 1, y + 1) || get2(x + 1, y - 1) || get2(x - 1, y + 1)))) add.push([x, y]);
+      }
+      for (const [x, y] of add) put(x, y, c);
+    };
+    const STK = [[96, 66, 32], [134, 96, 50], [60, 40, 18]];
+    const handle = (x0, y0, x1) => { for (let x = x0; x <= x1; x++) { const y = y0 - (x - x0); put(x, y, jit(STK[1], 8)); put(x, y + 1, jit(STK[0], 8)); } };
+    const disc = (cx, cy, rx, ry, fn) => { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry, q = dx * dx + dy * dy; if (q <= 1) put(x, y, fn(dx, dy, q, x, y)); } };
+    const shade = (c, dx, dy) => { const s = -(dx + dy) * 0.5; return s > 0.35 ? c[2] : s < -0.4 ? c[3] || c[0] : c[1]; };
+    const k = d.draw[0];
+    if (k === "tool") {
+      const kind = d.draw[1], C = TIERS[d.draw[2]].c, [o, h, l, dk] = C;
+      const head = new Set(), mark = (x, y) => head.add(y * 16 + x);
+      if (kind === "spitzhacke") {
+        // Bogen um die obere rechte Ecke, quer zum Stiel
+        for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+          const dx = x + 0.5 - 2.5, dy = y + 0.5 - 13.5, dist = Math.hypot(dx, dy), ang = Math.atan2(-dy, dx) - Math.PI / 4;
+          if (dist > 11.2 && dist < 13.4 && Math.abs(ang) < 0.62) mark(x, y);
+        }
+        handle(2, 13, 10);
+      } else if (kind === "axt") {
+        handle(2, 13, 11);
+        for (let y = 1; y <= 7; y++) for (let x = 5; x <= 11; x++) { const a = x + y; if (a >= 9 && a <= 14 && !(x >= 9 && y >= 5) && (x - y) >= 1 && (x - y) <= 9) mark(x, y); }
+        mark(10, 2); mark(11, 3); mark(9, 1);
+      } else if (kind === "schaufel") {
+        handle(2, 13, 9);
+        for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const u = (x + 0.5 - 11.6), v = (y + 0.5 - 4.4), a = (u - v) / 1.414, b = (u + v) / 1.414; if (a * a / 9 + b * b / 4.8 <= 1) mark(x, y); }
+      } else if (kind === "hacke") {
+        handle(2, 13, 11);
+        for (let x = 6; x <= 12; x++) { mark(x, 2); mark(x, 3); }
+        mark(12, 4); mark(11, 4);
+      } else if (kind === "schwert") {
+        for (let i = 0; i < 9; i++) { const x = 5 + i, y = 10 - i; mark(x, y); mark(x + 1, y); mark(x, y - 1); }
+        for (const [x, y] of [[3, 9], [4, 10], [5, 11], [6, 12], [4, 9], [5, 10], [6, 11]]) put(x, y, jit(dk, 6));
+        for (let x = 1; x <= 4; x++) { const y = 14 - (x - 1); put(x, y, jit(STK[1], 8)); }
+        put(1, 14, jit(dk, 6)); put(0, 15, jit(o, 4));
+      }
+      for (const kk of head) { const x = kk % 16, y = kk >> 4; const up = !head.has(kk - 16) || !head.has(kk + 1), dn = !head.has(kk + 16) || !head.has(kk - 1); put(x, y, jit(up && !dn ? l : dn && !up ? dk : h, 10)); }
+      if (kind === "schwert") { for (let i = 0; i < 8; i++) put(6 + i, 9 - i, jit(l, 8)); }
+      outline(o);
+    } else if (k === "stick") {
+      for (let i = 0; i < 9; i++) { put(4 + i, 12 - i, jit(STK[1], 8)); put(4 + i, 13 - i, jit(STK[0], 8)); }
+      outline(STK[2]);
+    } else if (k === "blob") {
+      const C = d.draw[1], seed = d.draw[2] || 0;
+      disc(8, 8.5, 5.2, 4.4, (dx, dy, q, x, y) => { const n = hash(x, y, 77 + seed); return jit(n < 0.15 ? C[0] : shade(C, dx, dy), 12); });
+      put(5, 4, jit(C[1])); put(11, 12, jit(C[0])); outline(C[3]);
+    } else if (k === "ingot") {
+      const C = d.draw[1];
+      for (let y = 5; y <= 11; y++) for (let x = 2; x <= 13; x++) {
+        const top = y <= 7, inset = top ? 7 - y : 0;
+        if (x < 3 + inset || x > 12 - (top ? 0 : 0) - (y === 5 ? 1 : 0)) continue;
+        put(x, y, jit(top ? C[1] : y === 11 ? C[2] : x === 12 ? C[2] : C[0], 8));
+      }
+      outline(C[3]);
+    } else if (k === "gem" || k === "gem2") {
+      const C = d.draw[1], tall = k === "gem2";
+      for (let y = 2; y <= 13; y++) for (let x = 2; x <= 13; x++) {
+        const cx = x + 0.5 - 8, cy = y + 0.5 - 7.5, inside = tall ? Math.abs(cx) * 1.4 + Math.abs(cy) * 0.75 <= 5.2 : (cy < -1.5 ? Math.abs(cx) <= 5 + cy * 0.6 + 1.5 && cy > -5 : Math.abs(cx) + (cy + 1.5) * 1.1 <= 6);
+        if (inside) put(x, y, jit(cy < -1.5 ? C[1] : cx < -1 ? C[0] : cx > 2 ? C[2] : C[0], 8));
+      }
+      put(6, 4, [255, 255, 255]); put(5, 5, [240, 255, 255]);
+      outline(C[3]);
+    } else if (k === "apple") {
+      const C = d.draw[1];
+      disc(8, 9.5, 5.4, 5, (dx, dy) => jit(shade(C, dx, dy), 10));
+      put(6, 6, jit(C[2])); put(7, 4, null);
+      outline(C[3]);
+      put(8, 2, [90, 60, 30]); put(8, 3, [100, 66, 34]); put(9, 2, [70, 150, 40]); put(10, 2, [90, 170, 50]); put(10, 1, [60, 130, 30]);
+    } else if (k === "bread") {
+      disc(8, 9, 6.6, 3.8, (dx, dy) => jit(dy < -0.2 ? [212, 150, 70] : [176, 110, 46], 14));
+      for (const x of [5, 8, 11]) { put(x, 7, [236, 196, 120]); put(x + 1, 8, [236, 196, 120]); }
+      outline([92, 52, 20]);
+    } else if (k === "carrot") {
+      for (let i = 0; i < 9; i++) { const w = i * 0.32; for (let s = -w; s <= w; s += 0.5) put(Math.round(3 + i + s), Math.round(13 - i + s), jit(i % 3 === 0 ? [214, 110, 20] : [246, 146, 34], 10)); }
+      outline([120, 56, 10]);
+      for (const [x, y] of [[12, 3], [13, 2], [12, 2], [11, 2], [13, 4], [14, 3], [12, 1]]) put(x, y, jit([70, 150, 40], 20));
+    } else if (k === "potato") {
+      const baked = d.draw[1];
+      disc(8, 9, 5.2, 4, (dx, dy, q, x, y) => jit(baked ? (dy < -0.3 ? [236, 190, 90] : [200, 140, 60]) : (hash(x, y, 5) < 0.12 ? [150, 110, 60] : dy < -0.3 ? [222, 186, 120] : [196, 156, 92]), 10));
+      if (baked) { put(7, 7, [255, 236, 170]); put(8, 7, [255, 236, 170]); put(9, 8, [255, 236, 170]); }
+      outline(baked ? [110, 60, 20] : [110, 80, 40]);
+    } else if (k === "beet") {
+      disc(8, 10, 4.4, 4, (dx, dy) => jit(dx + dy < -0.6 ? [190, 50, 80] : [140, 20, 50], 10));
+      put(8, 14, [120, 16, 40]); put(8, 15, [100, 12, 30]);
+      outline([60, 6, 20]);
+      for (const [x, y] of [[7, 5], [8, 4], [9, 5], [8, 3], [6, 4], [10, 3], [9, 2]]) put(x, y, jit([70, 150, 40], 20));
+    } else if (k === "melon") {
+      disc(8, 6, 7, 7, (dx, dy, q, x, y) => {
+        if (dy < 0.05) return null;
+        if (q > 0.72) return jit(q > 0.86 ? [60, 130, 40] : [170, 210, 120], 10);
+        return (x + y * 3) % 7 === 0 && q < 0.6 ? [30, 20, 20] : jit([230, 60, 60], 14);
+      });
+      outline([30, 70, 20]);
+    } else if (k === "meat") {
+      const C = d.draw[1];
+      disc(8, 8.5, 6, 4.6, (dx, dy, q, x, y) => jit(Math.abs(dx - dy * 0.6 - 0.15) < 0.12 || q > 0.8 ? C[2] : shade([0, C[1], C[0], C[0]], dx, dy), 12));
+      outline(C[3]);
+    } else if (k === "leg") {
+      const C = d.draw[1];
+      disc(6.5, 6.5, 4.4, 4.2, (dx, dy) => jit(shade([0, C[1], C[2], C[0]], dx, dy), 10));
+      for (let i = 0; i < 4; i++) { put(9 + i, 10 + i, [246, 242, 228]); put(10 + i, 10 + i, [220, 214, 196]); }
+      put(13, 13, [255, 255, 245]); put(14, 14, [255, 255, 245]); put(14, 13, [230, 226, 210]);
+      outline(C[3]);
+    } else if (k === "hide") {
+      disc(8, 8, 6, 5.4, (dx, dy, q, x, y) => (Math.abs(dx) > 0.75 && Math.abs(dy) > 0.6) ? null : jit(hash(x, y, 9) < 0.2 ? [130, 70, 30] : [170, 96, 46], 10));
+      outline([80, 40, 16]);
+    } else if (k === "feather") {
+      for (let i = 0; i < 10; i++) { put(3 + i, 13 - i, [200, 200, 200]); if (i > 1) { put(3 + i, 12 - i, jit([250, 250, 250], 6)); put(4 + i, 13 - i, jit([236, 236, 236], 6)); if (i > 3 && i < 9) put(2 + i, 12 - i, [255, 255, 255]); } }
+      outline([120, 120, 130]);
+    } else if (k === "paper") {
+      for (let y = 3; y <= 12; y++) for (let x = 3; x <= 12; x++) put(x + (y < 6 ? 1 : 0), y, jit([246, 246, 236], 6));
+      for (const y of [5, 7, 9, 11]) for (let x = 5; x <= 10; x++) put(x, y, [200, 200, 196]);
+      outline([150, 150, 140]);
+    } else if (k === "book") {
+      for (let y = 3; y <= 12; y++) for (let x = 3; x <= 12; x++) put(x, y, jit(x === 3 ? [90, 40, 20] : [150, 70, 36], 10));
+      for (let y = 4; y <= 11; y++) put(12, y, [240, 236, 220]);
+      for (let x = 5; x <= 10; x++) put(x, 5, [240, 200, 80]);
+      outline([60, 26, 10]);
+    } else if (k === "wheat") {
+      for (const sx of [5, 8, 11]) {
+        for (let y = 7; y <= 14; y++) put(sx - Math.floor((y - 7) / 4), y, [150, 130, 50]);
+        for (let y = 1; y <= 7; y++) { put(sx, y, jit([226, 196, 90], 14)); if (y % 2) { put(sx - 1, y, jit([206, 170, 70], 14)); put(sx + 1, y + 1, jit([206, 170, 70], 14)); } }
+      }
+    } else if (k === "seeds") {
+      const C = d.draw[1];
+      for (const [x, y] of [[4, 6], [8, 4], [11, 7], [6, 10], [10, 11], [7, 7], [12, 4], [3, 12]]) { put(x, y, jit(C[0], 10)); put(x + 1, y, jit(C[1], 10)); }
+      outline([40, 50, 20]);
+    } else if (k === "bowl" || k === "stew") {
+      for (let y = 8; y <= 13; y++) { const w = y === 13 ? 3 : 6 - Math.max(0, y - 10); for (let x = 8 - w; x < 8 + w; x++) put(x, y, jit(y === 8 ? [120, 80, 40] : [150, 100, 52], 10)); }
+      if (k === "stew") for (let x = 3; x <= 12; x++) { put(x, 8, jit([200, 140, 90], 14)); if (x > 3 && x < 12) put(x, 7, jit([214, 160, 106], 14)); }
+      outline([70, 40, 16]);
+    }
+    return P2;
+  }
+  // Alle Bilder in den Atlas malen
+  for (const d of ITEMS) {
+    const P2 = drawItemPixels(d.id), t = d.id - IB, tx = (t % 16) * 16, ty = Math.floor(t / 16) * 16;
+    for (let i = 0; i < 256; i++) {
+      const c = P2[i], x = tx + (i % 16), y = ty + (i >> 4), o = (y * 256 + x) * 4;
+      if (c) { ipix[o] = c[0]; ipix[o + 1] = c[1]; ipix[o + 2] = c[2]; ipix[o + 3] = 255; }
+    }
+  }
+  icx.putImageData(new ImageData(ipix, 256, 256), 0, 0);
+  const itemTex = new THREE.CanvasTexture(ICV);
+  itemTex.magFilter = THREE.NearestFilter; itemTex.minFilter = THREE.NearestFilter; itemTex.generateMipmaps = false;
+
+  // Gegenstand als flaches Modell mit Dicke (wie in Minecraft): Vorder- und Rückseite aus dem Bild, dazu die Ränder jedes Pixels
+  const spriteGeos = new Map(), SPRITES = new WeakSet();
+  function spriteGeo(id) {
+    if (spriteGeos.has(id)) return spriteGeos.get(id);
+    const t = id - IB, tx = (t % 16) * 16, ty = Math.floor(t / 16) * 16, A = (x, y) => x >= 0 && y >= 0 && x < 16 && y < 16 && ipix[((ty + y) * 256 + tx + x) * 4 + 3] > 0;
+    const pos = [], nor = [], uv = [], ind = [], th = 1 / 16;
+    const quad = (p, n, u) => { const b = pos.length / 3; for (const v of p) pos.push(...v); for (let i = 0; i < 4; i++) nor.push(...n); uv.push(...u); ind.push(b, b + 1, b + 2, b, b + 2, b + 3); };
+    const U = x => (tx + x) / 256, Vv = y => 1 - (ty + y) / 256;
+    quad([[-.5, -.5, th / 2], [.5, -.5, th / 2], [.5, .5, th / 2], [-.5, .5, th / 2]], [0, 0, 1], [U(0), Vv(16), U(16), Vv(16), U(16), Vv(0), U(0), Vv(0)]);
+    quad([[.5, -.5, -th / 2], [-.5, -.5, -th / 2], [-.5, .5, -th / 2], [.5, .5, -th / 2]], [0, 0, -1], [U(16), Vv(16), U(0), Vv(16), U(0), Vv(0), U(16), Vv(0)]);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (!A(x, y)) continue;
+      const x0 = x / 16 - .5, x1 = (x + 1) / 16 - .5, y0 = .5 - (y + 1) / 16, y1 = .5 - y / 16, z0 = -th / 2, z1 = th / 2;
+      const cu = U(x + .5), cv = Vv(y + .5), cuv = [cu, cv, cu, cv, cu, cv, cu, cv];
+      if (!A(x - 1, y)) quad([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], [-1, 0, 0], cuv);
+      if (!A(x + 1, y)) quad([[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [1, 0, 0], cuv);
+      if (!A(x, y - 1)) quad([[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [0, 1, 0], cuv);
+      if (!A(x, y + 1)) quad([[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], [0, -1, 0], cuv);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(ind);
+    spriteGeos.set(id, g); SPRITES.add(g);
+    return g;
+  }
+  const spriteMat = litEnt(new THREE.MeshLambertMaterial({ map: itemTex, alphaTest: 0.5, side: THREE.DoubleSide }), playerLight);
+
+  // ---------- Bildchen fürs Menü: Würfel schräg von oben, Möbel und Pflanzen flach, Gegenstände aus dem eigenen Atlas ----------
+  const ICONS = new Map();
+  const isCube = b => !SHAPE[b] && !PLANT[b] && !(b >= 32 && b < 64) && b !== LEVER && b !== LEVER_ON && b !== BARS && b !== GATE_PANEL && b !== WEAPON_S && b !== WEAPON_A && b !== WEAPON_B && b !== SHIELD_W && b !== BANNER && b !== BANNER_C && b !== CANDLE;
+  function iconOf(id) {
+    let cv = ICONS.get(id);
+    if (cv) return cv;
+    cv = document.createElement("canvas"); cv.width = cv.height = 32;
+    const g = cv.getContext("2d"); g.imageSmoothingEnabled = false;
+    if (id >= IB) { const t = id - IB; g.drawImage(ICV, (t % 16) * 16, Math.floor(t / 16) * 16, 16, 16, 0, 0, 32, 32); }
+    else if (TEX[id] && isCube(id)) {
+      const [tp, , sd] = TEX[id], face = (t, a, b, c, d, e, f, dark, path) => {
+        g.save(); g.setTransform(a, b, c, d, e, f); g.drawImage(atlasCanvas, (t % N) * T, Math.floor(t / N) * T, T, T, 0, 0, 16, 16); g.restore();
+        if (dark) { g.fillStyle = `rgba(0,0,0,${dark})`; g.beginPath(); g.moveTo(...path[0]); for (const p of path.slice(1)) g.lineTo(...p); g.closePath(); g.fill(); }
+      };
+      face(tp, 15 / 16, 7.5 / 16, -15 / 16, 7.5 / 16, 16, 1, 0);
+      face(sd, 15 / 16, 7.5 / 16, 0, 15 / 16, 1, 8.5, 0.22, [[1, 8.5], [16, 16], [16, 31], [1, 23.5]]);
+      face(sd, 15 / 16, -7.5 / 16, 0, 15 / 16, 16, 16, 0.4, [[16, 16], [31, 8.5], [31, 23.5], [16, 31]]);
+    } else if (id === TORCH) {
+      g.fillStyle = "#6b4a24"; g.fillRect(14, 12, 4, 18); g.fillStyle = "#3a3a3a"; g.fillRect(13, 10, 6, 3);
+      g.fillStyle = "#ffcf4a"; g.fillRect(14, 4, 4, 6); g.fillStyle = "#fff3b0"; g.fillRect(15, 6, 2, 3); g.fillStyle = "#ff8a20"; g.fillRect(14, 2, 4, 2);
+    } else if (TEX[id]) { const t = TEX[id][2]; g.drawImage(atlasCanvas, (t % N) * T, Math.floor(t / N) * T, T, T, 0, 0, 32, 32); }
+    ICONS.set(id, cv);
+    return cv;
+  }
+  function drawSlotIcon(cv, id) {
+    const g = cv.getContext("2d"); g.imageSmoothingEnabled = false; g.clearRect(0, 0, cv.width, cv.height);
+    if (id) g.drawImage(iconOf(id), 0, 0, cv.width, cv.height);
+  }
+
+  // ---------- Was ein Block beim Abbauen hergibt, wie hart er ist, welches Werkzeug passt ----------
+  const DROPOF = [];
+  function baseOf(b) {
+    if (ROTB[b] !== undefined) { const r = ROTB[b]; const bs = BED_SHAPE[b]; return bs && bs.part === 2 ? r - 4 : r; }
+    return b;
+  }
+  const PICK_LVL = { [ORE_IRON]: 1, [ORE_GOLD]: 2, [ORE_DIAMOND]: 2, [ORE_EMERALD]: 2, [IRONB]: 1, [GOLD]: 2, [DIAMOND]: 2, [EMERALD]: 2, [COINS]: 2 };
+  const HARD = { [COBBLE]: 2, [MOSSY_COBBLE]: 2, [BRICK]: 2, [SBRICK]: 1.5, [STONE]: 1.5, [ORE_COAL]: 3, [ORE_IRON]: 3, [ORE_GOLD]: 3, [ORE_DIAMOND]: 3, [ORE_EMERALD]: 3,
+    [IRONB]: 5, [GOLD]: 3, [DIAMOND]: 5, [EMERALD]: 5, [COINS]: 3, [QUARTZ]: 0.8, [MARBLE]: 0.8, [MARBLE_D]: 0.8, [PILLAR]: 0.8, [LAMP]: 0.3, [GLASS]: 0.3, [SGLASS]: 0.3,
+    [GRASS]: 0.6, [DIRT]: 0.5, [SAND]: 0.5, [GRAVEL]: 0.6, [SNOW]: 0.2, [FARMLAND]: 0.6, [PATH]: 0.65, [HAY]: 0.5, [OVEN]: 3.5, [CHEST]: 2.5, [CRAFT]: 2.5, [SHELF]: 1.5,
+    [BARREL]: 2.5, [PUMPKIN]: 1, [MELON]: 1, [BARS]: 5, [GOLD_TRIM]: 1, [LEAVES]: 0.2, [SPRUCE_LEAVES]: 0.2, [BIRCH_LEAVES]: 0.2, [APPLE_LEAVES]: 0.2, [HEDGE]: 0.3, [ROSEBUSH]: 0.3 };
+  const SHOVEL = new Set([GRASS, DIRT, SAND, GRAVEL, SNOW, FARMLAND, PATH]);
+  function hardness(b) {
+    if (HARD[b] !== undefined) return HARD[b];
+    if (PLANT[b] || b === TORCH || ROTB[b] === TORCH_W) return 0;
+    const m = matOf(b);
+    if (SHAPE[b]) return NONSOLID[b] ? 0.2 : m === "wood" ? 2 : m === "stone" ? 1.5 : m === "glass" ? 0.3 : 0.8;
+    return m === "wood" ? 2 : m === "wool" ? 0.8 : m === "glass" ? 0.3 : m === "grass" ? 0.4 : m === "dirt" || m === "sand" ? 0.5 : 1.5;
+  }
+  // Welches Werkzeug den Block schneller abbaut
+  function toolFor(b) {
+    if (SHOVEL.has(b)) return "schaufel";
+    const m = matOf(b);
+    if (m === "stone") return "spitzhacke";
+    if (m === "wood") return "axt";
+    if (m === "dirt" || m === "sand") return "schaufel";
+    if (LEAFB[b] || b === HAY || b === HEDGE || b === ROSEBUSH) return "hacke";
+    return null;
+  }
+  // Braucht der Block eine Spitzhacke, damit etwas herausfällt? (Stein, Erze, Metallblöcke)
+  function needsPick(b) { return matOf(b) === "stone" && !SHAPE[b] && b !== LAMP && b !== GLASS && b !== SGLASS && b !== LEVER && b !== LEVER_ON && b !== BANNER && b !== BANNER_C ? (PICK_LVL[b] || 0) : -1; }
+  function breakTime(b, slot) {
+    const h = hardness(b); if (h <= 0) return 0;
+    const tl = slot ? toolOf(slot.id) : null, need = needsPick(b);
+    const right = tl && tl.kind === toolFor(b);
+    const harvest = need < 0 || (tl && tl.kind === "spitzhacke" && tl.lvl >= need);
+    let speed = right ? tl.speed : 1;
+    if (tl && tl.kind === "schwert" && (LEAFB[b] || b === HEDGE)) speed = 1.5;
+    return h * (harvest ? 1.5 : 5) / speed;
+  }
+  function canHarvest(b, slot) { const need = needsPick(b); if (need < 0) return true; const tl = slot ? toolOf(slot.id) : null; return !!(tl && tl.kind === "spitzhacke" && tl.lvl >= need); }
+  // Was herausfällt: Liste von [id, Anzahl]
+  function dropsOf(b, rnd) {
+    rnd = rnd || Math.random;
+    const n = (a, c) => a + Math.floor(rnd() * (c - a + 1));
+    switch (b) {
+      case STONE: return [[COBBLE, 1]];
+      case GRASS: case FARMLAND: case PATH: return [[DIRT, 1]];
+      case ORE_COAL: return [[I.kohle, 1]];
+      case ORE_IRON: return [[I.roheisen, 1]];
+      case ORE_GOLD: return [[I.rohgold, 1]];
+      case ORE_DIAMOND: return [[I.diamant, 1]];
+      case ORE_EMERALD: return [[I.smaragd, 1]];
+      case WHEAT: return [[I.weizen, 1], [I.weizensamen, n(0, 3)]];
+      case CROP_W1: case CROP_W2: case CROP_W3: return [[I.weizensamen, 1]];
+      case CARROTS: return [[I.karotte, n(2, 4)]];
+      case POTATOES: return [[I.kartoffel, n(2, 4)]];
+      case BEETS: return [[I.rotebete, 1], [I.betesamen, n(1, 3)]];
+      case SPROUT_C: return [[I.karotte, 1]];
+      case SPROUT_P: return [[I.kartoffel, 1]];
+      case SPROUT_B: return [[I.betesamen, 1]];
+      case MELON: return [[I.melonenscheibe, n(3, 7)]];
+      case TALLGRASS: case FERN: return rnd() < 0.14 ? [[I.weizensamen, 1]] : [];
+      case LEAVES: case SPRUCE_LEAVES: case BIRCH_LEAVES: return rnd() < 0.06 ? [[I.stock, n(1, 2)]] : [];
+      case APPLE_LEAVES: return rnd() < 0.12 ? [[I.apfel, 1]] : rnd() < 0.05 ? [[I.stock, 1]] : [];
+      case THRONTRUHE: return [];
+    }
+    if (ROTB[b] === TORCH_W) return [[TORCH, 1]];
+    if (b === LEVER_ON) return [[LEVER, 1]];
+    if (b === WATER || b === AIR) return [];
+    const base = baseOf(b);
+    if (PALETTE.includes(base) || base === TORCH) return [[base, 1]];
+    return [];
+  }
+
+  // ---------- Rezepte für Werkbank (3 x 3) und Inventar (2 x 2) ----------
+  const G = {
+    planks: [PLANKS, SPRUCE_PLANKS, BIRCH_PLANKS, DPLANK], cobble: [COBBLE, MOSSY_COBBLE], coal: [I.kohle, I.holzkohle], stick: [I.stock],
+    iron: [I.eisenbarren], gold: [I.goldbarren], diamond: [I.diamant], wool: [WWOOL, RWOOL, BWOOL],
+  };
+  const RECIPES = [];
+  // Geformtes Rezept: rows wie ["ppp", " s ", " s "], key: Buchstabe -> erlaubte Nummern
+  function shaped(out, n, rows, key, o) { RECIPES.push(Object.assign({ out, n, rows, key, w: rows[0].length, h: rows.length, size: Math.max(rows[0].length, rows.length) }, o)); }
+  function shapeless(out, n, groups, o) { RECIPES.push(Object.assign({ out, n, groups, size: groups.length > 4 ? 3 : 2 }, o)); }
+  const one = id => [id];
+  // Holz und Grundlagen
+  shapeless(PLANKS, 4, [one(LOG)]); shapeless(SPRUCE_PLANKS, 4, [one(SPRUCE_LOG)]); shapeless(BIRCH_PLANKS, 4, [one(BIRCH_LOG)]);
+  shapeless(DPLANK, 2, [G.planks, G.planks, G.coal]);
+  shaped(I.stock, 4, ["p", "p"], { p: G.planks });
+  shaped(CRAFT, 1, ["pp", "pp"], { p: G.planks });
+  shaped(CHEST, 1, ["ppp", "p p", "ppp"], { p: G.planks });
+  shaped(OVEN, 1, ["ccc", "c c", "ccc"], { c: G.cobble });
+  shaped(BARREL, 1, ["ppp", "s s", "ppp"], { p: G.planks, s: G.stick });
+  shaped(TORCH, 4, ["k", "s"], { k: G.coal, s: G.stick });
+  shaped(I.schuessel, 4, ["p p", " p "], { p: G.planks });
+  // Werkzeuge
+  const TMAT = [G.planks, G.cobble, G.iron, G.gold, G.diamond];
+  TIERS.forEach((T, t) => {
+    const m = TMAT[t], key = { m, s: G.stick };
+    shaped(TOOLS["spitzhacke_" + T.key], 1, ["mmm", " s ", " s "], key);
+    shaped(TOOLS["axt_" + T.key], 1, ["mm", "ms", " s"], key, { mirror: true });
+    shaped(TOOLS["schaufel_" + T.key], 1, ["m", "s", "s"], key);
+    shaped(TOOLS["hacke_" + T.key], 1, ["mm", " s", " s"], key, { mirror: true });
+    shaped(TOOLS["schwert_" + T.key], 1, ["m", "m", "s"], key);
+  });
+  // Essen
+  shaped(I.brot, 1, ["www"], { w: one(I.weizen) });
+  shaped(I.goldapfel, 1, ["ggg", "gag", "ggg"], { g: G.gold, a: one(I.apfel) });
+  shapeless(I.pilzsuppe, 1, [one(MUSHROOM_B), one(MUSHROOM_B), one(I.schuessel)]);
+  shaped(MELON, 1, ["mmm", "mmm", "mmm"], { m: one(I.melonenscheibe) });
+  // Erzblöcke und Barren
+  for (const [blk, it] of [[GOLD, I.goldbarren], [IRONB, I.eisenbarren], [DIAMOND, I.diamant], [EMERALD, I.smaragd]]) {
+    shaped(blk, 1, ["iii", "iii", "iii"], { i: one(it) }); shapeless(it, 9, [one(blk)]);
+  }
+  shaped(HAY, 1, ["www", "www", "www"], { w: one(I.weizen) }); shapeless(I.weizen, 9, [one(HAY)]);
+  // Bauen und Einrichten
+  shaped(SBRICK, 4, ["ss", "ss"], { s: one(STONE) });
+  shaped(900, 4, ["cc", "cc"], { c: G.cobble });                                   // Kopfsteinpflaster
+  shaped(FENCE, 3, ["psp", "psp"], { p: G.planks, s: G.stick });
+  shaped(BARS, 16, ["iii", "iii"], { i: G.iron });
+  shaped(LEVER, 1, ["s", "c"], { s: G.stick, c: G.cobble });
+  shaped(GOLD_TRIM, 4, ["gg"], { g: G.gold });
+  shaped(LANTERN_S, 1, ["i", "t"], { i: G.iron, t: one(TORCH) });
+  shaped(LANTERN_H, 1, ["s", "l"], { s: G.stick, l: one(LANTERN_S) });
+  shaped(LAMP, 1, ["ggg", "gtg", "ggg"], { g: one(GLASS), t: one(TORCH) });
+  shaped(I.papier, 3, ["rrr"], { r: one(REEDS) });
+  shapeless(I.buch, 1, [one(I.papier), one(I.papier), one(I.papier), one(I.leder)]);
+  shaped(SHELF, 1, ["ppp", "bbb", "ppp"], { p: G.planks, b: one(I.buch) });
+  shaped(BED_R, 1, ["www", "ppp"], { w: one(RWOOL), p: G.planks });
+  shaped(BED_B, 1, ["www", "ppp"], { w: one(BWOOL), p: G.planks });
+  shaped(CARPET_R, 3, ["ww"], { w: one(RWOOL) }); shaped(CARPET_W, 3, ["ww"], { w: one(WWOOL) }); shaped(CARPET_B, 3, ["ww"], { w: one(BWOOL) });
+  shaped(CHAIR_O, 1, ["p ", "pp", "ss"], { p: one(PLANKS), s: G.stick }, { mirror: true });
+  shaped(CHAIR_D, 1, ["p ", "pp", "ss"], { p: one(DPLANK), s: G.stick }, { mirror: true });
+  shaped(CHAIR_W, 1, ["w ", "pp", "ss"], { w: one(RWOOL), p: G.planks, s: G.stick }, { mirror: true });
+  shaped(TABLE_O, 1, ["ppp", "s s"], { p: one(PLANKS), s: G.stick });
+  shaped(TABLE_D, 1, ["www", "ppp", "s s"], { w: one(WWOOL), p: G.planks, s: G.stick });
+  shaped(TABLE_W, 1, ["mmm", "s s"], { m: one(MARBLE), s: G.stick });
+  shaped(BENCH, 1, ["sss", "ppp", "s s"], { p: G.planks, s: G.stick });
+  shaped(STOOL, 1, ["pp", "ss"], { p: G.planks, s: G.stick });
+  shaped(POT_BOX, 1, ["h", "d"], { h: one(HEDGE), d: one(DIRT) });
+  shaped(1003, 4, ["pp"], { p: G.planks });                                        // Holzschindeln
+  shaped(1002, 4, ["www", "www"], { w: one(I.weizen) });                           // Reetdach
+  shaped(845, 3, ["s s", "sss", "s s"], { s: G.stick });                          // Leiter
+
+  // Rezept im Raster suchen: grid ist ein Feld mit size x size Nummern (0 = leer)
+  function matchRecipe(grid, size) {
+    let x0 = size, y0 = size, x1 = -1, y1 = -1, cnt = 0;
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (grid[y * size + x]) { cnt++; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    if (!cnt) return null;
+    const w = x1 - x0 + 1, h = y1 - y0 + 1, at = (x, y) => grid[(y0 + y) * size + x0 + x];
+    for (const r of RECIPES) {
+      if (r.rows) {
+        if (r.w !== w || r.h !== h) continue;
+        for (const mir of r.mirror ? [false, true] : [false]) {
+          let ok = true;
+          for (let y = 0; y < h && ok; y++) for (let x = 0; x < w && ok; x++) {
+            const ch = r.rows[y][mir ? w - 1 - x : x], v = at(x, y);
+            if (ch === " " ? v !== 0 : !(v && r.key[ch].includes(v))) ok = false;
+          }
+          if (ok) return r;
+        }
+      } else if (r.groups.length === cnt) {
+        const left = r.groups.slice();
+        let ok = true;
+        for (let i = 0; i < size * size && ok; i++) { const v = grid[i]; if (!v) continue; const j = left.findIndex(g => g.includes(v)); if (j < 0) ok = false; else left.splice(j, 1); }
+        if (ok && !left.length) return r;
+      }
+    }
+    return null;
+  }
+  // Was das Rezept aus dem Inventar braucht: Liste von Gruppen (eine pro Feld) mit Platz im Raster
+  function recipeCells(r, size) {
+    const cells = [];
+    if (r.rows) { for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) { const ch = r.rows[y][x]; if (ch !== " ") cells.push({ i: y * size + x, g: r.key[ch] }); } }
+    else r.groups.forEach((g, k) => cells.push({ i: k, g }));
+    return cells;
+  }
+
+  // ---------- Ofen: was beim Erhitzen woraus wird ----------
+  const SMELT = new Map([[COBBLE, STONE], [MOSSY_COBBLE, STONE], [SAND, GLASS], [I.roheisen, I.eisenbarren], [I.rohgold, I.goldbarren], [ORE_IRON, I.eisenbarren], [ORE_GOLD, I.goldbarren],
+    [ORE_COAL, I.kohle], [ORE_DIAMOND, I.diamant], [ORE_EMERALD, I.smaragd], [LOG, I.holzkohle], [SPRUCE_LOG, I.holzkohle], [BIRCH_LOG, I.holzkohle],
+    [I.rind_roh, I.steak], [I.schwein_roh, I.schweinebraten], [I.huhn_roh, I.brathuhn], [I.hammel_roh, I.hammelbraten], [I.kartoffel, I.ofenkartoffel]]);
+  const SMELT_TIME = 8;
+
+  // ---------- Reiter im Blockmenü ----------
+  const TABS = [
+    { key: "alle", name: "Alle" }, { key: "bau", name: "Baublöcke" }, { key: "natur", name: "Natur" }, { key: "moebel", name: "Möbel" },
+    { key: "licht", name: "Licht" }, { key: "deko", name: "Deko" }, { key: "werkzeug", name: "Werkzeuge" }, { key: "essen", name: "Essen" }, { key: "roh", name: "Rohstoffe" },
+  ];
+  const NATUR = new Set([GRASS, DIRT, SAND, GRAVEL, SNOW, FARMLAND, PATH, LOG, SPRUCE_LOG, BIRCH_LOG, LEAVES, SPRUCE_LEAVES, BIRCH_LEAVES, APPLE_LEAVES, HEDGE, ROSEBUSH, HAY,
+    PUMPKIN, MELON, WHEAT, ORE_COAL, ORE_IRON, ORE_GOLD, ORE_DIAMOND, ORE_EMERALD, STONE]);
+  const DEKO_WORDS = ["teppich", "markise", "vorhang", "banner", "gemälde", "kiste", "fisch", "blumenkasten", "schwerter", "streitäxte", "bogen", "schilde", "maibaum", "goldleiste",
+    "säule", "tor", "hebel", "fallgitter", "goldschatz", "spiegel", "büste", "waffenständer", "brunnenschale", "pfosten", "theke", "mehlsack", "wassertrog", "mühlstein", "fass"];
+  function catOf(id) {
+    const d = itemDef(id); if (d) return d.cat;
+    if (EMIT[id] > 0 && id !== 812) return "licht";
+    if (NATUR.has(id) || PLANT[id]) return "natur";
+    const nm = (NAMES[id] || "").toLowerCase();
+    if (id >= 60 && id < 64) return "deko";
+    if (DEKO_WORDS.some(w => nm.includes(w))) return "deko";
+    if (SHAPE[id] || [CHEST, BARREL, OVEN, COUNTER, CRAFT, PANTRY, SHELF].includes(id)) return "moebel";
+    return "bau";
+  }
+  const norm = s => s.toLowerCase().replace(/ä/g, "a").replace(/ö/g, "o").replace(/ü/g, "u").replace(/ß/g, "ss");
+  function itemLabel(id) { return id >= 60 && id < 64 ? "Bild: " + ["Blume", "Mond", "Schiff", "Burg"][id - 60] : itemName(id); }
+  // ==================== Version 13: Inventar und Handwerk – Inventar, Werkbank, Ofen, Truhen, Blockmenü ====================
+  // Spielart „kreativ“: alle Blöcke unbegrenzt, Abbauen sofort (wie bisher). „ueberleben“: abbauen, sammeln, herstellen, Werkzeuge nutzen sich ab.
+  const V13 = { mode: "kreativ", inv: new Array(36).fill(null), cursor: null, ui: null, grid: new Array(9).fill(null), gridSize: 2, match: null,
+    chests: new Map(), furn: new Map(), tc: new Map(), crops: new Map(), chest: null, furnace: null, keepOpen: false, tab: "alle", q: "", bookQ: "", els: [] };
+  const mk = (id, n, d) => ({ id, n: n === undefined ? 1 : n, d: d || 0 });
+  const survival = () => V13.mode === "ueberleben";
+  const fullStack = id => mk(id, toolOf(id) ? 1 : maxStack(id));
+  function canMerge(a, b) { return !!(a && b && a.id === b.id && maxStack(a.id) > 1 && (a.d || 0) === (b.d || 0)); }
+  // Legt einen Stapel in eine Liste von Plätzen (zuerst auf gleiche Stapel, dann in leere), gibt zurück, wie viel übrig bleibt
+  function addTo(st, list, a, b) {
+    a = a || 0; b = b === undefined ? list.length : b;
+    const ms = maxStack(st.id);
+    let n = st.n;
+    if (ms > 1) for (let i = a; i < b && n > 0; i++) { const s = list[i]; if (s && canMerge(s, st) && s.n < ms) { const k = Math.min(ms - s.n, n); s.n += k; n -= k; } }
+    for (let i = a; i < b && n > 0; i++) if (!list[i]) { const k = Math.min(ms, n); list[i] = mk(st.id, k, st.d); n -= k; }
+    return n;
+  }
+  const addToInv = st => addTo(st, V13.inv);
+  function roomFor(st) { const copy = V13.inv.map(s => s && mk(s.id, s.n, s.d)); return addTo(mk(st.id, st.n, st.d), copy) === 0; }
+  function countInv(id) { let c = 0; for (const s of V13.inv) if (s && s.id === id) c += s.n; return c; }
+  function takeInv(id, n) { for (let i = V13.inv.length - 1; i >= 0 && n > 0; i--) { const s = V13.inv[i]; if (s && s.id === id) { const k = Math.min(n, s.n); s.n -= k; n -= k; if (!s.n) V13.inv[i] = null; } } return n; }
+  function heldId() { const s = V13.inv[sel]; return s ? s.id : 0; }
+  function heldBlockId() { const s = V13.inv[sel]; return s && s.id < IB && s.n > 0 ? s.id : 0; }
+  // Gibt dem König etwas: ins Inventar, und was nicht passt, fällt vor ihm auf den Boden
+  function giveItem(id, n, d) {
+    const st = mk(id, n, d), rest = addToInv(st);
+    if (rest > 0) spawnDrop(id, rest, d || 0, P.x, P.y + 1.2, P.z, true);
+    refreshBar();
+  }
+
+  // ---------- Aussehen der Fenster ----------
+  const v13css = document.createElement("style");
+  v13css.textContent = `
+  #v13 { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(8, 14, 20, .55); overflow-y: auto; z-index: 5; }
+  #v13 .v13card { width: min(820px, 100%); background: var(--panel); border: 1px solid var(--panel-line); border-radius: 10px; padding: 18px 18px 16px; box-sizing: border-box;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45); display: grid; gap: 12px; }
+  #v13 .v13head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #v13 h2 { margin: 0; font: 700 24px/1 "Pixelify Sans", monospace; color: var(--sun); flex: 1 1 auto; }
+  #v13 .v13mode { font: 500 12px "Pixelify Sans", monospace; color: var(--ink-dim); border: 1px solid var(--panel-line); border-radius: 4px; padding: 3px 7px; }
+  #v13 .v13btn { font: 700 14px "Pixelify Sans", monospace; padding: 8px 12px; border-radius: 6px; border: 0; cursor: pointer; background: var(--grass); color: #10200a; }
+  #v13 .v13btn.alt { background: rgba(255,255,255,.08); color: var(--ink); border: 1px solid var(--panel-line); }
+  #v13 .v13btn:focus-visible, #v13 .v13tab:focus-visible, #v13 .v13it:focus-visible, #v13 .v13rec:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+  #v13 .v13body { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  #v13 .v13main { display: grid; gap: 8px; flex: 0 1 auto; }
+  #v13 .v13lab { font: 500 13px "Pixelify Sans", monospace; color: var(--ink-dim); margin-top: 2px; }
+  #v13 .v13row { display: grid; grid-template-columns: repeat(9, 44px); gap: 4px; }
+  #v13 .v13s { position: relative; width: 44px; height: 44px; box-sizing: border-box; padding: 5px; border-radius: 4px; cursor: pointer;
+    background: rgba(0,0,0,.35); box-shadow: inset 2px 2px 0 rgba(0,0,0,.45), inset -2px -2px 0 rgba(255,255,255,.08); }
+  #v13 .v13s:hover { background: rgba(240,181,65,.22); }
+  #v13 .v13s.cur { outline: 2px solid var(--sun); outline-offset: -2px; }
+  #v13 .v13s canvas, .slot canvas { image-rendering: pixelated; }
+  #v13 .v13s canvas { width: 100%; height: 100%; display: block; }
+  #v13 .v13s b, .slot .cnt { position: absolute; right: 3px; bottom: 1px; font: 700 13px "Pixelify Sans", monospace; color: #fff; text-shadow: 1px 1px 0 #000, -1px 0 0 #000; pointer-events: none; }
+  #v13 .v13s i, .slot .dur { position: absolute; left: 10%; bottom: 4px; height: 3px; display: none; border-radius: 1px; box-shadow: 0 1px 0 #000; pointer-events: none; }
+  #v13 .v13craft { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  #v13 .v13grid { display: grid; gap: 4px; }
+  #v13 .v13arrow { font: 700 26px "Pixelify Sans", monospace; color: var(--ink-dim); }
+  #v13 .v13res { width: 56px; height: 56px; padding: 7px; }
+  #v13 .v13furn { display: grid; grid-template-columns: 96px 90px 96px; gap: 6px 10px; align-items: center; justify-items: center; justify-content: start;
+    padding: 10px; border-radius: 8px; background: rgba(0,0,0,.18); width: max-content; }
+  #v13 .v13furn .v13lab { margin: 0; text-align: center; }
+  #v13 .v13flame { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 50% 70%, #ffd25a 0, #ff7a1a 45%, transparent 70%); opacity: .15; }
+  #v13 .v13prog { width: 60px; height: 10px; border-radius: 5px; background: rgba(255,255,255,.1); overflow: hidden; }
+  #v13 .v13prog > div { height: 100%; width: 0; background: var(--sun); }
+  #v13 .v13book { width: 250px; flex: 1 1 220px; display: grid; gap: 6px; max-height: 470px; grid-template-rows: auto 1fr; }
+  #v13 .v13list { overflow-y: auto; display: grid; gap: 4px; align-content: start; padding-right: 4px; max-height: 420px; }
+  #v13 .v13rec { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 5px; border: 1px solid var(--panel-line); background: rgba(255,255,255,.04);
+    color: var(--ink); font: 500 12px "Pixelify Sans", monospace; text-align: left; cursor: pointer; }
+  #v13 .v13rec canvas { width: 28px; height: 28px; image-rendering: pixelated; flex: none; }
+  #v13 .v13rec.no { opacity: .45; }
+  #v13 .v13rec small { color: var(--ink-dim); margin-left: auto; }
+  #v13 .v13rec:hover { border-color: var(--sun); }
+  #v13 input.v13q { font: 500 14px "Pixelify Sans", monospace; padding: 7px 9px; border-radius: 6px; border: 1px solid var(--panel-line); background: rgba(255,255,255,.06); color: var(--ink);
+    -webkit-user-select: text; user-select: text; min-width: 0; }
+  #v13 input.v13q:focus-visible { outline: 2px solid var(--sun); outline-offset: 1px; }
+  #v13 .v13tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  #v13 .v13tab { font: 500 13px "Pixelify Sans", monospace; padding: 6px 10px; border-radius: 6px 6px 0 0; border: 1px solid var(--panel-line); border-bottom: 0;
+    background: rgba(255,255,255,.04); color: var(--ink-dim); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  #v13 .v13tab canvas { width: 20px; height: 20px; image-rendering: pixelated; }
+  #v13 .v13tab.on { background: rgba(240,181,65,.2); color: var(--sun); border-color: var(--sun); }
+  #v13 .v13items { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; max-height: min(52vh, 420px); overflow-y: auto; padding: 8px;
+    border: 1px solid var(--panel-line); border-radius: 0 6px 6px 6px; background: rgba(0,0,0,.18); }
+  #v13 .v13it { display: grid; justify-items: center; gap: 3px; padding: 6px 3px; border-radius: 6px; border: 1px solid transparent; background: rgba(255,255,255,.04);
+    color: var(--ink); font: 500 11px/1.15 "Pixelify Sans", monospace; cursor: pointer; text-align: center; position: relative; overflow-wrap: anywhere; hyphens: auto; }
+  #v13 .v13it canvas { width: 36px; height: 36px; image-rendering: pixelated; }
+  #v13 .v13it:hover { background: rgba(240,181,65,.18); border-color: var(--sun); }
+  #v13 .v13it b { position: absolute; top: 4px; right: 6px; font: 700 12px "Pixelify Sans", monospace; color: #fff; text-shadow: 1px 1px 0 #000; }
+  #v13 .v13foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #v13 .v13foot label { font: 500 13px "Nunito", system-ui, sans-serif; color: var(--ink-dim); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  #v13 .v13empty { color: var(--ink-dim); font: 500 13px "Nunito", system-ui, sans-serif; padding: 8px; }
+  #v13cur { position: fixed; width: 40px; height: 40px; pointer-events: none; z-index: 7; transform: translate(-50%, -50%); }
+  #v13cur canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+  #v13cur b { position: absolute; right: 0; bottom: -2px; font: 700 13px "Pixelify Sans", monospace; color: #fff; text-shadow: 1px 1px 0 #000; }
+  #v13tip { position: fixed; z-index: 8; pointer-events: none; background: rgba(20, 8, 32, .94); border: 1px solid #5a2a9a; border-radius: 4px; padding: 5px 8px;
+    font: 500 13px "Pixelify Sans", monospace; color: #fff; max-width: 260px; white-space: pre-line; }
+  #modeTag { color: #ff9b6a; font-weight: 700; }
+  .slot .cnt { font-size: 12px; }
+  @media (max-width: 520px) { #v13 .v13row { grid-template-columns: repeat(9, 34px); } #v13 .v13s { width: 34px; height: 34px; padding: 3px; } #v13 .v13book { width: 100%; } }
+  `;
+  document.head.appendChild(v13css);
+  const UIEL = document.createElement("div"); UIEL.id = "v13"; UIEL.hidden = true; document.body.appendChild(UIEL);
+  const CUR = document.createElement("div"); CUR.id = "v13cur"; CUR.hidden = true; CUR.innerHTML = "<canvas width='32' height='32'></canvas><b></b>"; document.body.appendChild(CUR);
+  const TIP = document.createElement("div"); TIP.id = "v13tip"; TIP.hidden = true; document.body.appendChild(TIP);
+  UIEL.addEventListener("contextmenu", e => e.preventDefault());
+  let mouseX = 0, mouseY = 0;
+  window.addEventListener("pointermove", e => {
+    mouseX = e.clientX; mouseY = e.clientY;
+    if (!CUR.hidden) { CUR.style.left = mouseX + "px"; CUR.style.top = mouseY + "px"; }
+    if (!TIP.hidden) { TIP.style.left = Math.min(mouseX + 14, innerWidth - TIP.offsetWidth - 6) + "px"; TIP.style.top = Math.min(mouseY + 16, innerHeight - TIP.offsetHeight - 6) + "px"; }
+  });
+  const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+
+  // Ein Platz im Fenster: zeigt einen Stapel, reagiert auf Klicks (links: ganzer Stapel, rechts: halber Stapel oder ein Stück, Shift: hinüberschieben)
+  function paintSlot(el, st, noCount) {
+    const cv = el.querySelector("canvas"), c = el.querySelector("b, .cnt"), d = el.querySelector("i, .dur");
+    drawSlotIcon(cv, st ? st.id : 0);
+    if (c) c.textContent = st && st.n > 1 && !noCount ? st.n : "";
+    const tl = st && toolOf(st.id);
+    if (d) { if (tl && st.d > 0) { const f = Math.max(0, 1 - st.d / tl.dur); d.style.display = "block"; d.style.width = Math.round(f * 80) + "%"; d.style.background = `hsl(${Math.round(f * 120)}, 85%, 50%)`; } else d.style.display = "none"; }
+  }
+  function tipText(st) {
+    if (!st) return "";
+    let t = itemLabel(st.id);
+    const tl = toolOf(st.id), d = itemDef(st.id);
+    if (tl) t += `\nHaltbarkeit: ${tl.dur - (st.d || 0)} / ${tl.dur}\nSchaden: ${tl.dmg}`;
+    if (d && d.food) t += `\nHeilt ${d.food / 2} Herzen`;
+    if (fuelOf(st.id)) t += `\nBrennstoff für ${Math.round(fuelOf(st.id) / SMELT_TIME * 10) / 10} Sachen`;
+    if (st.n > 1) t += `\nAnzahl: ${st.n}`;
+    return t;
+  }
+  function showTip(text) { if (!text) { TIP.hidden = true; return; } TIP.textContent = text; TIP.hidden = false; TIP.style.left = (mouseX + 14) + "px"; TIP.style.top = (mouseY + 16) + "px"; }
+  function slotEl(ref, cls) {
+    const s = h("div", "v13s" + (cls ? " " + cls : ""));
+    const cv = h("canvas"); cv.width = cv.height = 32;
+    s.append(cv, h("b"), h("i"));
+    s.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); initAudio(); clickSlot(ref, e.button === 2 ? 1 : 0, e.shiftKey); showTip(tipText(ref.get())); });
+    s.addEventListener("pointerenter", () => showTip(tipText(ref.get())));
+    s.addEventListener("pointerleave", () => showTip(""));
+    V13.els.push({ el: s, ref });
+    return s;
+  }
+  const invRef = i => ({ get: () => V13.inv[i], set: v => { V13.inv[i] = v; }, zone: i < 9 ? "hot" : "main", i });
+  function clickSlot(ref, btn, shift) {
+    if (ref.result) { takeResult(shift); return; }
+    if (ref.trash) { V13.cursor = null; clickSound(); render(); return; }
+    if (ref.pickSelect && !V13.cursor) { select(ref.i); for (const { el, ref: r } of V13.els) if (r.pickSelect) el.classList.toggle("cur", r.i === sel); return; }
+    const cur = V13.cursor, st = ref.get();
+    if (shift && st) { quickMove(ref); render(); return; }
+    if (ref.outOnly) {
+      if (st && (!cur || (canMerge(cur, st) && cur.n + st.n <= maxStack(st.id)))) { if (cur) cur.n += st.n; else V13.cursor = st; ref.set(null); clickSound(); }
+      render(); return;
+    }
+    if (cur && ref.accept && !ref.accept(cur.id)) { render(); return; }
+    if (btn === 0) {
+      if (!cur) { if (st) { V13.cursor = st; ref.set(null); } }
+      else if (!st) { ref.set(cur); V13.cursor = null; }
+      else if (canMerge(st, cur)) { const k = Math.min(maxStack(st.id) - st.n, cur.n); st.n += k; cur.n -= k; if (!cur.n) V13.cursor = null; }
+      else { ref.set(cur); V13.cursor = st; }
+    } else {
+      if (!cur) { if (st) { const k = Math.ceil(st.n / 2); V13.cursor = mk(st.id, k, st.d); st.n -= k; if (!st.n) ref.set(null); } }
+      else if (!st) { ref.set(mk(cur.id, 1, cur.d)); if (!--cur.n) V13.cursor = null; }
+      else if (canMerge(st, cur) && st.n < maxStack(st.id)) { st.n++; if (!--cur.n) V13.cursor = null; }
+    }
+    clickSound();
+    render();
+  }
+  function clickSound() { noiseHit(2400, 3, 0.03, 0.025); }
+  // Shift-Klick: in den anderen Bereich schieben
+  function quickMove(ref) {
+    const st = ref.get(); if (!st) return;
+    const u = V13.ui;
+    let rest = st.n;
+    if (ref.zone === "hot" || ref.zone === "main") {
+      if (u === "truhe") rest = addTo(st, V13.chest);
+      else if (u === "schatz") { tcPut(st); rest = 0; }
+      else if (u === "ofen") {
+        const f = V13.furnace, t = SMELT.has(st.id) ? 0 : fuelOf(st.id) ? 1 : -1;
+        if (t >= 0) { if (!f.s[t]) { f.s[t] = mk(st.id, st.n, st.d); rest = 0; } else if (canMerge(f.s[t], st)) { const k = Math.min(maxStack(st.id) - f.s[t].n, st.n); f.s[t].n += k; rest = st.n - k; } }
+      } else rest = ref.zone === "hot" ? addTo(st, V13.inv, 9, 36) : addTo(st, V13.inv, 0, 9);
+    } else rest = addToInv(st);
+    if (rest > 0) st.n = rest; else ref.set(null);
+    clickSound();
+  }
+
+  // ---------- Herstellen ----------
+  const gridIds = () => V13.grid.slice(0, V13.gridSize * V13.gridSize).map(s => s ? s.id : 0);
+  function consumeGrid() { for (let i = 0; i < V13.gridSize * V13.gridSize; i++) { const s = V13.grid[i]; if (s && !--s.n) V13.grid[i] = null; } }
+  function returnGrid() { for (let i = 0; i < 9; i++) { const s = V13.grid[i]; if (s) { const r = addToInv(s); if (r > 0) spawnDrop(s.id, r, s.d, P.x, P.y + 1.2, P.z, true); V13.grid[i] = null; } } }
+  function takeResult(shift) {
+    const r = V13.match; if (!r) return;
+    let made = 0;
+    for (let k = 0; k < (shift ? 64 : 1); k++) {
+      const out = mk(r.out, r.n);
+      if (shift) { if (!roomFor(out)) break; addToInv(out); }
+      else { const cur = V13.cursor; if (!cur) V13.cursor = out; else if (canMerge(cur, out) && cur.n + out.n <= maxStack(out.id)) cur.n += out.n; else break; }
+      consumeGrid(); made++;
+      if (matchRecipe(gridIds(), V13.gridSize) !== r) break;
+    }
+    if (made) { noiseHit(900, 1.4, 0.12, 0.06); beep(660, 0.08, "triangle", 0.025); }
+    render();
+  }
+  // Was man für ein Rezept braucht und ob man es hat
+  function needOf(r) {
+    const need = new Map();
+    for (const c of recipeCells(r, 3)) { const key = c.g.join(","); need.set(key, { g: c.g, n: (need.get(key) ? need.get(key).n : 0) + 1 }); }
+    return [...need.values()];
+  }
+  function haveFor(r) {
+    const pool = new Map(); for (const s of [...V13.inv, ...V13.grid]) if (s) pool.set(s.id, (pool.get(s.id) || 0) + s.n);
+    for (const { g, n } of needOf(r)) { let have = 0; for (const id of g) have += pool.get(id) || 0; if (have < n) return false; }
+    return true;
+  }
+  function fillRecipe(r, max) {
+    if (r.size > V13.gridSize) { showName("Dafür brauchst du eine Werkbank.", 2200); return; }
+    returnGrid();
+    const cells = recipeCells(r, V13.gridSize), need = new Map(), pick = [];
+    for (const c of cells) {
+      let best = 0, bc = 0;
+      for (const id of c.g) { const have = countInv(id) - (need.get(id) || 0); if (have > bc) { bc = have; best = id; } }
+      if (!best) { showName("Dir fehlt noch: " + itemName(c.g[0]), 2200); render(); return; }
+      need.set(best, (need.get(best) || 0) + 1); pick.push(best);
+    }
+    let times = 1;
+    if (max) { times = 64; for (const [id, k] of need) times = Math.min(times, Math.floor(countInv(id) / k)); for (const id of pick) times = Math.min(times, maxStack(id)); }
+    cells.forEach((c, i) => { takeInv(pick[i], times); V13.grid[c.i] = mk(pick[i], times); });
+    clickSound();
+    render();
+  }
+
+  // ---------- Truhen, Ofen, Schatztruhe ----------
+  const chestKey = (x, y, z) => idx(x, y, z);
+  function chestAt(x, y, z) {
+    const k = chestKey(x, y, z);
+    if (!V13.chests.has(k)) V13.chests.set(k, chestLoot(x, y, z));
+    return V13.chests.get(k);
+  }
+  // Was in einer Truhe liegt, die noch niemand geöffnet hat: hängt davon ab, wo sie steht
+  function chestLoot(x, y, z) {
+    const list = new Array(27).fill(null), r = mulberry32((x * 73856093) ^ (y * 19349663) ^ (z * 83492791));
+    const a = areaOf(x + 0.5, y + 0.5, z + 0.5), name = a ? String(a[0]) : "";
+    const put = (id, lo, hi) => { const n = lo + Math.floor(r() * (hi - lo + 1)); if (n <= 0) return; let slot; do slot = Math.floor(r() * 27); while (list[slot]); list[slot] = mk(id, Math.min(n, maxStack(id))); };
+    if (/Schatzkammer/.test(name)) { put(I.goldbarren, 20, 40); put(I.goldbarren, 10, 30); put(I.diamant, 4, 10); put(I.smaragd, 6, 14); put(I.goldapfel, 1, 2); put(GOLD, 1, 3); }
+    else if (/Küche/.test(name)) { put(I.brot, 4, 10); put(I.apfel, 3, 8); put(I.steak, 2, 5); put(I.kartoffel, 4, 9); put(I.karotte, 3, 8); put(I.schweinebraten, 1, 4); put(I.kohle, 4, 12); }
+    else if (/Vorrat|Speise/.test(name)) { put(I.brot, 4, 12); put(I.apfel, 4, 10); put(I.kartoffel, 6, 16); put(I.karotte, 6, 14); put(I.weizen, 6, 20); }
+    else if (/Waffen/.test(name)) { put(TOOLS.schwert_eisen, 1, 1); put(TOOLS.schwert_eisen, 1, 1); put(TOOLS.axt_eisen, 1, 1); put(I.eisenbarren, 4, 12); put(TORCH, 8, 16); }
+    else if (/Bibliothek|Arbeitszimmer/.test(name)) { put(I.buch, 4, 10); put(I.papier, 6, 18); put(I.feder, 2, 6); put(CANDLE, 2, 6); }
+    else if (/Diener|Bibliothekar/.test(name)) { put(I.brot, 2, 5); put(WWOOL, 1, 3); put(CANDLE, 1, 3); put(I.buch, 0, 2); }
+    else if (/Gut|Stall|Scheune|Reit/.test(name)) { put(I.weizen, 8, 24); put(I.leder, 2, 6); put(I.karotte, 6, 14); put(HAY, 1, 3); put(I.weizensamen, 4, 12); put(TOOLS.hacke_eisen, 0, 1); }
+    else if (/Müller|Mühle/.test(name)) { put(I.weizen, 10, 24); put(I.brot, 5, 10); put(I.weizensamen, 6, 16); put(1005, 1, 3); }
+    else if (/Werkstatt/.test(name)) { put(I.kohle, 16, 32); put(I.eisenbarren, 4, 10); put(I.stock, 8, 20); put(PLANKS, 16, 32); put(COBBLE, 16, 40); put(TOOLS.spitzhacke_stein, 1, 1); }
+    else { // ein ganz normales Haus
+      put(I.brot, 1, 4); put(I.apfel, 0, 3); put(I.kartoffel, 0, 4); put(I.kohle, 0, 6); put(I.stock, 0, 6); put(PLANKS, 0, 8); put(I.weizensamen, 0, 5);
+      put(WWOOL, 0, 2); if (r() < 0.25) put(TOOLS[["spitzhacke", "axt", "schaufel", "hacke"][Math.floor(r() * 4)] + "_" + (r() < 0.6 ? "holz" : "stein")], 1, 1);
+      if (r() < 0.3) put(I.goldbarren, 1, 2);
+    }
+    return list;
+  }
+  function furnaceAt(x, y, z) {
+    const k = idx(x, y, z);
+    if (!V13.furn.has(k)) V13.furn.set(k, { s: [null, null, null], burn: 0, burnMax: 0, cook: 0, x, y, z });
+    return V13.furn.get(k);
+  }
+  function tickFurnace(f, dt) {
+    const inp = f.s[0], out = f.s[2], res = inp && SMELT.get(inp.id);
+    const can = !!res && (!out || (out.id === res && out.n < maxStack(res)));
+    if (f.burn > 0) f.burn -= dt;
+    if (f.burn <= 0) {
+      f.burn = 0;
+      if (can && f.s[1] && fuelOf(f.s[1].id)) { f.burn = f.burnMax = fuelOf(f.s[1].id); if (!--f.s[1].n) f.s[1] = null; }
+    }
+    if (f.burn > 0 && can) {
+      f.cook += dt;
+      if (f.cook >= SMELT_TIME) { f.cook = 0; if (!--inp.n) f.s[0] = null; if (out) out.n++; else f.s[2] = mk(res, 1); return true; }
+    } else f.cook = Math.max(0, f.cook - dt * 2);
+    return false;
+  }
+  // Schatztruhe des Königs: unbegrenzt viel von allem; Werkzeuge mit Abnutzung bekommen eine eigene Zeile
+  const tcKey = st => toolOf(st.id) && st.d ? st.id + ":" + st.d : String(st.id);
+  function tcPut(st) { const k = tcKey(st); V13.tc.set(k, (V13.tc.get(k) || 0) + st.n); }
+  function tcEntries() {
+    const out = [];
+    for (const [k, n] of V13.tc) { if (n <= 0) continue; const [id, d] = k.split(":").map(Number); out.push({ k, id, d: d || 0, n }); }
+    const order = TABS.map(t => t.key);
+    out.sort((a, b) => order.indexOf(catOf(a.id)) - order.indexOf(catOf(b.id)) || itemName(a.id).localeCompare(itemName(b.id), "de"));
+    return out;
+  }
+  const fmtN = n => n >= 10000 ? (Math.round(n / 100) / 10).toLocaleString("de-DE") + " Tsd." : n.toLocaleString("de-DE");
+
+  // ---------- Fenster öffnen und schließen ----------
+  function v13Open(kind, ctx) {
+    V13.ui = kind; V13.els = []; UIEL.innerHTML = ""; UIEL.hidden = false;
+    if (kind === "werkbank") V13.gridSize = 3; else if (kind === "inventar") V13.gridSize = 2;
+    if (kind === "truhe") V13.chest = chestAt(ctx[0], ctx[1], ctx[2]);
+    if (kind === "ofen") V13.furnace = furnaceAt(ctx[0], ctx[1], ctx[2]);
+    V13.at = ctx || null;
+    const card = h("div", "card v13card"), head = h("div", "v13head");
+    const titles = { inventar: "Inventar", werkbank: "Werkbank", ofen: "Ofen", truhe: "Truhe", schatz: "Schatztruhe des Königs", kreativ: "Alle Blöcke und Sachen" };
+    head.append(h("h2", "", titles[kind]), h("span", "v13mode", survival() ? "Spielart: Überleben" : "Spielart: Kreativ"));
+    if (kind === "kreativ") { const b = h("button", "v13btn alt", "Inventar (I)"); b.type = "button"; b.addEventListener("click", () => { closeUIOnly(); v13Open("inventar"); }); head.append(b); }
+    const done = h("button", "v13btn", "Fertig"); done.type = "button"; done.addEventListener("click", closePalette); head.append(done);
+    card.append(head);
+    const body = h("div", "v13body"), main = h("div", "v13main");
+    if (kind === "kreativ") buildCreative(card);
+    else {
+      if (kind === "inventar" || kind === "werkbank") main.append(buildCraft());
+      if (kind === "ofen") main.append(buildFurnace());
+      if (kind === "truhe") { main.append(h("div", "v13lab", "Truhe")); const rows = h("div", "v13grid"); for (let r = 0; r < 3; r++) { const row = h("div", "v13row"); for (let i = 0; i < 9; i++) { const k = r * 9 + i; row.append(slotEl({ get: () => V13.chest[k], set: v => { V13.chest[k] = v; }, zone: "chest" })); } rows.append(row); } main.append(rows); }
+      if (kind === "schatz") main.append(buildTreasure());
+      main.append(buildInvRows());
+      body.append(main);
+      if (kind === "inventar" || kind === "werkbank") body.append(buildBook());
+      card.append(body);
+    }
+    UIEL.append(card);
+    render();
+    const q = UIEL.querySelector("input.v13q"); if (q && !isTouch && kind === "kreativ") setTimeout(() => q.focus(), 30);
+  }
+  function buildInvRows() {
+    const wrap = h("div", "v13grid");
+    wrap.append(h("div", "v13lab", "Inventar"));
+    for (let r = 0; r < 3; r++) { const row = h("div", "v13row"); for (let i = 0; i < 9; i++) row.append(slotEl(invRef(9 + r * 9 + i))); wrap.append(row); }
+    const hot = h("div", "v13row"); hot.style.marginTop = "6px";
+    for (let i = 0; i < 9; i++) hot.append(slotEl(invRef(i), i === sel ? "cur" : ""));
+    wrap.append(hot);
+    return wrap;
+  }
+  function buildCraft() {
+    const n = V13.gridSize, wrap = h("div", "v13grid");
+    wrap.append(h("div", "v13lab", n === 3 ? "Herstellen (3 × 3)" : "Herstellen (2 × 2) – für größere Sachen brauchst du eine Werkbank"));
+    const row = h("div", "v13craft"), g = h("div", "v13grid"); g.style.gridTemplateColumns = `repeat(${n}, 44px)`;
+    for (let i = 0; i < n * n; i++) g.append(slotEl({ get: () => V13.grid[i], set: v => { V13.grid[i] = v; }, zone: "grid" }));
+    const res = slotEl({ get: () => V13.match ? mk(V13.match.out, V13.match.n) : null, set: () => {}, result: true }, "v13res");
+    row.append(g, h("div", "v13arrow", "➜"), res);
+    wrap.append(row);
+    return wrap;
+  }
+  let furnEls = null;
+  function buildFurnace() {
+    const f = V13.furnace, wrap = h("div", "v13furn");
+    const a = slotEl({ get: () => f.s[0], set: v => { f.s[0] = v; }, zone: "fin" });
+    const b = slotEl({ get: () => f.s[1], set: v => { f.s[1] = v; }, zone: "ffuel", accept: id => fuelOf(id) > 0 });
+    const c = slotEl({ get: () => f.s[2], set: v => { f.s[2] = v; }, zone: "fout", outOnly: true }, "v13res");
+    const flame = h("div", "v13flame"), prog = h("div", "v13prog"), bar = h("div"); prog.append(bar);
+    // Links oben das, was hinein soll, darunter die Flamme und der Brennstoff; in der Mitte der Fortschritt; rechts das Ergebnis
+    wrap.append(h("div", "v13lab", "Hinein"), h("div"), h("div", "v13lab", "Fertig"));
+    wrap.append(a, prog, c);
+    wrap.append(flame, h("div"), h("div"));
+    wrap.append(b, h("div"), h("div"));
+    wrap.append(h("div", "v13lab", "Brennstoff"), h("div"), h("div"));
+    furnEls = { flame, bar };
+    const box = h("div", "v13grid"); box.append(wrap);
+    box.append(h("div", "v13lab", "Erze werden zu Barren, Sand zu Glas, Bruchstein zu Stein, Holzstämme zu Holzkohle, Fleisch und Kartoffeln werden gebraten. Brennstoff: Kohle, Holzkohle, Holz, Bretter."));
+    return box;
+  }
+  let tcEl = null;
+  function buildTreasure() {
+    const wrap = h("div", "v13grid");
+    const top = h("div", "v13foot"), q = h("input", "v13q"); q.placeholder = "Suchen …"; q.value = V13.bookQ; q.setAttribute("aria-label", "In der Schatztruhe suchen");
+    q.addEventListener("input", () => { V13.bookQ = q.value; render(); });
+    const all = h("button", "v13btn", "Inventar einlagern"); all.type = "button"; all.title = "Legt alles aus dem Inventar (nicht die Schnellleiste) hinein";
+    all.addEventListener("click", () => { for (let i = 9; i < 36; i++) if (V13.inv[i]) { tcPut(V13.inv[i]); V13.inv[i] = null; } clickSound(); render(); });
+    const all2 = h("button", "v13btn alt", "Auch die Schnellleiste"); all2.type = "button";
+    all2.addEventListener("click", () => { for (let i = 0; i < 36; i++) if (V13.inv[i]) { tcPut(V13.inv[i]); V13.inv[i] = null; } clickSound(); render(); });
+    top.append(q, all, all2);
+    tcEl = h("div", "v13items");
+    tcEl.addEventListener("pointerdown", e => { if (V13.cursor && e.target === tcEl) { tcPut(V13.cursor); V13.cursor = null; clickSound(); render(); } });
+    wrap.append(h("div", "v13lab", "Hier hinein passt unbegrenzt viel. Klick: einen Stapel nehmen, Shift-Klick: ins Inventar, mit etwas in der Hand: hineinlegen."), top, tcEl);
+    return wrap;
+  }
+  function renderTreasure() {
+    if (!tcEl) return;
+    tcEl.innerHTML = "";
+    const q = norm(V13.bookQ.trim()), list = tcEntries().filter(e => !q || norm(itemName(e.id)).includes(q));
+    if (!list.length) tcEl.append(h("div", "v13empty", V13.tc.size ? "Nichts gefunden." : "Die Schatztruhe ist noch leer."));
+    for (const e of list) {
+      const b = h("button", "v13it"); b.type = "button";
+      const cv = h("canvas"); cv.width = cv.height = 32; drawSlotIcon(cv, e.id);
+      b.append(cv, h("span", "", itemLabel(e.id)), h("b", "", fmtN(e.n)));
+      b.addEventListener("pointerenter", () => showTip(tipText(mk(e.id, e.n, e.d)))); b.addEventListener("pointerleave", () => showTip(""));
+      b.addEventListener("pointerdown", ev => {
+        ev.preventDefault(); ev.stopPropagation();
+        if (V13.cursor) { tcPut(V13.cursor); V13.cursor = null; }
+        else if (ev.shiftKey) { let n = e.n; while (n > 0) { const k = Math.min(n, maxStack(e.id)), st = mk(e.id, k, e.d), rest = addToInv(st); n -= k - rest; if (rest > 0) break; } V13.tc.set(e.k, n); }
+        else { const k = Math.min(e.n, ev.button === 2 ? Math.ceil(maxStack(e.id) / 2) : maxStack(e.id)); V13.cursor = mk(e.id, k, e.d); V13.tc.set(e.k, e.n - k); }
+        clickSound(); render();
+      });
+      tcEl.append(b);
+    }
+  }
+  let bookEl = null;
+  function buildBook() {
+    const wrap = h("div", "v13book"), q = h("input", "v13q");
+    q.placeholder = "Rezept suchen …"; q.value = V13.bookQ; q.setAttribute("aria-label", "Rezept suchen");
+    q.addEventListener("input", () => { V13.bookQ = q.value; renderBook(); });
+    bookEl = h("div", "v13list");
+    wrap.append(q, bookEl);
+    return wrap;
+  }
+  function recipeText(r) {
+    const parts = needOf(r).map(({ g, n }) => n + " × " + (g.length > 1 && g === G.planks ? "Bretter (jede Holzart)" : g === G.cobble ? "Bruchstein" : g === G.coal ? "Kohle oder Holzkohle" : itemName(g[0])));
+    return itemLabel(r.out) + (r.n > 1 ? " (" + r.n + " Stück)" : "") + "\nBraucht: " + parts.join(", ") + (r.size > V13.gridSize ? "\nNur an der Werkbank" : "") + "\nKlick: ins Raster legen, Shift-Klick: so viele wie möglich";
+  }
+  function renderBook() {
+    if (!bookEl) return;
+    bookEl.innerHTML = "";
+    const q = norm(V13.bookQ.trim());
+    const list = RECIPES.filter(r => !q || norm(itemLabel(r.out)).includes(q)).map(r => ({ r, ok: haveFor(r) && r.size <= V13.gridSize }));
+    list.sort((a, b) => (b.ok - a.ok));
+    for (const { r, ok } of list) {
+      const b = h("button", "v13rec" + (ok ? "" : " no")); b.type = "button";
+      const cv = h("canvas"); cv.width = cv.height = 32; drawSlotIcon(cv, r.out);
+      b.append(cv, h("span", "", itemLabel(r.out)), h("small", "", r.size > V13.gridSize ? "Werkbank" : r.n > 1 ? "× " + r.n : ""));
+      b.addEventListener("click", e => fillRecipe(r, e.shiftKey));
+      b.addEventListener("pointerenter", () => showTip(recipeText(r))); b.addEventListener("pointerleave", () => showTip(""));
+      bookEl.append(b);
+    }
+  }
+  // Kreativ: alle Blöcke und Sachen mit Reitern und Suche
+  let crEl = null, crTabs = null;
+  function allEntries() {
+    const ids = PALETTE.filter(b => b !== THRONTRUHE);
+    for (const d of ITEMS) ids.push(d.id);
+    return ids;
+  }
+  function buildCreative(card) {
+    const top = h("div", "v13foot"), q = h("input", "v13q"); q.placeholder = "Suchen, zum Beispiel „Stuhl“ oder „Gold“ …"; q.value = V13.q; q.style.flex = "1 1 220px";
+    q.setAttribute("aria-label", "Blöcke suchen");
+    q.addEventListener("input", () => { V13.q = q.value; renderCreative(); });
+    const keep = h("label"), cb = h("input"); cb.type = "checkbox"; cb.checked = V13.keepOpen; cb.addEventListener("change", () => { V13.keepOpen = cb.checked; });
+    keep.append(cb, document.createTextNode("Menü offen lassen"));
+    top.append(q, keep);
+    crTabs = h("div", "v13tabs");
+    const icons = { alle: GRASS, bau: SBRICK, natur: LOG, moebel: CHAIR_O, licht: LANTERN_S, deko: 60, werkzeug: TOOLS.spitzhacke_diamant, essen: I.apfel, roh: I.eisenbarren };
+    for (const t of TABS) {
+      const b = h("button", "v13tab" + (V13.tab === t.key ? " on" : "")); b.type = "button";
+      const cv = h("canvas"); cv.width = cv.height = 32; drawSlotIcon(cv, icons[t.key]);
+      b.append(cv, document.createTextNode(t.name));
+      b.addEventListener("click", () => { V13.tab = t.key; for (const x of crTabs.children) x.classList.toggle("on", x === b); renderCreative(); });
+      crTabs.append(b);
+    }
+    crEl = h("div", "v13items");
+    const hint = h("div", "v13lab", "Klick: in die Hand nehmen. Shift-Klick: ins Inventar legen. Unten wählst du den Platz in der Schnellleiste.");
+    const hot = h("div", "v13row");
+    for (let i = 0; i < 9; i++) {
+      hot.append(slotEl(Object.assign(invRef(i), { pickSelect: true }), i === sel ? "cur" : ""));
+    }
+    const trash = slotEl({ get: () => null, set: () => {}, trash: true });
+    trash.title = "Weg damit: lege hier etwas ab, und es ist fort";
+    const foot = h("div", "v13foot"); foot.append(hot, h("span", "v13lab", "Weg damit:"), trash);
+    card.append(top, crTabs, crEl, hint, foot);
+  }
+  function renderCreative() {
+    if (!crEl) return;
+    crEl.innerHTML = "";
+    const q = norm(V13.q.trim());
+    const list = allEntries().filter(id => (V13.tab === "alle" || catOf(id) === V13.tab) && (!q || norm(itemLabel(id)).includes(q)));
+    if (!list.length) crEl.append(h("div", "v13empty", "Nichts gefunden."));
+    for (const id of list) {
+      const b = h("button", "v13it"); b.type = "button";
+      const cv = h("canvas"); cv.width = cv.height = 32; drawSlotIcon(cv, id);
+      b.append(cv, h("span", "", itemLabel(id)));
+      b.addEventListener("click", e => creativePick(id, e.shiftKey));
+      b.addEventListener("pointerenter", () => showTip(tipText(mk(id, 1)))); b.addEventListener("pointerleave", () => showTip(""));
+      crEl.append(b);
+    }
+  }
+  function creativePick(id, toInv) {
+    if (toInv) { addToInv(fullStack(id)); showName(itemLabel(id) + " liegt im Inventar"); render(); refreshBar(); return; }
+    putInHand(id);
+    if (!V13.keepOpen) closePalette(); else render();
+  }
+  // Alles im offenen Fenster neu zeichnen
+  function render() {
+    if (V13.ui === "inventar" || V13.ui === "werkbank") V13.match = matchRecipe(gridIds(), V13.gridSize);
+    for (const { el, ref } of V13.els) paintSlot(el, ref.get());
+    if (V13.ui === "schatz") renderTreasure();
+    if (V13.ui === "inventar" || V13.ui === "werkbank") renderBook();
+    if (V13.ui === "kreativ") renderCreative();
+    CUR.hidden = !V13.cursor;
+    if (V13.cursor) { drawSlotIcon(CUR.firstChild, V13.cursor.id); CUR.lastChild.textContent = V13.cursor.n > 1 ? V13.cursor.n : ""; CUR.style.left = mouseX + "px"; CUR.style.top = mouseY + "px"; }
+    refreshBar();
+  }
+  function closeUIOnly() {
+    if (V13.cursor) { const r = addToInv(V13.cursor); if (r > 0) spawnDrop(V13.cursor.id, r, V13.cursor.d, P.x, P.y + 1.2, P.z, true); V13.cursor = null; }
+    returnGrid();
+    V13.ui = null; V13.els = []; furnEls = null; tcEl = null; bookEl = null; crEl = null;
+    UIEL.hidden = true; UIEL.innerHTML = ""; CUR.hidden = true; TIP.hidden = true;
+    refreshBar(); select(sel); saveSoon();
+  }
+  function v13Close() { if (V13.ui) closeUIOnly(); }
+  // Der Ofen zeigt Flamme und Fortschritt, solange er offen ist
+  function updateOpenFurnace() {
+    if (V13.ui !== "ofen" || !furnEls) return;
+    const f = V13.furnace;
+    furnEls.flame.style.opacity = f.burn > 0 ? 0.25 + 0.75 * (f.burn / (f.burnMax || 1)) : 0.15;
+    furnEls.bar.style.width = Math.round(f.cook / SMELT_TIME * 100) + "%";
+  }
+  // Rechtsklick auf Werkbank, Ofen, Truhe oder Schatztruhe öffnet das passende Fenster
+  function v13UseBlock(x, y, z, b) {
+    let kind = null;
+    if (b === CRAFT) kind = "werkbank";
+    else if (b === OVEN) kind = "ofen";
+    else if (b === CHEST) kind = "truhe";
+    else if (ROTB[b] === THRONTRUHE) kind = "schatz";
+    if (!kind) return false;
+    swingHand();
+    noiseHit(kind === "ofen" ? 500 : 340, 1.2, 0.18, 0.07);
+    openPalette(kind, [x, y, z]);
+    return true;
+  }
+  // ==================== Version 13: Inventar und Handwerk – Abbauen, Fundstücke, Werkzeuge benutzen, Säen, Speichern ====================
+  // ---------- Was der König in der Hand hält (Ich-Ansicht und Figur) ----------
+  function applyHeld(mesh, id, fp) {
+    if (!SPRITES.has(mesh.geometry)) mesh.geometry.dispose();
+    if (!id) { mesh.visible = false; mesh.geometry = new THREE.BufferGeometry(); return; }
+    mesh.visible = true;
+    if (id >= IB) {
+      mesh.geometry = spriteGeo(id); mesh.material = spriteMat;
+      const tool = !!toolOf(id);
+      if (fp) {
+        if (tool) { mesh.position.set(0.4, -0.17, -0.82); mesh.rotation.set(0.05, -1.05, 0.5); mesh.scale.setScalar(0.44); }
+        else { mesh.position.set(0.44, -0.3, -0.86); mesh.rotation.set(0.05, -0.55, 0.05); mesh.scale.setScalar(0.3); }
+      } else {
+        if (tool) { mesh.position.set(0, -9 * PXS, 3.4 * PXS); mesh.rotation.set(-0.3, -Math.PI / 2, Math.PI / 4 + 1.2); mesh.scale.setScalar(0.62); }
+        else { mesh.position.set(0, -8 * PXS, 2 * PXS); mesh.rotation.set(-1.2, 0, 0); mesh.scale.setScalar(0.36); }
+      }
+    } else {
+      mesh.geometry = blockItemGeo(id); mesh.material = itemMat(id);
+      if (fp) { mesh.position.set(0.37, -0.28, -0.92); mesh.rotation.set(0.12, 0.72, 0); mesh.scale.setScalar(0.19); }
+      else { mesh.position.set(0, -7 * PXS, 1.8 * PXS); mesh.rotation.set(0, 0, 0); mesh.scale.setScalar(0.26); }
+    }
+  }
+
+  // ---------- Herumliegende Sachen: fallen aus Blöcken, Tieren und Truhen, der König sammelt sie im Vorbeigehen ein ----------
+  const DROPS = [], dropBlockGeo = new Map();
+  function spawnDrop(id, n, d, x, y, z, thrown) {
+    if (!id || n <= 0) return;
+    // Gleiche Sachen in der Nähe werden zu einem Stapel
+    for (const o of DROPS) if (o.id === id && (o.d || 0) === (d || 0) && maxStack(id) > 1 && o.n + n <= maxStack(id) && Math.abs(o.x - x) < 0.9 && Math.abs(o.y - y) < 0.9 && Math.abs(o.z - z) < 0.9) { o.n += n; return; }
+    let geo, mat;
+    if (id >= IB) { geo = spriteGeo(id); mat = litEnt(new THREE.MeshLambertMaterial({ map: itemTex, alphaTest: 0.5, side: THREE.DoubleSide })); }
+    else {
+      geo = dropBlockGeo.get(id); if (!geo) { geo = blockItemGeo(id); dropBlockGeo.set(id, geo); }
+      mat = litEnt(new THREE.MeshLambertMaterial({ map: atlasTex, alphaTest: 0.5, side: PLANT[id] || SHAPE[id] ? THREE.DoubleSide : THREE.FrontSide }));
+    }
+    const m = new THREE.Mesh(geo, mat); m.scale.setScalar(id >= IB ? 0.4 : 0.25);
+    scene.add(m);
+    const o = { id, n, d: d || 0, x, y, z, vx: (Math.random() - 0.5) * 2.4, vy: 3 + Math.random() * 1.5, vz: (Math.random() - 0.5) * 2.4, age: 0, pick: 0.45, mesh: m, lt: 0, ground: false, spin: Math.random() * 6 };
+    if (thrown) { lookVec(dirV); o.vx = dirV.x * 4; o.vz = dirV.z * 4; o.vy = 2.5; o.pick = 1.6; }
+    DROPS.push(o);
+    if (DROPS.length > 240) removeDrop(0);
+  }
+  function removeDrop(i) { const o = DROPS[i]; scene.remove(o.mesh); o.mesh.material.dispose(); DROPS.splice(i, 1); }
+  function updateDrops(dt) {
+    for (let i = DROPS.length - 1; i >= 0; i--) {
+      const o = DROPS[i];
+      o.age += dt; o.pick -= dt;
+      if (o.age > 300 || o.y < -10) { removeDrop(i); continue; }
+      const dx = P.x - o.x, dy = P.y + 0.7 - o.y, dz = P.z - o.z, dist = Math.hypot(dx, dy, dz);
+      if (o.pick <= 0 && dist < 2.3 && !P.dead && roomFor(mk(o.id, 1, o.d))) {
+        if (dist < 0.75) {
+          const rest = addToInv(mk(o.id, o.n, o.d));
+          noiseHit(2600 + Math.random() * 900, 4, 0.05, 0.05); beep(880 + Math.random() * 300, 0.06, "sine", 0.03);
+          if (rest > 0) o.n = rest; else { removeDrop(i); }
+          refreshBar(); if (!V13.inv[sel] || V13.inv[sel].id !== heldNow) select(sel);
+          continue;
+        }
+        const k = Math.min(1, dt * 10);
+        o.vx += (dx / dist * 9 - o.vx) * k; o.vy += (dy / dist * 9 - o.vy) * k; o.vz += (dz / dist * 9 - o.vz) * k;
+        o.x += o.vx * dt; o.y += o.vy * dt; o.z += o.vz * dt; o.ground = false;
+      } else {
+        o.vy -= 18 * dt; if (o.vy < -20) o.vy = -20;
+        const fx = Math.floor(o.x), fz = Math.floor(o.z);
+        if (solid(get(fx, Math.floor(o.y + 0.05), fz))) { o.y = Math.floor(o.y + 0.05) + 1; o.vy = Math.max(0, o.vy); }   // in einem Block: nach oben schieben
+        const ny = o.y + o.vy * dt;
+        if (o.vy <= 0 && solid(get(fx, Math.floor(ny), fz))) { o.y = Math.floor(ny) + 1; o.vy = 0; o.vx *= 0.5; o.vz *= 0.5; o.ground = true; }
+        else { o.y = ny; o.ground = false; }
+        const nx = o.x + o.vx * dt, nz = o.z + o.vz * dt;
+        if (!solid(get(Math.floor(nx), Math.floor(o.y + 0.1), fz))) o.x = nx; else o.vx = 0;
+        if (!solid(get(Math.floor(o.x), Math.floor(o.y + 0.1), Math.floor(nz)))) o.z = nz; else o.vz = 0;
+        if (o.ground) { o.vx *= Math.pow(0.02, dt); o.vz *= Math.pow(0.02, dt); }
+        if (get(Math.floor(o.x), Math.floor(o.y), Math.floor(o.z)) === WATER) { o.vy = Math.max(o.vy, 0.6); }
+      }
+      o.spin += dt * 1.7;
+      o.mesh.position.set(o.x, o.y + 0.2 + (o.ground ? Math.sin(o.age * 2.6) * 0.06 + 0.06 : 0), o.z);
+      o.mesh.rotation.set(0, o.spin, 0);
+      if ((o.lt -= dt) <= 0) { o.lt = 0.3; o.mesh.material.userData.uLight.value.copy(lightAt(o.x, o.y + 0.4, o.z)); }
+    }
+  }
+  let heldNow = 0;
+
+  // ---------- Abbauen im Überleben: Maustaste halten, Risse wachsen, das Werkzeug bestimmt die Zeit ----------
+  const MINE = { on: false, x: 0, y: 0, z: 0, b: 0, t: 0, need: 1, auto: false, snd: 0, force: false };
+  let mouse0 = false, touchBreak = false;
+  window.addEventListener("mousedown", e => { if (e.button === 0) mouse0 = true; }, true);
+  window.addEventListener("mouseup", e => { if (e.button === 0) mouse0 = false; }, true);
+  window.addEventListener("blur", () => { mouse0 = false; });
+  const tBreakEl = document.getElementById("tBreak");
+  tBreakEl.addEventListener("touchstart", () => { touchBreak = true; }, { passive: true });
+  tBreakEl.addEventListener("touchend", () => { touchBreak = false; }); tBreakEl.addEventListener("touchcancel", () => { touchBreak = false; });
+  // Risse im Block: zehn Stufen auf einem Streifen
+  const crackCv = document.createElement("canvas"); crackCv.width = 160; crackCv.height = 16;
+  (() => {
+    const g = crackCv.getContext("2d"), r = mulberry32(4242), lines = [];
+    for (let k = 0; k < 40; k++) { let x = 8 + (r() - 0.5) * 4, y = 8 + (r() - 0.5) * 4; const pts = [[x, y]]; const a = r() * Math.PI * 2; for (let s = 0; s < 6; s++) { x += Math.cos(a + (r() - 0.5) * 1.4) * 1.6; y += Math.sin(a + (r() - 0.5) * 1.4) * 1.6; pts.push([x, y]); } lines.push(pts); }
+    for (let st = 0; st < 10; st++) {
+      const n = 4 + st * 4;
+      for (let k = 0; k < n; k++) for (const [x, y] of lines[k]) { const px = Math.floor(x), py = Math.floor(y); if (px >= 0 && py >= 0 && px < 16 && py < 16) { g.fillStyle = `rgba(0,0,0,${0.55 + st * 0.03})`; g.fillRect(st * 16 + px, py, 1, 1); } }
+    }
+  })();
+  const crackTex = new THREE.CanvasTexture(crackCv); crackTex.magFilter = THREE.NearestFilter; crackTex.minFilter = THREE.NearestFilter; crackTex.generateMipmaps = false;
+  crackTex.repeat.set(0.1, 1);
+  const crack = new THREE.Mesh(new THREE.BoxGeometry(1.006, 1.006, 1.006), new THREE.MeshBasicMaterial({ map: crackTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  crack.visible = false; scene.add(crack);
+  function v13Break(x, y, z, b) {
+    if (ROTB[b] === THRONTRUHE) { showName("Die Schatztruhe des Königs bleibt, wo sie ist.", 2000); return true; }
+    if (!survival() || MINE.force) return false;
+    if (y <= 0) { showName("Das Grundgestein lässt sich nicht abbauen.", 1600); return true; }
+    const need = breakTime(b, V13.inv[sel]);
+    if (need <= 0.05) return false;
+    if (!MINE.on || MINE.x !== x || MINE.y !== y || MINE.z !== z) Object.assign(MINE, { on: true, x, y, z, b, t: 0, need, snd: 0 });
+    MINE.auto = document.pointerLockElement !== canvas && !touchBreak;
+    return true;
+  }
+  function updateMine(dt) {
+    if (!MINE.on) { crack.visible = false; return; }
+    const holding = mouse0 || touchBreak || MINE.auto;
+    const same = target && !target.door && target.x === MINE.x && target.y === MINE.y && target.z === MINE.z && get(MINE.x, MINE.y, MINE.z) === MINE.b;
+    if (!holding || !same || !playing || palOpen || P.dead || !survival() || sleepT >= 0) { MINE.on = false; crack.visible = false; return; }
+    MINE.t += dt;
+    if ((MINE.snd -= dt) <= 0) { MINE.snd = 0.24; blockSound(MINE.b, "hit", 0.05); swingHand(); blockParticles(MINE.x, MINE.y, MINE.z, MINE.b, 2); }
+    const p = MINE.t / MINE.need;
+    if (p >= 1) { MINE.on = false; crack.visible = false; MINE.force = true; try { breakBlock(); } finally { MINE.force = false; } return; }
+    crack.visible = true; crack.position.set(MINE.x + 0.5, MINE.y + 0.5, MINE.z + 0.5); crackTex.offset.x = Math.min(9, Math.floor(p * 10)) * 0.1;
+  }
+  // Nach dem Abbauen: Fundstücke, Inhalt von Truhe und Ofen, Abnutzung des Werkzeugs
+  function v13Broken(x, y, z, b) {
+    const k = idx(x, y, z);
+    if (b === CHEST && V13.chests.has(k)) { for (const s of V13.chests.get(k)) if (s) spawnDrop(s.id, s.n, s.d, x + 0.5, y + 0.4, z + 0.5); V13.chests.delete(k); }
+    if (b === OVEN && V13.furn.has(k)) { for (const s of V13.furn.get(k).s) if (s) spawnDrop(s.id, s.n, s.d, x + 0.5, y + 0.4, z + 0.5); V13.furn.delete(k); }
+    V13.crops.delete(k);
+    if (!survival()) return;
+    const held = V13.inv[sel];
+    if (canHarvest(b, held)) for (const [id, n] of dropsOf(b)) spawnDrop(id, n, 0, x + 0.5, y + 0.3, z + 0.5);
+    if (held && toolOf(held.id) && hardness(b) > 0) wearHeld(toolOf(held.id).kind === "schwert" ? 2 : 1);
+  }
+  // Werkzeug nutzt sich ab (nur im Überleben); ist es ganz abgenutzt, zerbricht es
+  function wearHeld(n) {
+    const st = V13.inv[sel], tl = st && toolOf(st.id);
+    if (!tl || !survival()) return;
+    st.d = (st.d || 0) + n;
+    if (st.d >= tl.dur) {
+      V13.inv[sel] = null;
+      showName(itemName(st.id) + " ist zerbrochen!", 2200);
+      noiseHit(1400, 2, 0.25, 0.09); beep(300, 0.25, "sawtooth", 0.03);
+      emit(P.x, P.y + 1.3, P.z, 10, () => TIERS[tl.tier].c[1], 0.07, 2);
+      select(sel);
+    }
+    refreshBar();
+  }
+  // Angriff: Schwerter und Äxte treffen härter
+  function v13Dmg() { const st = V13.inv[sel], tl = st && toolOf(st.id); return tl ? 1 + (tl.dmg - 1) * 0.55 : 1; }
+  function v13Hit() { const st = V13.inv[sel], tl = st && toolOf(st.id); if (tl) wearHeld(tl.kind === "schwert" ? 1 : 2); }
+  // Gesetzter Block: im Überleben wird einer verbraucht
+  function v13Placed() {
+    if (!survival()) return;
+    const st = V13.inv[sel]; if (!st) return;
+    if (!--st.n) { V13.inv[sel] = null; select(sel); }
+    refreshBar();
+  }
+  // James fällt Bäume: im Überleben fallen die Stämme als Holz herunter
+  function v13Chopped(x, y, z, b) { if (survival() && LOGB[b]) spawnDrop(b, 1, 0, x + 0.5, y + 0.3, z + 0.5); }
+
+  // ---------- Rechtsklick mit Essen, Hacke, Schaufel, Saat oder Fackel ----------
+  function v13UseItem(t) {
+    const st = V13.inv[sel]; if (!st) return false;
+    const d = itemDef(st.id), tl = toolOf(st.id);
+    // Saat, Karotten und Kartoffeln auf Ackerboden pflanzen (sonst werden Karotten gegessen)
+    if (d && d.plant && t && !t.door) {
+      const { x, y, z, py } = t;
+      if (get(x, y, z) === FARMLAND && py === y + 1 && get(x, y + 1, z) === AIR) {
+        editBlock(x, y + 1, z, d.plant); V13.crops.set(idx(x, y + 1, z), 0);
+        blockSound(GRASS, "place", 0.07); swingHand();
+        if (survival()) { if (!--st.n) { V13.inv[sel] = null; select(sel); } refreshBar(); }
+        saveSoon();
+        return true;
+      }
+      if (!d.food) { showName("Saat gehört auf Ackerboden. Den machst du mit einer Hacke.", 2000); return true; }
+    }
+    if (d && d.food) {
+      if (P.hp >= MAX_HP) { showName("Du bist satt und gesund.", 1400); return true; }
+      P.hp = Math.min(MAX_HP, P.hp + d.food);
+      swingHand();
+      for (let i = 0; i < 3; i++) setTimeout(() => noiseHit(260 + Math.random() * 120, 1.2, 0.09, 0.07), i * 140);
+      lookVec(dirV); emit(P.x + dirV.x * 0.5, P.y + 1.4, P.z + dirV.z * 0.5, 8, () => d.key === "brot" ? [212, 150, 70] : d.key.includes("apfel") ? [220, 60, 50] : [200, 140, 90], 0.06, 1.5);
+      showName(itemName(st.id) + ": lecker! (+" + d.food / 2 + " Herzen)", 1600);
+      if (survival()) { if (!--st.n) V13.inv[sel] = d.back ? mk(I[d.back], 1) : null; else if (d.back) giveItem(I[d.back], 1); select(sel); }
+      refreshBar();
+      return true;
+    }
+    if (!t || t.door) return d ? true : false;
+    const { x, y, z, px, py, pz } = t, b = get(x, y, z), above = get(x, y + 1, z);
+    if (tl && tl.kind === "hacke" && (b === GRASS || b === DIRT || b === PATH) && (above === AIR || PLANT[above])) {
+      if (PLANT[above]) editBlock(x, y + 1, z, AIR);
+      editBlock(x, y, z, FARMLAND); blockSound(DIRT, "place", 0.08); swingHand(); wearHeld(1); return true;
+    }
+    if (tl && tl.kind === "schaufel" && (b === GRASS || b === DIRT) && above === AIR) {
+      editBlock(x, y, z, PATH); blockSound(GRASS, "place", 0.08); swingHand(); wearHeld(1); return true;
+    }
+    if (st.id === TORCH) {
+      if (py < y) return true;                                   // an die Decke geht keine Fackel
+      if (py === y && (get(px, py, pz) === AIR || get(px, py, pz) === WATER) && !entOverlaps(px, py, pz)) {
+        editBlock(px, py, pz, rotId(TORCH_W, px - x, pz - z)); blockSound(PLANKS, "place", 0.06); swingHand(); v13Placed(); return true;
+      }
+      return false;
+    }
+    return !!d;                                                  // andere Gegenstände setzt man nicht als Block
+  }
+
+  // ---------- Felder: Saat wächst von selbst ----------
+  const GROW = { [CROP_W1]: CROP_W2, [CROP_W2]: CROP_W3, [CROP_W3]: WHEAT, [SPROUT_C]: CARROTS, [SPROUT_P]: POTATOES, [SPROUT_B]: BEETS };
+  let growT = 0;
+  function updateCrops(dt) {
+    if ((growT += dt) < 1) return;
+    growT = 0;
+    for (const [k, t] of V13.crops) {
+      const x = k % W, z = Math.floor(k / W) % D, y = Math.floor(k / (W * D)), b = world[k];
+      if (!GROW[b] || get(x, y - 1, z) !== FARMLAND) { V13.crops.delete(k); continue; }
+      const nt = t + 1;
+      if (nt > 50 && Math.random() < 1 / 40) {
+        editBlock(x, y, z, GROW[b]);
+        if (GROW[GROW[b]]) V13.crops.set(k, 0); else V13.crops.delete(k);
+      } else V13.crops.set(k, nt);
+    }
+  }
+
+  // ---------- Beute von Tieren ----------
+  function lootAnimals() {
+    for (const e of ents) {
+      if (e.dead < 0 || e.looted || (e.kind !== "animal" && e.kind !== "horse")) continue;
+      e.looted = true;
+      const m = e.m || "", r = (a, b) => a + Math.floor(Math.random() * (b - a + 1)), at = [e.x, e.y + 0.5, e.z];
+      const drop = (id, n) => { if (n > 0) spawnDrop(id, n, 0, ...at); };
+      if (m === "cow") { drop(I.rind_roh, r(1, 3)); drop(I.leder, r(0, 2)); }
+      else if (m === "pig") drop(I.schwein_roh, r(1, 3));
+      else if (m.startsWith("sheep")) { drop(/black|grau|gray|brown|braun/.test(m) ? BWOOL : /red|rot/.test(m) ? RWOOL : WWOOL, 1); drop(I.hammel_roh, r(1, 2)); }
+      else if (m.startsWith("chicken") || m === "hen") { drop(I.huhn_roh, 1); drop(I.feder, r(0, 2)); }
+      else if (m.startsWith("horse")) drop(I.leder, r(0, 2));
+    }
+  }
+
+  // ---------- Spielart wählen, Inventar-Knopf, Tastenliste ----------
+  const modeTag = document.createElement("span"); modeTag.id = "modeTag"; modeTag.textContent = "Überleben"; modeTag.hidden = true;
+  document.getElementById("info").append(modeTag);
+  const modeRow = document.createElement("div"); modeRow.className = "opts"; modeRow.style.gridTemplateColumns = "1fr";
+  const modeBtn = document.createElement("button"); modeBtn.className = "opt"; modeBtn.id = "modeBtn"; modeBtn.type = "button";
+  const modeInfo = document.createElement("p"); modeInfo.className = "tip";
+  modeRow.append(modeBtn, modeInfo);
+  document.querySelector("#menu .opts").after(modeRow);
+  function syncMode() {
+    const s = survival();
+    modeBtn.textContent = s ? "Spielart: Überleben" : "Spielart: Kreativ";
+    modeBtn.setAttribute("aria-pressed", s ? "true" : "false");
+    modeInfo.textContent = s ? "Du baust ab, sammelst und stellst her. Werkzeuge machen das Abbauen schneller und nutzen sich ab. Mit I öffnest du das Inventar mit dem Rezeptbuch."
+      : "Alle Blöcke und Sachen unbegrenzt, Abbauen geht sofort. Mit B wählst du aus allem aus, mit I öffnest du das Inventar.";
+    modeTag.hidden = !s;
+    refreshBar();
+  }
+  modeBtn.addEventListener("click", () => { V13.mode = survival() ? "kreativ" : "ueberleben"; MINE.on = false; syncMode(); saveSoon(); });
+  (() => {
+    const kl = document.getElementById("keyList");
+    if (kl) {
+      for (const k of kl.querySelectorAll("kbd")) if (k.textContent === "B") k.nextElementSibling.textContent = "Alle Blöcke und Sachen, mit Reitern und Suche (in der Spielart Überleben: Inventar)";
+      const kb = document.createElement("kbd"), dv = document.createElement("div"); kb.textContent = "I"; dv.textContent = "Inventar: herstellen, Rezeptbuch, Sachen sortieren";
+      const bk = [...kl.querySelectorAll("kbd")].find(k => k.textContent === "B");
+      if (bk) bk.nextElementSibling.after(kb, dv); else kl.append(kb, dv);
+    }
+    const tb = document.querySelector(".tbtns");
+    if (tb) {
+      const b = document.createElement("button"); b.id = "tInv"; b.textContent = "Inventar"; tb.append(b);
+      b.addEventListener("touchstart", e => { e.preventDefault(); initAudio(); openPalette("inventar"); }, { passive: false });
+    }
+  })();
+  // Taste I öffnet das Inventar (fängt die Taste ab, bevor das Spiel sie sieht)
+  window.addEventListener("keydown", e => {
+    if (e.code !== "KeyI" || e.repeat || palOpen) return;
+    if (playing && !P.dead && sleepT < 0) { e.stopImmediatePropagation(); openPalette("inventar"); }
+  }, true);
+  // Mittlere Maustaste und Blockmenü: Block in die Hand nehmen
+  function v13PutInHand(b) {
+    const hot = V13.inv.slice(0, 9).findIndex(s => s && s.id === b);
+    if (hot >= 0) { select(hot); return; }
+    if (survival()) {
+      const j = V13.inv.findIndex(s => s && s.id === b);
+      if (j < 0) { showName("Davon hast du nichts dabei.", 1400); return; }
+      const t = V13.inv[sel]; V13.inv[sel] = V13.inv[j]; V13.inv[j] = t;
+    } else {
+      const free = V13.inv.slice(0, 9).findIndex(s => !s);
+      if (!V13.inv[sel] || free < 0) V13.inv[sel] = fullStack(b);
+      else { V13.inv[free] = fullStack(b); refreshBar(); select(free); saveSoon(); return; }
+    }
+    refreshBar(); select(sel); saveSoon();
+  }
+
+  // ---------- Speichern und Laden ----------
+  const validId = id => Number.isInteger(id) && (id < NB ? id > 0 && !!TEX[id] : !!itemDef(id));
+  function v13Save() {
+    const pack = s => s ? [s.id, s.n, s.d || 0] : 0;
+    const ch = []; for (const [k, l] of V13.chests) ch.push(k, l.map(pack));
+    const fu = []; for (const [k, f] of V13.furn) if (f.s.some(Boolean) || f.burn > 0) fu.push(k, f.s.map(pack), Math.round(f.burn * 10) / 10, Math.round(f.burnMax), Math.round(f.cook * 10) / 10);
+    return { m: V13.mode, inv: V13.inv.map(pack), sel, ch, fu, tc: [...V13.tc].filter(e => e[1] > 0), cr: [...V13.crops.keys()] };
+  }
+  function v13Load(save) {
+    const s = save && save.v13;
+    const unpack = a => Array.isArray(a) && validId(a[0]) && a[1] > 0 ? mk(a[0], Math.min(a[1], maxStack(a[0])), a[2] || 0) : null;
+    if (s) {
+      V13.mode = s.m === "ueberleben" ? "ueberleben" : "kreativ";
+      if (Array.isArray(s.inv)) for (let i = 0; i < 36; i++) V13.inv[i] = unpack(s.inv[i]);
+      if (Number.isInteger(s.sel) && s.sel >= 0 && s.sel < 9) sel = s.sel;
+      if (Array.isArray(s.ch)) for (let i = 0; i + 1 < s.ch.length; i += 2) if (Array.isArray(s.ch[i + 1])) { const l = new Array(27).fill(null); s.ch[i + 1].forEach((a, j) => { if (j < 27) l[j] = unpack(a); }); V13.chests.set(s.ch[i], l); }
+      if (Array.isArray(s.fu)) for (let i = 0; i + 4 < s.fu.length; i += 5) { const k = s.fu[i]; if (!(k >= 0 && k < world.length)) continue; const x = k % W, z = Math.floor(k / W) % D, y = Math.floor(k / (W * D)); V13.furn.set(k, { s: (s.fu[i + 1] || []).slice(0, 3).map(unpack).concat([null, null, null]).slice(0, 3), burn: +s.fu[i + 2] || 0, burnMax: +s.fu[i + 3] || 0, cook: +s.fu[i + 4] || 0, x, y, z }); }
+      if (Array.isArray(s.tc)) for (const [k, n] of s.tc) if (typeof k === "string" && n > 0 && validId(+k.split(":")[0])) V13.tc.set(k, n);
+      if (Array.isArray(s.cr)) for (const k of s.cr) if (k >= 0 && k < world.length) V13.crops.set(k, 0);
+    } else {
+      // Erster Start mit Version 13: die alte Schnellleiste kommt ins Inventar, dazu ein paar Werkzeuge
+      const bar = save && Array.isArray(save.bar) && save.bar.length === 9 && save.bar.every(b => PALETTE.includes(b)) ? save.bar : HOTBAR;
+      bar.forEach((b, i) => { V13.inv[i] = fullStack(b); });
+      [TOOLS.spitzhacke_eisen, TOOLS.axt_eisen, TOOLS.schaufel_eisen, TOOLS.schwert_eisen, TORCH, CRAFT, OVEN, CHEST].forEach((id, i) => { V13.inv[9 + i] = fullStack(id); });
+    }
+    if (!s || !s.tc) {
+      // Der Königsschatz zu Beginn
+      for (const [id, n] of [[I.goldbarren, 240], [I.diamant, 36], [I.smaragd, 48], [I.eisenbarren, 128], [I.kohle, 192], [I.brot, 64], [I.apfel, 64], [GOLD, 16], [TORCH, 128], [TOOLS.schwert_diamant, 1], [TOOLS.spitzhacke_diamant, 1]]) V13.tc.set(String(id), n);
+    }
+    syncMode();
+  }
+
+  // ---------- Schatztruhe neben dem Thron, Königliche Werkstatt im Keller ----------
+  V11.build.push(() => {
+    setB(93, G0 + 3, 75, rotId(THRONTRUHE, 0, 1));
+    // Die Werkstatt im zweiten leeren Kellerraum (x 84..96, z 90..101, Boden y 17)
+    const F = G0 - 9, y = F + 1, top = G0 - 1;
+    setB(85, y, 91, CRAFT); setB(86, y, 91, CRAFT);
+    for (const x of [93, 94, 95]) { setB(x, y, 91, OVEN); setB(x, y + 1, 91, COBBLE); }
+    fill(93, y + 2, 91, 95, top - 1, 91, BRICK);                                      // Esse über den Öfen
+    setB(85, y, 100, CHEST); setB(86, y, 100, CHEST); setB(84, y, 100, BARREL); setB(84, y, 99, BARREL); setB(84, y + 1, 100, BARREL);
+    setB(96, y, 100, IRONB); setB(95, y, 100, rotId(WAFFENST, 0, -1)); setB(96, y, 99, COUNTER); setB(96, y, 98, COUNTER);
+    setB(88, y, 95, TABLE_O); setB(89, y, 95, TABLE_O); setB(88, y, 94, rotId(STOOL, 0, 1)); setB(89, y, 96, rotId(STOOL, 0, -1));
+    for (const x of [84, 96]) for (const z of [93, 97]) setB(x, y + 2, z, rotId(TORCH_W, x === 84 ? 1 : -1, 0));
+    setB(88, top - 1, 98, LANTERN_H);
+    AREAS.unshift(["Königliche Werkstatt", "Werkbänke, Öfen und Truhen", 83, 97, F, top, 89, 102], ["Thronsaal", "neben dem Thron steht deine Schatztruhe", 92, 100, G0 + 1, G0 + 6, 74, 78]);
+  });
+
+  // ---------- Jedes Bild: Abbauen, Fundstücke, Öfen, Felder, Tiere ----------
+  V11.update.push((dt) => {
+    updateMine(dt);
+    updateDrops(dt);
+    updateCrops(dt);
+    lootAnimals();
+    for (const f of V13.furn.values()) if (f.burn > 0 || (f.s[0] && f.s[1])) { if (tickFurnace(f, dt) && V13.ui === "ofen" && V13.furnace === f) render(); }
+    updateOpenFurnace();
+    const h0 = heldId(); if (h0 !== heldNow) heldNow = h0;
+  });
+  // Ein Hinweis beim ersten Mal, wenn man Überleben wählt und noch kein Werkzeug hat, gibt es nicht: der König findet seine Werkzeuge im Inventar.
   // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.
@@ -8509,6 +9964,7 @@
   itemMats = [litEnt(new THREE.MeshLambertMaterial({ map: atlas }), playerLight), litEnt(new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.5, side: THREE.DoubleSide }), playerLight), new THREE.MeshBasicMaterial({ map: atlas })];
   const save = loadSave();
   if (save && Array.isArray(save.bar) && save.bar.length === HOTBAR.length && save.bar.every(b => PALETTE.includes(b))) HOTBAR.splice(0, HOTBAR.length, ...save.bar);
+  v13Load(save);   // Version 13: Inventar, Truhen, Öfen, Schatztruhe, Felder, Spielart
   buildBar(); buildPalette();
   let savedQ = null; try { savedQ = localStorage.getItem("blockwelt-quality"); } catch (e) {}
   if (savedQ !== null && savedQ !== "auto") { auto = false; applyLevel(+savedQ); }

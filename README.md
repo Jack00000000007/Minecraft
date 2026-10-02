@@ -2,6 +2,19 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Version 13: Inventar und Handwerk (auf diesem Branch)
+
+- Im Pausenmenü wählst du die Spielart. **Kreativ** ist wie bisher: alle Blöcke unbegrenzt, Abbauen geht sofort. **Überleben** ist wie in Minecraft: Du hältst die Maustaste gedrückt, bis der Block Risse bekommt und zerfällt, und sammelst ein, was herausfällt. Mit dem richtigen Werkzeug geht es viel schneller, und Erze geben nur mit einer Spitzhacke etwas her.
+- Mit **I** öffnest du dein Inventar: 36 Plätze mit Stapeln bis 64. Oben stellst du im 2 x 2-Raster Sachen her, an einer Werkbank (Rechtsklick) im 3 x 3-Raster. Rechts steht das Rezeptbuch: Klick auf ein Rezept, und die Zutaten liegen von selbst im Raster.
+- Alle Werkzeuge wie in Minecraft, aus Holz, Stein, Eisen, Gold und Diamant: Spitzhacke, Axt, Schaufel, Hacke und Schwert. Du siehst sie in der Hand, und im Überleben nutzen sie sich ab. Mit dem Schwert besiegst du Zombies viel schneller.
+- Im Ofen (Rechtsklick) werden mit Kohle oder Holz Erze zu Barren, Sand zu Glas, Bruchstein zu Stein, Stämme zu Holzkohle, und Fleisch und Kartoffeln werden gebraten. Der Ofen arbeitet weiter, auch wenn du weggehst.
+- Tief im Gestein liegen jetzt Steinkohle, Eisen, Gold, Diamanten und Smaragde. Fackeln stellst du auf den Boden oder hängst sie an die Wand.
+- Mit der Hacke machst du Ackerboden, darauf säst du Weizen, Karotten, Kartoffeln und Rote Bete, und alles wächst von selbst. Essen (Rechtsklick) heilt deine Herzen. Tiere geben Fleisch, Leder, Wolle und Federn.
+- In jedem Haus steht eine Truhe, auch in den alten Dorfhäusern. Was drin liegt, hängt vom Ort ab: In der Schatzkammer Gold und Diamanten, in der Küche Essen, in der Waffenkammer Schwerter.
+- Neben deinem Thron steht die **Schatztruhe des Königs**. In sie passt unbegrenzt viel, und dein Königsschatz liegt schon drin.
+- Im Keller gibt es jetzt die Königliche Werkstatt mit Werkbänken, Öfen und Truhen.
+- Das Blockmenü (B) hat jetzt Reiter wie in Minecraft (Baublöcke, Natur, Möbel, Licht, Deko, Werkzeuge, Essen, Rohstoffe) und eine Suche. Die Blöcke sind als kleine Würfel zu sehen.
+
 ## Version 12: Schloss voller Räume (auf diesem Branch)
 
 - Treppen steigst du jetzt einfach hinauf, ohne zu springen, wie in Minecraft. Das klappt bei allen Stufen, die einen Block hoch sind. Vor Möbeln, Truhen, Zäunen und Geländern bleibst du stehen, damit du nicht aus Versehen auf den Tisch steigst.
@@ -80,11 +93,12 @@ So lädst du sie herunter: Auf GitHub oben auf den grünen Knopf „Code“ und 
 | Leertaste | Springen, Schwimmen, im Flug steigen, aufstehen |
 | Leertaste zweimal schnell | Fliegen an / aus |
 | Shift | Sprinten, im Flug sinken |
-| Linksklick | Block abbauen, Tiere und Zombies angreifen |
-| Rechtsklick | Block setzen, Türen öffnen und schließen, reden, hinsetzen, im Bett schlafen |
+| Linksklick | Block abbauen (im Überleben gedrückt halten), Tiere und Zombies angreifen |
+| Rechtsklick | Block setzen, Türen öffnen und schließen, reden, hinsetzen, im Bett schlafen, Truhe, Werkbank und Ofen öffnen, essen, hacken, säen |
 | Shift + Rechtsklick | Immer einen Block setzen, auch auf Stühle und Betten |
 | 1–9 / Mausrad | Block auswählen |
-| B | Alle Blöcke zum Bauen |
+| B | Alle Blöcke und Sachen, mit Reitern und Suche |
+| I | Inventar: herstellen, Rezeptbuch, Sachen sortieren |
 | Mittlere Maustaste | Angeschauten Block in die Hand nehmen |
 | V | Ansicht wechseln: Ich-Ansicht, von hinten, von vorne |
 | E | Türen öffnen und schließen, Hebel umlegen, reden, hinsetzen, schlafen, James warten oder folgen lassen |

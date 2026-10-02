@@ -21,14 +21,18 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Extra: Treppen steigt man ohne Springen hinauf (Stufen bis ein Block hoch, wie in Minecraft)
 
 ## Version 13: Inventar und Handwerk
-- [ ] Inventar mit Stapeln, Werkbank mit Rezepten (3 x 3), Ofen
-- [ ] Alle Werkzeuge wie in Minecraft (Holz, Stein, Eisen, Gold, Diamant): Axt, Spitzhacke, Schaufel, Hacke, Schwert
-- [ ] Blockmenü auf Minecraft-Niveau (Reiter, Suche)
-- [ ] Eine Truhe in jedem Haus, die unbegrenzte Truhe neben dem Thron
+- [x] Inventar mit 36 Plätzen und Stapeln (Taste I), Herstellen 2 x 2 im Inventar und 3 x 3 an der Werkbank, Rezeptbuch mit Suche (legt die Zutaten von selbst ins Raster)
+- [x] Ofen mit Brennstoff: Erze zu Barren, Sand zu Glas, Bruchstein zu Stein, Holz zu Holzkohle, Fleisch und Kartoffeln braten; arbeitet weiter, wenn das Fenster zu ist
+- [x] Alle Werkzeuge wie in Minecraft (Holz, Stein, Eisen, Gold, Diamant): Spitzhacke, Axt, Schaufel, Hacke, Schwert, mit eigenen Bildern, in der Hand und mit Abnutzung
+- [x] Spielart Kreativ (wie bisher) oder Überleben (abbauen mit Rissen, Fundstücke einsammeln, Werkzeug bestimmt die Zeit), umschaltbar im Pausenmenü
+- [x] Erze im Gestein (Steinkohle, Eisen, Gold, Diamant, Smaragd), Fackeln (auch an der Wand), Hacke macht Ackerboden, Saat wächst, Essen heilt, Tiere geben Fleisch, Leder, Wolle und Federn
+- [x] Blockmenü auf Minecraft-Niveau: Reiter (Baublöcke, Natur, Möbel, Licht, Deko, Werkzeuge, Essen, Rohstoffe), Suche, Würfel-Bildchen
+- [x] Eine Truhe in jedem Haus (auch in den 20 alten Dorfhäusern), gefüllt je nach Ort; unbegrenzte Schatztruhe des Königs neben dem Thron
+- [x] Königliche Werkstatt im Keller mit Werkbänken, Öfen, Esse und Truhen
 
 ## Version 14: Lebendiges Dorf
 - [ ] Etwa 100 Bewohner mit Haus, Beruf (an der Kleidung erkennbar) und Tagesablauf, 10 ohne festen Beruf
-- [ ] 17:30 Uhr alle zurück, das Mauertor schließt sich von selbst
+- [ ] 17:30 Uhr alle zurück (Bauern von den Feldern, Händler vom Markt ins Dorf), das Mauertor schließt sich von selbst
 - [ ] 18:00 Uhr Abgaben-Zug: sammeln, zum Thronsaal gehen, Abgaben selbst in die Truhe legen (nichts taucht einfach auf)
 
 ## Version 15: Befehle und Gäste
@@ -69,7 +73,9 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 | Markt und Felder | 900–1011 | 230–255 |
 | Häuser und Gutshof | 700–759 | keine neuen |
 | Version 12: Schloss voller Räume | 760–899 | 150–169 |
+| Version 13: Inventar und Handwerk | 300–339 (Gegenstände ab 1100, eigener Bilder-Atlas) | 170–189 |
 
 ## Änderungen am alten Code (außerhalb der eigenen Abschnitte)
 - `updateEnts`: `else if (e.think) e.think(e, dt, dp);` für Leute mit eigenem Tagesablauf
 - Spieler (`step`, `stepUp`, `placeCamera`, Figur des Spielers): Stufen bis ein Block hoch werden ohne Springen erstiegen, die Kamera gleitet mit `P.camLift` weich nach. Möbel (`SHAPE`), Truhen, Fässer, Öfen, Theken, Werkbank, Regale und Goldgeländer bleiben Hindernisse.
+- Version 13: `breakBlock` (`v13Break`, `v13Broken`), `useTarget` (`v13UseBlock`), `placeBlock` (`v13UseItem`, `heldBlockId`, `v13Placed`), `attack` (`v13Dmg`, `v13Hit`), Schnellleiste (`buildBar`, `refreshBar`, `select`, `putInHand` zeigen das Inventar), `setHeld`/`buildHand`/`makePlayerModel` (`applyHeld`), `openPalette`/`closePalette` (neue Fenster), Tasten bei offenem Fenster (Esc, B, I, E schließen), Speichern (`v13Save`/`v13Load`), `house` (Truhe in jedem Dorfhaus), James beim Bäumefällen (`v13Chopped`).
