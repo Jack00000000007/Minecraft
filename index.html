@@ -4235,6 +4235,7 @@
       return;
     }
     if (e.guest15 && guestTalk15(e)) return;   // Version 15: Gäste schenken, handeln, segnen
+    if (WORKERS.includes(e) && Math.random() < 0.4) { e.talkT = 3; say(e.name, moodLine20(e)); return; }   // Version 20: wie zufrieden die Leute sind
     if (e.lines) { e.talkT = 3; say(e.name, pick(e.lines)); }
     else if (e.voice) SND[e.voice](1, 1);
   }
@@ -8809,6 +8810,7 @@
     if (kind === "zauber") { buildSpell18(UIEL); return; }  // Version 18: Zauberkreis
     if (kind === "reich") { buildRealm19(UIEL, ctx); return; } // Version 19: Gespräch mit einem fremden Herrscher
     if (kind === "kutsche") { buildCoach19(UIEL); return; }   // Version 19: Reiseziel der Kutsche
+    if (kind === "erlasse") { buildDecree20(UIEL); return; }  // Version 20: Erlasse und Feste vom Thron
     if (kind === "werkbank") V13.gridSize = 3; else if (kind === "inventar") V13.gridSize = 2;
     if (kind === "truhe") V13.chest = chestAt(ctx[0], ctx[1], ctx[2]);
     if (kind === "ofen") V13.furnace = furnaceAt(ctx[0], ctx[1], ctx[2]);
@@ -9847,7 +9849,7 @@
     dropCarry14(e);
     if (!t) return;
     const parts = [];
-    for (const [id, n] of t.give) { V13.tc.set(String(id), (V13.tc.get(String(id)) || 0) + n); ZUG.totals.set(id, (ZUG.totals.get(id) || 0) + n); parts.push(n + " " + itemName(id)); }
+    for (const [id, n0] of t.give) { const n = Math.max(1, Math.round(n0 * trib20())); V13.tc.set(String(id), (V13.tc.get(String(id)) || 0) + n); ZUG.totals.set(id, (ZUG.totals.get(id) || 0) + n); parts.push(n + " " + itemName(id)); }   // Version 20: Abgaben nach Erlass und Zufriedenheit
     if (visible) {
       noiseHit(340, 1.2, 0.2, 0.08); beep(880, 0.12, "triangle", 0.03); setTimeout(() => beep(1175, 0.18, "triangle", 0.03), 120);
       emit(93.5, G0 + 4, 75.5, 14, () => [255, 220 + Math.random() * 35, 90], 0.08, 1.6, -1);
@@ -12070,13 +12072,13 @@
     return false;
   }
   function v18Hint(tb, use) { return ROTB[tb] === WERBETISCH ? use + "Ritter und Magier anwerben" : ""; }
-  function v18Save() { return { k: V18.k.slice(), m: V18.m.slice(), mana: Math.round(V18.mana), v19: v19Save() }; }   // Version 19 speichert hier mit
+  function v18Save() { return { k: V18.k.slice(), m: V18.m.slice(), mana: Math.round(V18.mana), v19: v19Save(), v20: v20Save() }; }   // Version 19 speichert hier mit
   function v18Load(s) {
     const o = s && s.v18; if (!o) return;
     const ok = a => Array.isArray(a) && a.length === 3 && a.every(n => Number.isFinite(n) && n >= 0);
     if (ok(o.k)) V18.k = o.k.map(Math.floor); if (ok(o.m)) V18.m = o.m.map(Math.floor);
     if (Number.isFinite(o.mana)) V18.mana = Math.max(0, Math.min(100, o.mana));
-    v19Load(o.v19);
+    v19Load(o.v19); v20Load(o.v20);
   }
   // Magier heben beim Zaubern den Stab
   function poses18(dt, t) {
@@ -12680,6 +12682,471 @@
     if (WILD.horse) { const e = horseSpawn19(WILD.horse, [P.x, P.y, P.z]); v19Mount(e); WILD.horse = null; }
   });
   window.addEventListener("pagehide", () => { if (CO.mesh && !CO.onboard) saveCoach19(); });
+  // ==================== Version 20: Das Königreich wächst – Erlasse vom Thron, Zufriedenheit, Nachwuchs, Feste, neuer Mauerring ====================
+  // Vom Thron aus (Befehlskreis „Erlasse und Feste“) bestimmt der König die Abgaben und erlässt Gesetze. Daraus und aus Festen ergibt sich
+  // die Zufriedenheit der Leute: Sie sagen es beim Reden, zufriedene Familien bekommen Kinder, unzufriedene geben weniger ab.
+  // Feste: Jahrmarkt mit Karussell und Zelten, Ritterturnier auf der Festwiese, Feuerwerk über dem Schloss.
+  // Bauvorhaben: ein neuer Mauerring 128 Blöcke vor der Großen Mauer (in der Wildnis); ist er fertig, bekommt die alte Mauer Tore.
+  const TAX20 = [{ t: "niedrig", m: 0.6, mood: 4, note: "Die Leute freuen sich, die Schatztruhe bekommt weniger." }, { t: "mittel", m: 1, mood: 0, note: "Wie bisher." }, { t: "hoch", m: 1.5, mood: -6, note: "Mehr für die Schatztruhe, aber die Leute murren." }];
+  const LAWS20 = [
+    { k: "brot", t: "Freies Brot für Bedürftige", mood: 3, cost: () => [[I.brot, 20]], note: "kostet 20 Brot am Tag" },
+    { k: "ruhetag", t: "Ruhetag am siebten Tag", mood: 2, trib: 0.85, note: "Abgaben 15 % weniger" },
+    { k: "schule", t: "Schule für alle Kinder", mood: 2, cost: () => [[I.goldbarren, 3]], note: "kostet 3 Goldbarren am Tag" },
+    { k: "pflege", t: "Brunnen und Straßen pflegen", mood: 1, cost: () => [[I.goldbarren, 2]], note: "kostet 2 Goldbarren am Tag" },
+    { k: "wache", t: "Strenge Nachtwache", mood: 1, cost: () => [[I.goldbarren, 1]], note: "kostet 1 Goldbarren am Tag; nachts mehr Sicherheit" },
+  ];
+  const V20 = { tax: 1, laws: {}, mood: 70, why: [], kids: [], ring: 0, ringOn: false, wallOpen: false, ev: [], prevH: -1, day: 0, born: 0, fest: null, fw: null, joust: null, site: null };
+  const KIDN20 = ["Lena", "Paul", "Mia", "Felix", "Emma", "Jonas", "Hanna", "Lukas", "Clara", "Max", "Ida", "Theo", "Greta", "Anton", "Frieda", "Emil", "Mathilda", "Oskar", "Luise", "Karl"];
+  const trib20 = () => TAX20[V20.tax].m * (V20.laws.ruhetag ? 0.85 : 1) * (V20.mood < 30 ? 0.7 : V20.mood > 85 ? 1.1 : 1);
+  const tc20 = id => V13.tc.get(String(id)) || 0;
+  function pay20(list) {
+    if (!survival()) return true;
+    if (!list.every(([id, n]) => tc20(id) >= n)) return false;
+    for (const [id, n] of list) V13.tc.set(String(id), tc20(id) - n);
+    return true;
+  }
+  // ---------- Kinder-Aussehen ----------
+  Object.assign(PEOPLE11, {
+    kid20_0: { name: "Kind", skin: [240, 204, 176], hair: [200, 150, 80], shirt: [200, 60, 60], pants: [60, 70, 120], scale: 0.62 },
+    kid20_1: { name: "Kind", female: true, skin: [236, 196, 166], hair: [120, 70, 40], bodice: [120, 170, 220], skirt: [240, 200, 90], skirtLen: 6, scale: 0.62 },
+    kid20_2: { name: "Kind", skin: [214, 170, 136], hair: [50, 40, 30], shirt: [90, 160, 90], pants: [110, 90, 60], hat: { t: "cap", c: [220, 180, 60] }, scale: 0.62 },
+    kid20_3: { name: "Kind", female: true, skin: [244, 212, 190], hair: [230, 200, 120], bodice: [230, 120, 170], skirt: [170, 90, 160], skirtLen: 6, bun: true, scale: 0.62 },
+    herold20: { name: "Herold", skin: [232, 192, 160], hair: [90, 60, 40], coat: [170, 30, 40], vest: [230, 190, 70], pants: [240, 236, 226], boots: true, hat: { t: "beret", c: [170, 30, 40], feather: [250, 250, 250] }, tool: "cane" },
+  });
+  for (const k of ["kid20_0", "kid20_1", "kid20_2", "kid20_3", "herold20"]) { const o = PEOPLE11[k]; o.seed = pseed++; MODEL_DEFS["p11_" + k] = () => defPerson(o); }
+
+  // ---------- Die Festwiese: Turnierbahn mit Schranke, Tribüne mit Königsloge, Fahnen ----------
+  V11.build.push(() => {
+    const f = freeRect14(110, 175, 228, 272, 38, 26) || freeRect14(30, 90, 228, 272, 38, 26) || [120, 238];
+    const x0 = f[0], z0 = f[1], x1 = x0 + 37, z1 = z0 + 25, F = G0 + 1, zc = z0 + 14;
+    V20.site = { x0, z0, x1, z1, zc };
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { for (let y = F; y <= F + 8; y++) if (PLANT[get(x, y, z)]) setB(x, y, z, AIR); if (z >= zc - 4 && z <= zc + 4 && x >= x0 + 3 && x <= x1 - 3) setB(x, G0, z, SAND); }
+    // Schranke in der Mitte der Bahn
+    for (let x = x0 + 6; x <= x1 - 6; x++) setB(x, F, zc, (x - x0) % 3 === 0 ? (x % 2 ? RWOOL : WWOOL) : FENCE);
+    // Zaun um die Bahn
+    for (let x = x0 + 3; x <= x1 - 3; x++) for (const z of [zc - 5, zc + 5]) setB(x, F, z, FENCE);
+    // Tribüne im Norden: drei Stufen mit Bänken, darüber Stoffdächer in Rot und Weiß, in der Mitte die Königsloge
+    for (let x = x0 + 4; x <= x1 - 4; x++) for (let k = 0; k < 3; k++) {
+      const z = z0 + 6 - k * 2;
+      fill(x, F, z - 1, x, F + k, z, SPRUCE_PLANKS);
+      setB(x, F + k + 1, z, rotId(BENCH, 0, 1));
+      setB(x, F + 6, z - 1, (Math.floor((x - x0) / 2)) % 2 ? RWOOL : WWOOL); setB(x, F + 6, z, (Math.floor((x - x0) / 2)) % 2 ? RWOOL : WWOOL);
+    }
+    for (let x = x0 + 4; x <= x1 - 4; x += 6) for (const z of [z0 + 1, z0 + 7]) fill(x, F, z, x, F + 5, z, SPRUCE_LOG);
+    const kx = Math.round((x0 + x1) / 2);
+    for (let x = kx - 1; x <= kx + 1; x++) { setB(x, F + 3, z0 + 5, GOLD); setB(x, F + 7, z0 + 4, RWOOL); setB(x, F + 7, z0 + 5, RWOOL); setB(x, F + 7, z0 + 6, GOLD); }
+    setB(kx, F + 4, z0 + 5, AIR); setB(kx, F + 4, z0 + 5, rotId(THRONSESSEL, 0, 1)); setB(kx - 1, F + 4, z0 + 5, AIR); setB(kx + 1, F + 4, z0 + 5, AIR);
+    V20.box = [kx + 0.5, F + 4, z0 + 5.5];
+    // Fahnen an beiden Enden, Zelte der Ritter
+    for (const x of [x0 + 1, x1 - 1]) for (const z of [zc - 6, zc + 6]) { fill(x, F, z, x, F + 6, z, SPRUCE_LOG); setB(x, F + 7, z, x < kx ? BWOOL : RWOOL); setB(x, F + 6, z + (z < zc ? 1 : -1), x < kx ? BWOOL : RWOOL); }
+    // Zwei Ritterzelte (blau und rot) an den Enden der Bahn: Pfosten, Stoffdach, Wimpel
+    for (const [x, c] of [[x0 + 1, BWOOL], [x1 - 3, RWOOL]]) {
+      const z = z1 - 3;
+      for (const [dx, dz] of [[0, 0], [2, 0], [0, 2], [2, 2]]) fill(x + dx, F, z + dz, x + dx, F + 2, z + dz, SPRUCE_LOG);
+      fill(x, F + 3, z, x + 2, F + 3, z + 2, c); setB(x + 1, F + 4, z + 1, c);
+      setB(x + 1, F + 5, z + 1, FENCE); setB(x + 1, F + 6, z + 1, c);
+      setB(x + 1, F, z + 1, rotId(WAFFENST, 0, -1));
+    }
+    AREAS.unshift(["Die Festwiese", "Turnierbahn, Tribüne mit Königsloge; hier sind Jahrmarkt und Ritterturnier", x0, x1, G0, F + 12, z0, z1]);
+  });
+  // ---------- Der neue Mauerring (in der Wildnis) und Tore in der alten Mauer ----------
+  const RING20 = { x0: -128, x1: W + 127, z0: -128, z1: D + 127, th: 5 };
+  const ringPer20 = 2 * (RING20.x1 - RING20.x0 + RING20.z1 - RING20.z0);
+  // Lage auf dem Ring: 0 an der Südseite bei der Straße, dann gegen den Uhrzeigersinn
+  function ringS20(gx, gz) {
+    const { x0, x1, z0, z1 } = RING20, dS = Math.abs(gz - z1), dE = Math.abs(gx - x1), dN = Math.abs(gz - z0), dW = Math.abs(gx - x0), m = Math.min(dS, dE, dN, dW);
+    let s;
+    if (m === dS) s = gx >= 96 ? gx - 96 : ringPer20 - (96 - gx);
+    else if (m === dE) s = (x1 - 96) + (z1 - gz);
+    else if (m === dN) s = (x1 - 96) + (z1 - z0) + (x1 - gx);
+    else s = (x1 - 96) + (z1 - z0) + (x1 - x0) + (gz - z0);
+    return ((s % ringPer20) + ringPer20) % ringPer20;
+  }
+  function ringGates20() {
+    if (V20.gates) return V20.gates;
+    const g = [[96, RING20.z1]];
+    for (const r of REALMS19) { const pts = road19(r); for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], b = pts[i];
+      for (const [lineX, lineZ] of [[null, RING20.z1], [null, RING20.z0], [RING20.x0, null], [RING20.x1, null]]) {
+        if (lineZ !== null && (a.z - lineZ) * (b.z - lineZ) <= 0 && a.x > RING20.x0 && a.x < RING20.x1) g.push([Math.round(a.x), lineZ]);
+        if (lineX !== null && (a.x - lineX) * (b.x - lineX) <= 0 && a.z > RING20.z0 && a.z < RING20.z1) g.push([lineX, Math.round(a.z)]);
+      } } }
+    return (V20.gates = g);
+  }
+  function paintRing20() {
+    const { ox, oz } = WILD, { x0, x1, z0, z1, th } = RING20, done = V20.ring / 100 * ringPer20;
+    const gates = ringGates20();
+    let front = null;
+    for (let z = Math.max(z0, oz); z <= Math.min(z1, oz + D - 1); z++) for (let x = Math.max(x0, ox); x <= Math.min(x1, ox + W - 1); x++) {
+      const e = Math.min(x - x0, x1 - x, z - z0, z1 - z); if (e < 0 || e >= th) continue;
+      const lx = x - ox, lz = z - oz; if (lx < 0 || lz < 0 || lx >= W || lz >= D) continue;
+      const s = ringS20(x, z);
+      if (s > done) { if (s < done + 3 && e === 2) front = [lx, lz]; continue; }
+      const g = heights[lx + lz * W];
+      let sm = 0, c = 0; for (let k = -6; k <= 6; k += 2) { const hx = Math.max(0, Math.min(W - 1, lx + (e === z1 - z || e === z - z0 ? k : 0))), hz = Math.max(0, Math.min(D - 1, lz + (e === x1 - x || e === x - x0 ? k : 0))); sm += heights[hx + hz * W]; c++; }
+      const top = Math.max(Math.round(sm / c) + 11, SEA + 8);
+      const gate = gates.some(([gx, gz]) => (gz === z0 || gz === z1) ? Math.abs(gx - x) <= 2 && Math.abs(gz - z) <= th : Math.abs(gz - z) <= 2 && Math.abs(gx - x) <= th);
+      fill(lx, Math.max(1, Math.min(g, top) - 2), lz, lx, top, lz, SBRICK);
+      if (gate) { const fl = Math.max(g, SEA + 1); for (let y = fl + 1; y <= fl + 6; y++) setB(lx, y, lz, AIR); setB(lx, fl, lz, PATH); setB(lx, fl + 7, lz, GOLD_TRIM || SBRICK); continue; }
+      if ((e === 0 || e === th - 1) && ((x + z) & 1) === 0) setB(lx, top + 1, lz, SBRICK);
+      if (e === 0 && (x + z) % 12 === 0) setB(lx, top - 3, lz, LAMP);
+    }
+    // Baustelle am Ende des fertigen Stücks: Gerüst, Steinhaufen, Kran
+    if (front && V20.ring < 100) {
+      const [fx, fz] = front, g = heights[fx + fz * W];
+      for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) { const x = fx + dx, z = fz + dz; if (x < 1 || z < 1 || x > W - 2 || z > D - 2) continue; if (Math.abs(dx) === 3 || Math.abs(dz) === 3) fill(x, heights[x + z * W] + 1, z, x, g + 8, z, (dx + dz) % 2 ? FENCE : SPRUCE_LOG); }
+      for (let y = g + 3; y <= g + 8; y += 5) fill(fx - 3, y, fz - 3, fx + 3, y, fz + 3, SPRUCE_PLANKS);
+      for (let i = 0; i < 6; i++) setB(fx + 5 + (i % 3), g + 1 + Math.floor(i / 3), fz + 4, COBBLE);
+      fill(fx - 6, g + 1, fz - 6, fx - 6, g + 16, fz - 6, SPRUCE_LOG); fill(fx - 6, g + 16, fz - 6, fx + 2, g + 16, fz - 6, SPRUCE_LOG);
+      AREAS.unshift(["Baustelle des neuen Mauerrings", `fertig: ${Math.floor(V20.ring)} %`, fx - 8, fx + 8, g - 2, g + 20, fz - 8, fz + 8]);
+    }
+    // Zwischen alter und neuer Mauer: Neuland
+    const ix0 = Math.max(x0, ox), ix1 = Math.min(x1, ox + W - 1), iz0 = Math.max(z0, oz), iz1 = Math.min(z1, oz + D - 1);
+    if (ix0 < ix1 && iz0 < iz1 && V20.ring > 0) AREAS.push(["Neuland", "zwischen der Großen Mauer und dem neuen Mauerring", ix0 - ox, ix1 - ox, 0, H - 1, iz0 - oz, iz1 - oz]);
+  }
+  // Tore in der alten Mauer (Norden, Westen, Osten), sobald der neue Ring steht
+  V11.post.push(() => {
+    if (!V20.wallOpen) return;
+    const WI = 8, E0 = W - 1 - WI;
+    const arch = (ax, az, alongX) => {
+      for (let k = -2; k <= 2; k++) for (let d = -1; d <= 6; d++) {
+        const x = alongX ? ax + k : ax + d * (ax < W / 2 ? 1 : -1) - (ax < W / 2 ? 1 : -1), z = alongX ? az + d * (az < D / 2 ? 1 : -1) - (az < D / 2 ? 1 : -1) : az + k;
+        for (let y = G0 + 1; y <= G0 + 5; y++) setB(x, y, z, AIR);
+        setB(x, G0, z, PATH);
+      }
+    };
+    arch(150, WI - 2, true); arch(WI - 2, 300, false); arch(E0 + 2, 300, false);
+    AREAS.unshift(["Nordtor der Großen Mauer", "hinaus ins Neuland", 146, 154, G0, G0 + 20, 0, 16], ["Westtor der Großen Mauer", "hinaus ins Neuland", 0, 16, G0, G0 + 20, 296, 304], ["Osttor der Großen Mauer", "hinaus ins Neuland", W - 17, W - 1, G0, G0 + 20, 296, 304]);
+  });
+
+  // ---------- Zufriedenheit: einmal am Tag (9 Uhr) neu berechnet ----------
+  function dayTick20() {
+    const h = hr14();
+    if (V20.prevH >= 0 && V20.prevH < 9 && h >= 9) newDay20();
+    if (V20.prevH >= 0) { let dh = h - V20.prevH; if (dh < 0) dh += 24; if (V20.ringOn && V20.ring < 100 && dh < 6) { V20.ring = Math.min(100, V20.ring + dh * 100 / 24 / 8); if (V20.ring >= 100) { V20.ringOn = false; announce14("Der neue Mauerring ist fertig! Im Thronsaal kannst du nun Tore in die alte Mauer brechen lassen.", "Bau:"); } } }
+    V20.prevH = h;
+  }
+  function newDay20() {
+    V20.day++;
+    const why = [];
+    let d = TAX20[V20.tax].mood; if (d) why.push([`Abgaben ${TAX20[V20.tax].t}`, d]);
+    for (const L of LAWS20) if (V20.laws[L.k]) {
+      if (L.cost && !pay20(L.cost())) { V20.laws[L.k] = false; announce14(`„${L.t}“ ist aufgehoben: In der Schatztruhe ist nicht genug.`, "Erlass:"); why.push([L.t + " aufgehoben", -2]); d -= 2; continue; }
+      d += L.mood; why.push([L.t, L.mood]);
+    }
+    for (const ev of V20.ev.splice(0)) { d += ev[1]; why.push(ev); }
+    // langsam zur Mitte hin
+    d += (60 - V20.mood) * 0.08;
+    V20.mood = Math.max(0, Math.min(100, V20.mood + d));
+    V20.why = why;
+    // Nachwuchs in zufriedenen Familien
+    if (!WILD && V20.mood >= 60 && V20.kids.length < 24 && Math.random() < 0.25 + (V20.mood - 60) / 80) birth20();
+    // Sehr zufriedene Leute bringen ein Geschenk
+    if (!WILD && V20.mood >= 85) giftBasket20();
+    saveSoon();
+  }
+  function birth20() {
+    const fam = WORKERS.filter(e => e.home14 && !e.gone && /f\d|holz|frei|zimmer|g\d/.test(e.key14 || ""));
+    const parent = fam[Math.floor(Math.random() * fam.length)] || WORKERS[0];
+    const name = KIDN20[(V20.born * 7 + 3) % KIDN20.length], m = V20.born % 4;
+    V20.born++;
+    const k = { n: name, m, home: parent && parent.home14 ? (parent.home14.out || parent.home14.inside || null) : null };
+    V20.kids.push(k);
+    spawnKid20(k, true);
+    announce14(`Im Dorf ist ein Kind geboren: ${name}${parent ? `, bei ${parent.name}` : ""}! Die Leute freuen sich.`, "Nachwuchs:");
+  }
+  function spawnKid20(k, fresh) {
+    const pts = typeof VIL_POI !== "undefined" ? VIL_POI : [[96, 200]];
+    const [x, z] = k.home ? [k.home[0], k.home[2]] : pts[(V20.kids.indexOf(k) * 3) % pts.length];
+    const e = spawnEnt("villager", "p11_kid20_" + k.m, x + 0.5, G0 + 1, z + 0.5, { kind: "kid", speed: 3, scale: 0.62, r: 0.2, h: 1.1, eye: 1, name: k.n, timer: Math.random() * 2,
+      lines: [`Ich bin ${k.n}!`, V20.laws.schule ? "Heute in der Schule haben wir rechnen gelernt!" : "Fang mich doch!", "Wenn ich groß bin, werde ich Ritter!", "Hast du den Jahrmarkt gesehen? Das Karussell!"] });
+    if (fresh) e.talkT = 0;
+    return e;
+  }
+  function giftBasket20() {
+    const e = WORKERS.find(w => !w.gone && !w.order15 && !w.zug14 && w.mode14 !== "bed");
+    if (!e) return;
+    const give = GIVE14 && GIVE14[0] ? GIVE14[0] : [93.5, G0 + 3, 77.5];
+    order15(e, [{ carry: 988 }, { go: give.slice(0, 3) }, { deposit: [[I.apfel, 6], [I.brot, 4], [I.goldbarren, 1]] }, { drop: true }]);
+    announce14(`${e.name} bringt aus Dankbarkeit einen Korb mit Äpfeln, Brot und einem Goldbarren zur Schatztruhe.`, "Geschenk:");
+  }
+  // Was die Leute beim Reden über ihr Leben sagen
+  function moodLine20(e) {
+    const f = s => fmt11(s, e.formal), m = V20.mood;
+    if (m >= 85) return f(pick(["{M_}so gut ging es uns noch nie!", "das Leben im Königreich ist schön{M}.", "wir sind stolz auf unseren König{M}!"]));
+    if (m >= 60) return f(pick(["es geht uns gut{M}.", V20.laws.brot ? "das freie Brot hilft vielen Familien{M}." : "die Arbeit ist hart, aber gerecht{M}.", V20.tax === 0 ? "die niedrigen Abgaben sind ein Segen{M}." : "{M_}wann gibt es wieder ein Fest?"]));
+    if (m >= 30) return f(pick(["es könnte besser sein{M}.", V20.tax === 2 ? "die Abgaben sind sehr hoch{M}." : "ein Fest würde uns guttun{M}.", "{M_}viele Familien haben es schwer."]));
+    return f(pick(["wir sind unzufrieden{M}! Die Abgaben drücken.", "so kann es nicht weitergehen{M}.", "{M_}habt Ihr kein Herz für Eure Leute?"]));
+  }
+
+  // ---------- Erlasse und Feste (vom Thron aus) ----------
+  const nearThrone20 = () => !WILD && Math.hypot(P.x - 96.5, P.z - 80) < 22 && P.y > G0 + 0.5;
+  function buildDecree20(root) {
+    root = root || UIEL; root.innerHTML = "";
+    const card = h("div", "card army18"), head = h("div", "v13head");
+    head.append(h("h2", "", "Erlasse und Feste"), h("span", "v13mode", survival() ? "Spielart: Überleben" : "Spielart: Kreativ"));
+    const close = h("button", "v13btn", "Fertig"); close.type = "button"; close.addEventListener("click", () => closePalette()); head.append(close);
+    const redraw = () => buildDecree20(root);
+    // Zufriedenheit
+    const moodBox = h("div", "box"); moodBox.append(h("h3", "", "Zufriedenheit der Leute"));
+    const bar = h("div", ""); bar.style.cssText = "height:12px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden";
+    const fillEl = h("div", ""); fillEl.style.cssText = `height:100%;width:${V20.mood}%;background:${V20.mood >= 60 ? "#6cc04a" : V20.mood >= 30 ? "#e0b040" : "#d0503a"}`; bar.append(fillEl);
+    moodBox.append(bar);
+    const r1 = h("div", "row"); r1.append(h("span", "", V20.mood >= 85 ? "Sehr zufrieden: Familien bekommen Kinder, manche bringen Geschenke" : V20.mood >= 60 ? "Zufrieden: es gibt Nachwuchs" : V20.mood >= 30 ? "Es geht so" : "Unzufrieden: die Abgaben sinken"), h("b", "", Math.round(V20.mood) + " von 100")); moodBox.append(r1);
+    if (V20.why.length) moodBox.append(h("div", "note", "Gestern: " + V20.why.map(([t, d]) => `${t} (${d > 0 ? "+" : ""}${Math.round(d)})`).join(", ")));
+    moodBox.append(h("div", "note", `Kinder im Dorf: ${V20.kids.length}. Abgaben-Faktor heute: ${trib20().toFixed(2).replace(".", ",")}`));
+    const cols = h("div", "cols");
+    // Abgaben
+    const taxBox = h("div", "box"); taxBox.append(h("h3", "", "Abgaben"));
+    const tb = h("div", "btns");
+    TAX20.forEach((t, i) => { const b = h("button", "v13btn" + (V20.tax === i ? "" : " alt"), t.t); b.type = "button"; b.addEventListener("click", () => { clickSound(); V20.tax = i; announce14(`Die Abgaben sind ab heute ${t.t}.`, "Erlass:"); saveSoon(); redraw(); }); tb.append(b); });
+    taxBox.append(tb, h("div", "note", TAX20[V20.tax].note));
+    // Gesetze
+    const lawBox = h("div", "box"); lawBox.append(h("h3", "", "Gesetze"));
+    for (const L of LAWS20) {
+      const row = h("div", "row"), b = h("button", "v13btn" + (V20.laws[L.k] ? "" : " alt"), V20.laws[L.k] ? "gilt" : "aus"); b.type = "button";
+      b.addEventListener("click", () => { clickSound(); V20.laws[L.k] = !V20.laws[L.k]; announce14(`${L.t}: ${V20.laws[L.k] ? "gilt ab heute" : "ist aufgehoben"}.`, "Erlass:"); saveSoon(); redraw(); });
+      const lab = h("span", "", L.t + " "); lab.append(h("small", "", "(" + L.note + ")")); row.append(lab, b); lawBox.append(row);
+    }
+    cols.append(taxBox, lawBox);
+    // Feste
+    const festBox = h("div", "box"); festBox.append(h("h3", "", "Feste"));
+    const fb = h("div", "btns");
+    const fest = (t, cost, run, dis) => { const b = h("button", "v13btn alt", t + (survival() && cost ? ` (${cost} Gold)` : "")); b.type = "button"; b.disabled = !!dis; b.addEventListener("click", () => { clickSound(); if (!pay20(cost ? [[I.goldbarren, cost]] : [])) { showName("In der Schatztruhe ist nicht genug Gold.", 2000); return; } closePalette(); run(); }); fb.append(b); };
+    fest("Jahrmarkt eröffnen", 20, () => startFair20(), !!V20.fest);
+    fest("Ritterturnier", 10, () => startJoust20(), !!V20.joust);
+    fest("Feuerwerk", 5, () => startFireworks20(), !!V20.fw);
+    festBox.append(fb, h("div", "note", "Feste machen die Leute froh. Der Jahrmarkt ist auf der Festwiese, das Feuerwerk über dem Schloss."));
+    // Bauvorhaben
+    const buildBox = h("div", "box"); buildBox.append(h("h3", "", "Bauvorhaben: der neue Mauerring"));
+    const r2 = h("div", "row"); r2.append(h("span", "", V20.ring >= 100 ? "Fertig" : V20.ringOn ? "Die Bauleute arbeiten" : V20.ring > 0 ? "Angehalten" : "Noch nicht begonnen"), h("b", "", Math.floor(V20.ring) + " %")); buildBox.append(r2);
+    const bb = h("div", "btns");
+    if (V20.ring < 100 && !V20.ringOn) { const b = h("button", "v13btn alt", V20.ring > 0 ? "Weiterbauen lassen" : "Bau beginnen" + (survival() ? " (150 Gold)" : "")); b.type = "button"; b.addEventListener("click", () => { if (V20.ring === 0 && !pay20([[I.goldbarren, 150]])) { showName("In der Schatztruhe ist nicht genug Gold.", 2000); return; } V20.ringOn = true; announce14("Die Bauleute beginnen mit dem neuen Mauerring, 128 Blöcke vor der Großen Mauer. In etwa acht Tagen ist er fertig.", "Bau:"); saveSoon(); redraw(); }); bb.append(b); }
+    if (V20.ring >= 100 && !V20.wallOpen) { const b = h("button", "v13btn alt", "Tore in die alte Mauer brechen"); b.type = "button"; b.addEventListener("click", () => { V20.wallOpen = true; saveNow(); announce14("Die Große Mauer bekommt drei neue Tore (Norden, Westen, Osten). Das gilt nach dem nächsten Laden.", "Bau:"); showName("Die Tore sind beim nächsten Start offen (Seite neu laden).", 3000); redraw(); }); bb.append(b); }
+    buildBox.append(bb, h("div", "note", "Der neue Ring entsteht in der Wildnis rund um das Königreich, mit Toren an allen Straßen. Zwischen den Mauern liegt dann das Neuland."));
+    card.append(head, moodBox, cols, festBox, buildBox); root.append(card);
+  }
+  EXTRA_CMD15.push(() => ({ t: "Erlasse und Feste", ic: THRONSESSEL, run: () => {
+    if (!nearThrone20()) { say("James", fmt11("Erlasse gibt der König vom Thron aus{M}. Ich bringe Euch gern hin.", true)); return; }
+    openPalette("erlasse");
+  } }));
+
+  // ---------- Jahrmarkt: Zelte, Karussell mit Holzpferden, Wimpel, Gaukler, Musik; die Leute kommen auf die Festwiese ----------
+  function festMat20() { return litEnt(new THREE.MeshLambertMaterial({ map: atlasTex })); }
+  function startFair20() {
+    if (V20.fest || !V20.site) return;
+    const s = V20.site, t = b => TEX[b][0], g = new THREE.Group(), mat = festMat20(), F = G0 + 1;
+    const cols = [RWOOL, WWOOL, BWOOL, GOLD, PLASTER_Y, ROOF_GREEN];
+    const tent = (cx, cz, c1, c2) => {
+      const boxes = [];
+      for (let i = 0; i < 4; i++) boxes.push([-1.6 + i * 0.35, 2.4 + i * 0.35, -1.6 + i * 0.35, 1.6 - i * 0.35, 2.75 + i * 0.35, 1.6 - i * 0.35, t(i % 2 ? c2 : c1)]);
+      for (const [x, z] of [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) boxes.push([x - 0.08, 0, z - 0.08, x + 0.08, 2.4, z + 0.08, t(SPRUCE_LOG)]);
+      for (let k = 0; k < 7; k++) boxes.push([-1.55 + k * 0.45, 1.3, 1.5, -1.25 + k * 0.45, 2.4, 1.56, t(k % 2 ? c2 : c1)]);
+      boxes.push([-1.2, 0, -0.2, 1.2, 0.9, 0.4, t(SPRUCE_PLANKS)], [-0.06, 3.8, -0.06, 0.06, 4.6, 0.06, t(SPRUCE_LOG)], [0.06, 4.2, -0.02, 0.6, 4.55, 0.02, t(c1)]);
+      const m = new THREE.Mesh(tileBoxGeo(boxes), mat); m.position.set(cx, F, cz); g.add(m);
+    };
+    const spots = [[s.x0 + 4, s.z1 - 3], [s.x0 + 10, s.z1 - 3], [s.x0 + 16, s.z1 - 3], [s.x0 + 22, s.z1 - 3], [s.x1 - 9, s.z1 - 3], [s.x1 - 2.5, s.z0 + 12]];
+    spots.forEach(([x, z], i) => tent(x + 0.5, z + 0.5, cols[i % cols.length], cols[(i + 3) % cols.length]));
+    // Karussell
+    const cx = s.x1 - 7.5, cz = s.zc + 0.5;
+    const roof = [], R = 4.2;
+    for (let i = 0; i < 5; i++) roof.push([-R + i * 0.8, 3.6 + i * 0.4, -R + i * 0.8, R - i * 0.8, 3.95 + i * 0.4, R - i * 0.8, t(i % 2 ? WWOOL : RWOOL)]);
+    roof.push([-0.15, 0, -0.15, 0.15, 6, 0.15, t(GOLD)], [-R, 0, -R, R, 0.25, R, t(SPRUCE_PLANKS)], [-0.1, 6, -0.1, 0.1, 6.8, 0.1, t(GOLD)], [0.1, 6.3, -0.03, 0.9, 6.7, 0.03, t(RWOOL)]);
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, x = Math.cos(a) * (R - 0.1), z = Math.sin(a) * (R - 0.1); roof.push([x - 0.25, 3.3, z - 0.25, x + 0.25, 3.6, z + 0.25, t(k % 2 ? GOLD : RWOOL)]); }
+    const car = new THREE.Mesh(tileBoxGeo(roof), mat); car.position.set(cx, F, cz); g.add(car);
+    // Holzpferde (echte Pferdefiguren, kleiner, auf Stangen)
+    const ponies = [], hc = Object.keys(HORSE_C);
+    for (let k = 0; k < 6; k++) { const e = spawnEnt("animal", "horse_" + hc[k % hc.length], cx, F + 0.3, cz, { type: "horse", harness19: true, ghost: true, scale: 0.6, hp: 99, maxHp: 99 }); ponies.push(e); }
+    // Wimpelketten über der Wiese
+    const flags = [];
+    for (const z of [s.z1 - 6.5, s.z0 + 9.5]) for (let x = s.x0 + 2; x <= s.x1 - 2; x += 0.9) {
+      const k = Math.round((x - s.x0) / 0.9), y = F + 5.4 - Math.sin((x - s.x0) / (s.x1 - s.x0) * Math.PI) * 1.4;
+      flags.push([x - 0.45, y - 0.03, z - 0.02, x + 0.45, y + 0.03, z + 0.02, t(SPRUCE_LOG)]);           // Schnur
+      if (k % 2 === 0) for (let j = 0; j < 3; j++) flags.push([x - 0.2 + j * 0.07, y - 0.12 - j * 0.12, z - 0.015, x + 0.2 - j * 0.07, y - j * 0.12, z + 0.015, t(cols[(k >> 1) % 4])]);   // Wimpel als Dreieck
+    }
+    for (const z of [s.z1 - 6.5, s.z0 + 9.5]) for (const x of [s.x0 + 1.5, s.x1 - 1.5]) flags.push([x - 0.08, 0, z - 0.08, x + 0.08, 5.6, z + 0.08, t(SPRUCE_LOG)]);
+    g.add(new THREE.Mesh(tileBoxGeo(flags), mat));
+    scene.add(g);
+    // Gaukler und Herold
+    const jug = spawnEnt("villager", "p11_g_gaukler", s.x0 + 19.5, F, s.zc + 7.5, { name: "Gaukler Pippo", lines: ["Hereinspaziert zum Jahrmarkt!", "Seht nur, fünf Bälle auf einmal!"], yaw: Math.PI, ghost: false });
+    jug.think = (e, dt, dp) => { e.dvx = e.dvz = 0; if (e.talkT > 0) { e.talkT -= dt; lookAt(e, P.x, P.y + 1.62, P.z, true); } };
+    const her = spawnEnt("villager", "p11_herold20", s.x0 + 8.5, F, s.zc + 7.5, { name: "Herold", lines: ["Hört, hört! Der König lädt zum Jahrmarkt!", "Karussell, Gaukler und Leckereien für alle!"], yaw: Math.PI });
+    her.think = jug.think;
+    V20.fest = { g, mat, car, ponies, jug, her, t: 0, cx, cz, until: (hr14() + 7) % 24, lt: 0, mus: 0 };
+    // Alle kommen auf die Festwiese
+    const sp = []; for (let k = 0; k < 40; k++) { const x = s.x0 + 4 + (k * 7) % (s.x1 - s.x0 - 12), z = s.z1 - 8 + (k % 3); const p = freeSpotNear(x + 0.5, F, z + 0.5, 0, 0); if (p) sp.push(p); }
+    OVR15 = { mode: "king", from: hr14(), until: (hr14() + 6) % 24, spots: sp, at: [(s.x0 + s.x1) / 2, F, (s.z0 + s.z1) / 2], range: 400 };
+    for (const e of WORKERS) if (!e.order15 && !e.zug14) e.mode14 = null;
+    V20.ev.push(["Jahrmarkt", 10]); V20.festDay = V20.day; V20.fwDone = false;
+    announce14("Der König eröffnet den Jahrmarkt auf der Festwiese! Karussell, Gaukler und Musik für alle.", "Fest:");
+  }
+  const TUNE20 = [523, 659, 784, 659, 698, 880, 784, 659, 587, 698, 659, 523];
+  function updateFair20(dt, t) {
+    const f = V20.fest; if (!f) return;
+    f.t += dt;
+    f.car.rotation.y += dt * 0.6;
+    f.ponies.forEach((e, k) => { const a = -f.car.rotation.y + k / f.ponies.length * Math.PI * 2; e.x = f.cx + Math.cos(a) * 3.1; e.z = f.cz + Math.sin(a) * 3.1; e.y = G0 + 1.3 + Math.sin(t * 2 + k) * 0.25; e.yaw = e.yawT = a + Math.PI; e.vx = e.vz = 0.01; });
+    if ((f.lt -= dt) <= 0) { f.lt = 1; const l = lightAt(f.cx, G0 + 3, f.cz); f.mat.userData.uLight.value.set(l.x, l.y); }
+    if (distP(f.jug) < 40 && Math.random() < dt * 9) { const c = JUGGLE_C[Math.floor(Math.random() * 4)]; emit(f.jug.x, f.jug.y + 2.4, f.jug.z - 0.4, 1, () => c, 0.12, 1.6, 9); }
+    const B = f.jug.B, k2 = t * 5; B.armR.rotation.set(-1.3 + Math.sin(k2) * 0.4, 0, -0.1); B.armL.rotation.set(-1.3 - Math.sin(k2) * 0.4, 0, 0.1);
+    if (Math.hypot(P.x - f.cx, P.z - f.cz) < 34 && (f.mus -= dt) <= 0) { f.mus = 0.32; const n = TUNE20[Math.floor(f.t / 0.32) % TUNE20.length]; beep(n, 0.22, "triangle", 0.018); }
+    // Am Abend ist der Jahrmarkt vorbei
+    const h = hr14(); if (h >= 20 || h < 6 || (f.t > 30 && Math.abs(h - f.until) < 0.05)) endFair20();
+  }
+  function endFair20() {
+    const f = V20.fest; if (!f) return;
+    scene.remove(f.g); f.g.traverse(o => o.geometry && o.geometry.dispose());
+    for (const e of f.ponies.concat([f.jug, f.her])) if (!e.gone) removeEnt(e);
+    V20.fest = null; OVR15 = null; for (const e of WORKERS) if (!e.order15 && !e.zug14) setMode14(e, wantMode14(e, hr14()));
+    announce14("Der Jahrmarkt ist zu Ende. Alle gehen fröhlich nach Hause.", "Fest:");
+  }
+
+  // ---------- Ritterturnier: zwei Ritter zu Pferd reiten mit Lanzen aufeinander zu ----------
+  const JOUSTERS20 = [["Ritter Wolfram von Eichenfels", "k18_2", BWOOL], ["Ritter Konrad vom Königshof", "k18_1", RWOOL], ["Ritter Ulrich der Kühne", "k18_1", BWOOL], ["Hauptmann Gottfried", "k18_2", RWOOL]];
+  const lanceGeo20 = new THREE.BoxGeometry(0.12, 0.12, 3.6), lanceMat20 = [new THREE.MeshLambertMaterial({ color: 0x3050c0 }), new THREE.MeshLambertMaterial({ color: 0xc03030 })];
+  function startJoust20() {
+    if (V20.joust || !V20.site) return;
+    const s = V20.site, F = G0 + 1, pair = Math.floor(Math.random() * 2) * 2;
+    const riders = [0, 1].map(i => {
+      const [nm, model] = JOUSTERS20[pair + i], x = i ? s.x1 - 5.5 : s.x0 + 5.5, z = s.zc + (i ? 1.5 : -1.5) + 0.5;
+      const horse = spawnEnt("animal", "horse_" + (i ? "black" : "white"), x, F, z, { type: "horse", harness19: true, ghost: true, hp: 99, maxHp: 99 });
+      const knight = spawnEnt("villager", "p11_" + model, x, F + 0.95, z, { name: nm, sit: true, pose: "sit", ghost: true, lines: ["Für die Ehre!", "Möge der Bessere gewinnen!"] });
+      knight.think = (e, dt) => { e.dvx = e.dvz = 0; };
+      const lance = new THREE.Mesh(lanceGeo20, lanceMat20[i]); lance.position.set(-0.35, 1.25, 1.4); knight.mesh.add(lance);
+      return { horse, knight, lance, dir: i ? -1 : 1, x, z, pts: 0, name: nm };
+    });
+    const her = spawnEnt("villager", "p11_herold20", (s.x0 + s.x1) / 2 + 0.5, F, s.zc + 6.5, { name: "Herold", lines: ["Das Turnier beginnt!"], yaw: Math.PI });
+    her.think = (e, dt) => { e.dvx = e.dvz = 0; if (e.talkT > 0) e.talkT -= dt; };
+    V20.joust = { riders, her, round: 0, state: "wait", t: 3, s };
+    // Zuschauer auf die Tribüne
+    const sp = []; for (let x = s.x0 + 4; x <= s.x1 - 4; x++) for (let k = 0; k < 3; k++) if (Math.abs(x - V20.box[0]) > 2) sp.push([x + 0.5, F + k + 1, s.z0 + 6 - k * 2 + 0.5]);
+    for (let i = sp.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [sp[i], sp[j]] = [sp[j], sp[i]]; }
+    OVR15 = { mode: "king", from: hr14(), until: (hr14() + 2) % 24, spots: sp.slice(0, 40), at: [V20.box[0], F, V20.box[2]], range: 400 };
+    for (const e of WORKERS) if (!e.order15 && !e.zug14) e.mode14 = null;
+    V20.ev.push(["Ritterturnier", 8]); V20.festDay = V20.day; V20.fwDone = false;
+    announce14(`Ritterturnier auf der Festwiese: ${riders[0].name} gegen ${riders[1].name}! Die Königsloge ist für dich frei.`, "Fest:");
+    say("Herold", `Hört, hört! ${riders[0].name} gegen ${riders[1].name}! Drei Durchgänge!`);
+  }
+  function updateJoust20(dt, t) {
+    const J = V20.joust; if (!J) return;
+    const s = J.s, F = G0 + 1;
+    J.t -= dt;
+    if (J.state === "wait" && J.t <= 0) { J.state = "charge"; J.round++; say("Herold", `Durchgang ${J.round}!`); }
+    if (J.state === "charge") {
+      for (const r of J.riders) r.x += r.dir * 7.5 * dt;
+      const [a, b] = J.riders;
+      if (!J.hit && a.x >= b.x - 1.4) {
+        J.hit = true;
+        const w = Math.random() < 0.5 + (a.pts - b.pts) * 0.05 ? a : b; w.pts++;
+        emit((a.x + b.x) / 2, F + 2.2, s.zc + 0.5, 30, () => [196, 156, 96], 0.12, 5, 9); noiseHit(260, 1.4, 0.18, 0.16); noiseHit(900, 2, 0.08, 0.06, 0.05);
+        say("Herold", `Treffer für ${w.name}!`); cheer20();
+      }
+      if (a.x >= s.x1 - 5.5 && b.x <= s.x0 + 5.5) {
+        // Am Ende umdrehen: Seiten tauschen
+        for (const r of J.riders) r.dir *= -1;
+        J.hit = false; J.state = "wait"; J.t = 3.5;
+        if (J.round >= 3) { J.state = "end"; J.t = 6; const w = a.pts === b.pts ? (Math.random() < 0.5 ? a : b) : a.pts > b.pts ? a : b; say("Herold", `Sieger des Turniers: ${w.name}! Ein Hoch auf den Sieger!`); announce14(`${w.name} gewinnt das Ritterturnier!`, "Turnier:"); cheer20(); }
+      }
+    }
+    for (const r of J.riders) {
+      r.horse.x = r.x; r.horse.z = r.z; r.horse.y = F; r.horse.vx = J.state === "charge" ? r.dir * 7.5 : 0; r.horse.vz = 0; r.horse.yaw = r.horse.yawT = r.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+      r.knight.x = r.x; r.knight.z = r.z; r.knight.y = F + 0.95; r.knight.yaw = r.knight.yawT = r.horse.yaw; r.knight.vx = r.knight.vz = 0;
+    }
+    if (J.state === "end" && J.t <= 0) endJoust20();
+  }
+  function cheer20() {
+    for (const e of WORKERS) if (!e.gone && e.mode14 === "king" && distP(e) < 60 && Math.random() < 0.6) { e.vy = 5; e.swingT = 0; }
+    if (V20.joust && distP(V20.joust.her) < 60) for (let i = 0; i < 4; i++) noiseHit(700 + i * 150, 0.6, 0.25, 0.02, i * 0.08);
+  }
+  function endJoust20() {
+    const J = V20.joust; if (!J) return;
+    for (const r of J.riders) { removeEnt(r.horse); removeEnt(r.knight); }
+    removeEnt(J.her); V20.joust = null; OVR15 = null; for (const e of WORKERS) if (!e.order15 && !e.zug14) setMode14(e, wantMode14(e, hr14()));
+  }
+
+  // ---------- Feuerwerk: Raketen steigen mit Funkenschweif, zerplatzen in bunten Kugeln, der Knall kommt später ----------
+  const FWMAX = 4000, fwGeo = new THREE.BufferGeometry(), fwPos = new Float32Array(FWMAX * 3), fwCol = new Float32Array(FWMAX * 3);
+  fwGeo.setAttribute("position", new THREE.BufferAttribute(fwPos, 3)); fwGeo.setAttribute("color", new THREE.BufferAttribute(fwCol, 3));
+  const fwPts = new THREE.Points(fwGeo, new THREE.PointsMaterial({ size: 1.7, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }));
+  fwPts.frustumCulled = false; fwPts.visible = false; scene.add(fwPts);
+  const FWC = [[1, 0.3, 0.3], [0.3, 0.6, 1], [1, 0.85, 0.3], [0.4, 1, 0.5], [1, 0.4, 0.9], [1, 1, 1], [1, 0.6, 0.2]];
+  function startFireworks20() {
+    if (V20.fw) return;
+    const base = WILD ? [P.x + 20, P.z - 30] : [96.5, 96];
+    V20.fw = { t: 0, len: 50, next: 0.5, rockets: [], sparks: [], base };
+    if (!WILD) V20.ev.push(["Feuerwerk", 5]);
+    announce14(WILD ? "Ein Feuerwerk für den König!" : "Feuerwerk über dem Schloss!", "Fest:");
+  }
+  function updateFireworks20(dt) {
+    const F = V20.fw; if (!F) { fwPts.visible = false; return; }
+    F.t += dt;
+    if (F.t < F.len && (F.next -= dt) <= 0) {
+      F.next = 0.35 + Math.random() * 0.8;
+      const n = Math.random() < 0.2 ? 3 : 1;
+      for (let i = 0; i < n; i++) F.rockets.push({ x: F.base[0] + (Math.random() - 0.5) * 50, y: G0 + 30, z: F.base[1] + (Math.random() - 0.5) * 40, vy: 30 + Math.random() * 10, vx: (Math.random() - 0.5) * 3, vz: (Math.random() - 0.5) * 3, fuse: 1.6 + Math.random() * 0.8, c: FWC[Math.floor(Math.random() * FWC.length)], c2: FWC[Math.floor(Math.random() * FWC.length)], kind: Math.floor(Math.random() * 3) });
+      if (Math.hypot(P.x - F.base[0], P.z - F.base[1]) < 200) noiseHit(2400, 0.6, 0.5, 0.012);
+    }
+    for (let i = F.rockets.length - 1; i >= 0; i--) {
+      const r = F.rockets[i];
+      r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt; r.vy -= 9 * dt; r.fuse -= dt;
+      if (F.sparks.length < FWMAX - 10) F.sparks.push({ x: r.x, y: r.y, z: r.z, vx: (Math.random() - 0.5), vy: -1, vz: (Math.random() - 0.5), life: 0.5, max: 0.5, c: [1, 0.8, 0.5] });
+      if (r.fuse <= 0) {
+        F.rockets.splice(i, 1);
+        const cnt = 140 + Math.floor(Math.random() * 80), sp = 14 + Math.random() * 8;
+        for (let k = 0; k < cnt && F.sparks.length < FWMAX; k++) {
+          const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, q = Math.sqrt(1 - u * u), ring = r.kind === 1, v = ring ? sp : sp * (0.6 + Math.random() * 0.4);
+          const vx = ring ? Math.cos(a) * v : q * Math.cos(a) * v, vz = ring ? Math.sin(a) * v : q * Math.sin(a) * v, vy = ring ? (Math.random() - 0.5) * 2 : u * v;
+          F.sparks.push({ x: r.x, y: r.y, z: r.z, vx, vy, vz, life: 1.6 + Math.random() * 0.8, max: 2.4, c: k % 3 === 0 && r.kind === 2 ? r.c2 : r.c, tw: r.kind === 2 });
+        }
+        const d = Math.hypot(P.x - r.x, P.y - r.y, P.z - r.z);
+        if (d < 400) noiseHit(70 + Math.random() * 40, 0.5, 0.8, Math.min(0.14, 12 / (d + 20)), d / 340);
+      }
+    }
+    let n = 0;
+    for (let i = F.sparks.length - 1; i >= 0; i--) {
+      const s = F.sparks[i];
+      s.life -= dt; if (s.life <= 0) { F.sparks[i] = F.sparks[F.sparks.length - 1]; F.sparks.pop(); continue; }
+      s.vx *= 1 - dt * 1.2; s.vz *= 1 - dt * 1.2; s.vy = s.vy * (1 - dt * 1.2) - 6 * dt;
+      s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
+      const k = Math.min(1, s.life / s.max * 1.4) * (s.tw && Math.random() < 0.3 ? 0.2 : 1);
+      fwPos[n * 3] = s.x; fwPos[n * 3 + 1] = s.y; fwPos[n * 3 + 2] = s.z; fwCol[n * 3] = s.c[0] * k; fwCol[n * 3 + 1] = s.c[1] * k; fwCol[n * 3 + 2] = s.c[2] * k; n++;
+    }
+    fwGeo.setDrawRange(0, n); fwGeo.attributes.position.needsUpdate = true; fwGeo.attributes.color.needsUpdate = true; fwPts.visible = n > 0;
+    if (F.t > F.len && !F.rockets.length && !F.sparks.length) { V20.fw = null; fwPts.visible = false; }
+  }
+  // Nach Turnier oder Jahrmarkt am Abend: von selbst ein Feuerwerk
+  function autoFw20() { const h = hr14(); if (!V20.fw && V20.festDay === V20.day && h >= 21 && h < 21.2 && !V20.fwDone) { V20.fwDone = true; startFireworks20(); } }
+
+  // ---------- Anschluss ----------
+  WILDX17.push(() => paintRing20());
+  MAPDRAW17.push((g, X, Z, s, dpr) => {
+    if (V20.ring <= 0) return;
+    const { x0, x1, z0, z1 } = RING20, done = V20.ring / 100;
+    g.save(); g.lineWidth = Math.max(2, 4 * Math.min(1, s)) * dpr;
+    // fertig: dunkle Linie, geplant: gestrichelt
+    const per = [[96, z1], [x1, z1], [x1, z0], [x0, z0], [x0, z1], [96, z1]];
+    let acc = 0; const total = ringPer20;
+    for (let i = 0; i < per.length - 1; i++) {
+      const [ax, az] = per[i], [bx, bz] = per[i + 1], L = Math.hypot(bx - ax, bz - az), f0 = acc / total, f1 = (acc + L) / total;
+      const cut = Math.max(0, Math.min(1, (done - f0) / (f1 - f0)));
+      g.setLineDash([]); g.strokeStyle = "rgba(70,60,56,.9)"; if (cut > 0) { g.beginPath(); g.moveTo(X(ax), Z(az)); g.lineTo(X(ax + (bx - ax) * cut), Z(az + (bz - az) * cut)); g.stroke(); }
+      g.setLineDash([4 * dpr, 4 * dpr]); g.strokeStyle = "rgba(70,60,56,.45)"; if (cut < 1) { g.beginPath(); g.moveTo(X(ax + (bx - ax) * cut), Z(az + (bz - az) * cut)); g.lineTo(X(bx), Z(bz)); g.stroke(); }
+      acc += L;
+    }
+    g.restore();
+  });
+  V11.spawn.push(() => { for (const k of V20.kids) spawnKid20(k); });
+  V11.update.push((dt, t) => { const tt = t || performance.now() / 1000; dayTick20(); updateFair20(dt, tt); updateJoust20(dt, tt); updateFireworks20(dt); autoFw20(); if (V16.alarm && !V20.alarmCounted) { V20.alarmCounted = true; V20.ev.push(["Alarm in der Nacht", -3]); } if (!V16.alarm) V20.alarmCounted = false; });
+  (V11.wild = V11.wild || []).push(dt => { dayTick20(); updateFireworks20(dt); });
+  function v20Save() { return { tax: V20.tax, laws: V20.laws, mood: Math.round(V20.mood * 10) / 10, why: V20.why, kids: V20.kids, ring: V20.ring, ringOn: V20.ringOn, wallOpen: V20.wallOpen, born: V20.born, day: V20.day, ev: V20.ev }; }
+  function v20Load(o) {
+    if (!o) return;
+    if ([0, 1, 2].includes(o.tax)) V20.tax = o.tax;
+    if (o.laws && typeof o.laws === "object") for (const L of LAWS20) V20.laws[L.k] = !!o.laws[L.k];
+    for (const k of ["mood", "ring", "born", "day"]) if (Number.isFinite(o[k])) V20[k] = o[k];
+    V20.ringOn = !!o.ringOn; V20.wallOpen = !!o.wallOpen;
+    if (Array.isArray(o.kids)) V20.kids = o.kids.filter(k => k && typeof k.n === "string").slice(0, 24);
+    if (Array.isArray(o.why)) V20.why = o.why; if (Array.isArray(o.ev)) V20.ev = o.ev;
+  }
   // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.

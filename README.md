@@ -2,6 +2,14 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Version 20: Das Königreich wächst (auf diesem Branch)
+
+- **Erlasse vom Thron:** Geh in den Thronsaal und öffne im Befehlskreis (Q) „Erlasse und Feste“. Dort stellst du die **Abgaben** ein (niedrig, mittel, hoch) und erlässt **Gesetze**: freies Brot, Ruhetag, Schule für alle Kinder, Pflege von Brunnen und Straßen, strenge Nachtwache.
+- **Zufriedenheit:** Jeden Morgen wird neu gerechnet, wie zufrieden die Leute sind. Sie sagen es dir, wenn du mit ihnen redest. Unzufriedene geben weniger ab, sehr zufriedene bringen dir Geschenke.
+- **Nachwuchs:** In zufriedenen Familien werden Kinder geboren. Sie bekommen Namen und spielen im Dorf.
+- **Festwiese** in der Neustadt mit Turnierbahn, Tribüne und Königsloge. Feste: **Ritterturnier** (zwei Ritter zu Pferd, drei Durchgänge, der Herold ruft den Sieger aus), **Jahrmarkt** (Zelte, Karussell, Gaukler, Musik) und **Feuerwerk** über dem Schloss.
+- **Neuer Mauerring:** Lass vor der Großen Mauer einen zweiten, größeren Mauerring bauen. Die Bauleute brauchen etwa acht Tage; den Fortschritt siehst du auf der Karte und an der Baustelle in der Wildnis. Ist er fertig, bekommt die alte Mauer drei neue Tore ins Neuland.
+
 ## Version 19: Fremde Reiche und Reisen (auf diesem Branch)
 
 - Hinter der Großen Mauer liegen jetzt **fünf Nachbarreiche**: Nordreich, Morgenland, Westmark, Südland und Seeburg. Von der Südpforte führen **Straßen** zu allen Reichen; du siehst sie auf der Karte (M).
