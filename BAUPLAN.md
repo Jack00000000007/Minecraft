@@ -92,7 +92,12 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Tagesablauf in den königlichen Gemächern: 7 Uhr Spiegel im Ankleidezimmer, 9 Uhr Sessel in ihrem Zimmer, 12 Uhr Fenster im Schlafgemach, 14 Uhr Schminktisch, 17 Uhr Sofa am Kamin, 20 Uhr ihr Zimmer, 22 Uhr am Bett. Sie geht durch die Türen, setzt sich, macht kleine Gesten
 - [x] Reden (E oder Rechtsklick): sie sagt „Markus“, nicht „Majestät“, spricht mit Mundbewegung, winkt, lächelt, wenn du nah bist, und schaut dich an
 - [x] Befehlskreis „Königin“: Begleite mich / Geh in deine Gemächer. Sie geht mit (auch in die Wildnis und heim) und wehrt Zombies mit dem Degen ab
-- [ ] Hinlegen und Schlafen im Bett (die Bewegungen kommen mit dem nächsten Paket; der Befehl ist schon vorbereitet)
+- [x] Sie heißt Julia (umbenennen im Befehlskreis unter „Namen geben“)
+- [x] Bäume fällen mit der Axt (drei Hiebe, dann fällt der ganze Baum), Fechten üben an der Strohpuppe auf dem Übungsplatz, „Komm zu mir“ über das Wegenetz
+- [x] Begleitet sie dich: sie fährt in der Kutsche und im Boot neben dir mit, nimmt sich ein freies Pferd und reitet im Damensitz hinter dir her
+- [x] Feste: beim Ritterturnier steht sie an der Königsloge und schaut den Rittern zu, über den Jahrmarkt schlendert sie, beim Feuerwerk schaut sie nach oben; danach geht sie heim
+- [x] Sie verbindet dich, wenn du wenig Leben hast (einmal pro Minute), und schenkt dir einmal am Tag etwas (Goldapfel, Äpfel, Brot, Rosen, Buch)
+- [ ] Hinlegen und Schlafen im Bett: im Spiel fertig vorbereitet, startet von selbst, sobald `frau.glb` die Bewegungen lie_down, sleep und get_up enthält
 
 ## Regeln beim Bauen
 - Jeder Teil steht als eigener, beschrifteter Abschnitt in `index.html`. Änderungen am alten Code werden hier unten aufgeschrieben.

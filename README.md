@@ -4,9 +4,10 @@ Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und
 
 ## Die Königin
 
-- In den königlichen Gemächern (links vom Thronsaal) wohnt jetzt die **Königin**, eine echte, lebensnahe 3D-Figur. Sie hat einen Tagesablauf: am Spiegel, im Sessel, am Fenster, am Schminktisch, abends auf dem Sofa am Kamin.
+- In den königlichen Gemächern (links vom Thronsaal) wohnt jetzt **Königin Julia**, eine echte, lebensnahe 3D-Figur. Sie hat einen Tagesablauf: am Spiegel, im Sessel, am Fenster, am Schminktisch, abends auf dem Sofa am Kamin.
 - Sprich sie an (E oder Rechtsklick). Sie schaut dich an, lächelt, redet und winkt.
-- Im Befehlskreis (Q) unter „Königin“ kann sie dich **begleiten**, auch in die Wildnis. Kommt ein Zombie, zieht sie ihren Degen.
+- Im Befehlskreis (Q) unter „Königin Julia“: **Begleite mich** (auch in die Wildnis; sie fährt in Kutsche und Boot mit und reitet auf einem eigenen Pferd neben dir), **Fälle die Bäume hier** (mit der Axt), **Übe Fechten** (auf dem Übungsplatz), **Komm zu mir**, **Namen geben**. Kommt ein Zombie, zieht sie ihren Degen.
+- Sie geht von selbst zum Ritterturnier und auf den Jahrmarkt, schenkt dir manchmal etwas und verbindet dich, wenn du verletzt bist.
 
 ## Dazu nach Version 20
 

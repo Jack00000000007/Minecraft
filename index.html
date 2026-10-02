@@ -17795,7 +17795,10 @@ float gAO = 1.0;
   // Reden: E oder Rechtsklick. Im Befehlskreis (Q) unter „Königin“: „Begleite mich“ oder „Geh in deine Gemächer“.
   // Begleitet sie dich und kommt ein Zombie, zieht sie ihren Degen. Sie nennt dich beim Namen, nicht „Majestät“.
   // Im Spiel unsichtbar steht dahinter eine Figur mit Wegsuche wie bei James; die echte Figur folgt ihr Bild für Bild.
-  const QUEEN = { fig: null, ent: null, loading: false, failed: false, follow: false, plan: null, seat: null, last: null, sitting: false, fightT: 0, target: null };
+  const QUEEN = { fig: null, ent: null, loading: false, failed: false, follow: false, plan: null, seat: null, last: null, sitting: false, fightT: 0, target: null,
+    task: null, mount: null, healT: 0, giftDay: -1, name: "Julia" };
+  try { const n = localStorage.getItem("blockwelt-koenigin-name"); if (n) QUEEN.name = n; } catch (e) {}
+  const qName = () => QUEEN.name === "Königin" ? "Königin" : "Königin " + QUEEN.name;
   const QF = G0 + 1;
   // Tagesplan: Stunde ab, Ort [x, z], Blickrichtung (Grad, 0 = +z), was sie dort tut; sit: Sitz-Block [x, z] und dessen Vorderseite
   const QPLAN = [
@@ -17805,7 +17808,7 @@ float gAO = 1.0;
     { from: 14, at: [64.95, 99.5], yaw: 90, sit: true, name: "am Schminktisch" },
     { from: 17, at: [54.05, 88.5], yaw: -90, sit: true, name: "auf dem Sofa am Kamin" },
     { from: 20, at: [63.5, 101.5], yaw: 180, name: "in ihrem Zimmer" },
-    { from: 22, at: [56.5, 83.6], yaw: 180, name: "am Bett im Schlafgemach", night: true },
+    { from: 22, at: [56.5, 83.6], yaw: 180, name: "am Bett im Schlafgemach", night: true, bed: [56.55, 81.0, -90] },
   ];
   function planNow() { const h = hr14(); let p = QPLAN[QPLAN.length - 1]; for (const q of QPLAN) if (h >= q.from) p = q; if (h < 7) p = QPLAN[QPLAN.length - 1]; return p; }
   // ---------- Laden: die GLB-Datei steckt als Base64 in der Seite (läuft auch ohne Internet) ----------
@@ -17829,7 +17832,7 @@ float gAO = 1.0;
   // ---------- Die unsichtbare Figur mit Wegsuche ----------
   function spawnQueen(at, follow) {
     if (QUEEN.ent && !QUEEN.ent.gone) return QUEEN.ent;
-    const e = spawnEnt("villager", "kid", at[0], at[1], at[2], { name: "Königin", talkName: "der Königin", lines: ["…"], speed: 1.4, r: 0.28, h: 1.75, eye: 1.6, scale: 1,
+    const e = spawnEnt("villager", "kid", at[0], at[1], at[2], { name: qName(), talkName: "der " + qName(), lines: ["…"], speed: 1.4, r: 0.28, h: 1.75, eye: 1.6, scale: 1,
       think: queenThink, queen: true, guest15: { talk17: ee => { queenTalk(ee); return true; } } });
     e.mesh.material.visible = false;
     QUEEN.ent = e; QUEEN.last = [e.x, e.z]; QUEEN.follow = !!follow;
@@ -17839,12 +17842,20 @@ float gAO = 1.0;
     if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; lookAt(e, P.x, P.y + 1.62, P.z, true); return; }
     const f0 = QUEEN.fig;
     if (f0 && SITS.has(f0.state) && !(e.wantSit && e.arrived)) { e.wantSit = false; e.dvx = e.dvz = 0; return; }   // erst aufstehen, dann gehen
+    if (QUEEN.mount) {
+      const m = QUEEN.mount;
+      if (m.kind === "horse" && !m.up && !(QUEEN.fig && SITS.has(QUEEN.fig.state))) { steerTo(e, m.horse.x, m.horse.z, 2.6); lookAhead(e); }   // zum Pferd gehen
+      else { e.dvx = e.dvz = 0; }
+      return;
+    }   // sitzt in Kutsche, Boot oder auf dem Pferd (das macht queenTick)
+    if (QUEEN.task && taskThink(e, dt, dp)) return;
     // Fortgehen (in der Wildnis zurück zum Schloss): einfach davongehen, bis sie außer Sicht ist
     if (e.leaving) { steerTo(e, e.x + e.leaving[0] * 10, e.z + e.leaving[1] * 10, 1.4); lookAhead(e); if (dp > 45) { removeEnt(e); QUEEN.ent = null; if (WILD) WILD.queen = false; } return; }
     // Begleiten: Zombies abwehren, sonst hinter dem König bleiben
     if (QUEEN.follow) { e.wantSit = false; e.ghost = false; if (queenFight(e, dt)) return; if (QUEEN.fig && QUEEN.fig.work) QUEEN.fig.setMode("idle"); follow15(e, dt, dp, { follow: true, dist: 2.4 }); return; }
     const p = planNow();
-    if (QUEEN.plan !== p) { QUEEN.plan = p; queenStand(); e.ghost = false; e.path = null; e.go = p; }
+    if (QUEEN.plan !== p) { QUEEN.plan = p; queenStand(); e.ghost = false; e.path = null; e.go = p; if (QUEEN.fig && QUEEN.fig.bed) QUEEN.fig.getUp(); }
+    if (QUEEN.fig && QUEEN.fig.bed && !e.go.bed) { e.dvx = e.dvz = 0; return; }   // erst aufstehen
     if (!e.go) { e.dvx = e.dvz = 0; return; }
     const [tx, tz] = e.go.at, d = Math.hypot(tx - e.x, tz - e.z);
     if (d > 0.35) {
@@ -17861,6 +17872,12 @@ float gAO = 1.0;
     // Angekommen: ausrichten, dann tun, was dort zu tun ist
     e.dvx = e.dvz = 0; e.ghost = true; e.x = tx; e.z = tz; e.y = QF;
     e.yaw = e.yawT = e.go.yaw * Math.PI / 180;
+    // Nachts ins Bett, sobald die Bewegungen dafür da sind (frau.glb mit lie_down, sleep, get_up)
+    const fb = QUEEN.fig;
+    if (e.go.bed && fb && fb.actions.lie_down) {
+      if (!fb.bed) { e.x = e.go.bed[0]; e.z = e.go.bed[1]; e.yaw = e.yawT = e.go.bed[2] * Math.PI / 180; fb.lieDown(); }
+      return;
+    }
     if (!e.arrived) { e.arrived = true; e.actT = 2 + Math.random() * 3; }
     e.wantSit = !!e.go.sit;
     const f = QUEEN.fig; if (!f) return;
@@ -17881,6 +17898,9 @@ float gAO = 1.0;
     return true;
   }
   function queenHit(work) {
+    const T = QUEEN.task;
+    if (T && work === "chop" && T.kind === "chop") { chopHit(T); return; }
+    if (T && work === "strike" && T.kind === "fechten") { const d = T.dummy; emit(d[0], G0 + 2.2, d[2], 6, () => [214, 186, 110], 0.08, 2.4, 8); noiseHit(420, 1.6, 0.07, 0.04); return; }
     const z = QUEEN.target, e = QUEEN.ent;
     if (work !== "strike" || !z || !e || z.dead >= 0 || Math.hypot(z.x - e.x, z.z - e.z) > 2.2) return;
     damage(z, 6, e, 8); noiseHit(900, 2, 0.08, 0.05);
@@ -17899,23 +17919,241 @@ float gAO = 1.0;
     let t = pick(L);
     if (V20 && V20.kids && V20.kids.length && Math.random() < 0.25) t = `Hast du die kleine ${V20.kids[V20.kids.length - 1].n} im Dorf gesehen? So ein süßes Kind!`;
     if (V20 && V20.mood < 30 && Math.random() < 0.4) t = "Markus, die Leute im Dorf sind unzufrieden. Vielleicht solltest du die Abgaben senken?";
-    say("Königin", t); e.talkT = 3.5;
+    // Einmal am Tag ein kleines Geschenk aus ihrer Tasche
+    const day = typeof V19 !== "undefined" ? V19.day : 0;
+    if (QUEEN.giftDay !== day && Math.random() < 0.5) {
+      QUEEN.giftDay = day;
+      const g = [[I.goldapfel, 1, "Ein goldener Apfel für dich, aus dem Schlossgarten!"], [I.apfel, 5, "Ich habe dir Äpfel gepflückt."], [I.brot, 3, "Frisches Brot aus der Küche, für unterwegs."], [FLOWER_R, 3, "Rosen für meinen König!"], [I.buch, 1, "Ein Buch aus der Bibliothek, das wird dir gefallen."]][day % 5];
+      giveItem(g[0], g[1]); t = g[2]; if (f && !QUEEN.sitting) f.play("wave");
+    }
+    if (V20 && V20.fest && Math.random() < 0.4) t = "Der Jahrmarkt ist so schön! Hörst du die Musik?";
+    if (V20 && V20.joust && Math.random() < 0.5) t = "Ich drücke unserem Ritter die Daumen!";
+    say(qName(), t); e.talkT = 3.5;
     if (f) { f.say(Math.min(4, 1 + t.length / 18)); if (!QUEEN.sitting && Math.random() < 0.35 && !f.work) f.play("wave"); }
+  }
+
+  // ---------- Aufgaben: Bäume fällen, Fechten üben, zu dir kommen, zu Festen gehen, heimgehen ----------
+  // Weite Wege laufen über das Wegenetz (wie bei den Bewohnern), außer Sicht geradlinig.
+  function qGo(e, goal, then) { navTo14(e, goal, then); e.path = null; }
+  function taskThink(e, dt, dp) {
+    const T = QUEEN.task, f = QUEEN.fig;
+    if (e.nav) { if (dp <= FAR14) navReal14(e, dt, dp); else e.dvx = e.dvz = 0; return true; }
+    if (T.kind === "chop") return chopThink(e, dt, T);
+    if (T.kind === "fechten") {
+      if ((T.t -= dt) <= 0) { if (f) f.setMode("idle"); QUEEN.task = null; say(qName(), "Puh, genug geübt für heute!"); return true; }
+      e.dvx = e.dvz = 0; e.ghost = true; e.x = T.spot[0]; e.z = T.spot[2]; e.yaw = e.yawT = Math.PI / 2;
+      if (f && f.state !== "strike" && !SITS.has(f.state)) f.setMode("strike");
+      return true;
+    }
+    if (T.kind === "fest") {
+      const fest = T.what === "joust" ? V20.joust : V20.fest;
+      if (!fest) { QUEEN.task = { kind: "heim" }; return true; }
+      e.dvx = e.dvz = 0;
+      if (T.what === "fair" && (T.wt = (T.wt || 0) - dt) <= 0) {   // über den Jahrmarkt schlendern
+        T.wt = 8 + Math.random() * 8; const s0 = V20.site;
+        qGo(e, [s0.x0 + 6 + Math.random() * (s0.x1 - s0.x0 - 14), G0 + 1, s0.z1 - 7 - Math.random() * 3], () => { if (f && Math.random() < 0.4) f.play(Math.random() < 0.5 ? "look_around" : "wave"); });
+      }
+      if (T.what === "joust" && T.at) { e.ghost = true; e.x = T.at[0]; e.z = T.at[2]; e.y = T.at[1]; e.yaw = e.yawT = 0; }
+      return true;
+    }
+    if (T.kind === "heim") {
+      if (QUEEN.follow || WILD) { QUEEN.task = null; return false; }
+      const p = planNow();
+      if (Math.hypot(e.x - p.at[0], e.z - p.at[1]) < 3) { QUEEN.task = null; QUEEN.plan = null; return false; }
+      if (!T.started) { T.started = true; qGo(e, [p.at[0], QF, p.at[1]], () => { QUEEN.task = null; QUEEN.plan = null; }); }
+      return true;
+    }
+    if (T.kind === "zumKoenig") {
+      if (dp < 3) { QUEEN.task = null; say(qName(), "Da bin ich, Markus!"); if (f) f.play("wave"); return true; }
+      if (!T.started || (T.re = (T.re || 0) - dt) <= 0) { T.started = true; T.re = 6; qGo(e, [P.x, P.y, P.z], () => {}); }
+      return true;
+    }
+    return false;
+  }
+  // Bäume fällen mit der Axt: vor den Stamm stellen, hacken; nach drei Hieben fällt der ganze Baum, das Holz bleibt liegen
+  function queenChop() {
+    const e = QUEEN.ent; if (!e || e.gone) return;
+    const trees = [], cx = Math.floor(P.x), cz = Math.floor(P.z), cy = Math.floor(P.y);
+    for (let r = 2; r <= 16 && trees.length < 4; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r || trees.length >= 4) continue;
+      for (let y = cy - 10; y <= cy + 4; y++) {
+        const x = cx + dx, z = cz + dz;
+        if (LOGB[get(x, y, z)] && !LOGB[get(x, y - 1, z)] && !trees.some(t => t[0][0] === x && t[0][2] === z)) { const t = treeAt(x, y, z); if (t && t.length >= 3) trees.push(t); break; }
+      }
+    }
+    if (!trees.length) { say(qName(), "Hier stehen keine Bäume, Markus."); return; }
+    QUEEN.task = { kind: "chop", trees, cur: null, hits: 0 };
+    say(qName(), "Gib mir die Axt! Ich fälle die Bäume hier.");
+  }
+  function chopThink(e, dt, T) {
+    const f = QUEEN.fig;
+    if (!T.cur) {
+      while (T.trees.length && !T.trees[0].some(p => LOGB[get(p[0], p[1], p[2])])) T.trees.shift();
+      if (!T.trees.length) { if (f) f.setMode("idle"); QUEEN.task = null; say(qName(), "Fertig! Das Holz liegt bereit."); return true; }
+      const b = T.trees[0][0];
+      // Standplatz: 1,3 Blöcke vor dem Stamm, auf der Seite zur Königin hin, wo man stehen kann
+      let best = null, bd = 1e9;
+      for (let a = 0; a < 8; a++) {
+        const an = a / 8 * Math.PI * 2, x = b[0] + 0.5 + Math.sin(an) * 1.3, z = b[2] + 0.5 + Math.cos(an) * 1.3;
+        if (!standable(Math.floor(x), b[1], Math.floor(z))) continue;
+        const d = Math.hypot(x - e.x, z - e.z); if (d < bd) { bd = d; best = [x, b[1], z]; }
+      }
+      if (!best) { T.trees.shift(); return true; }
+      T.cur = b; T.spot = best; T.hits = 0; T.giveUp = 25;
+    }
+    const [sx, sy, sz] = T.spot, d = Math.hypot(sx - e.x, sz - e.z);
+    if ((T.giveUp -= dt) <= 0) { T.trees.shift(); T.cur = null; if (f) f.setMode("idle"); return true; }
+    if (d > 0.3) {
+      if (f && f.work) f.setMode("idle");
+      if (d > 2.5) { if (!e.path || (e.repathQ = (e.repathQ || 0) - dt) <= 0) { e.repathQ = 2; if (pathQuota > -1) { pathQuota--; const p2 = findPath(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z), Math.floor(sx), sy, Math.floor(sz), 1, 5000); e.path = p2 && p2.length ? p2 : null; e.pi = 0; } } if (e.path) { if (followPath(e, 1.6)) e.path = null; } else steerTo(e, sx, sz, 1.4); }
+      else { e.ghost = true; e.x += (sx - e.x) * Math.min(1, dt * 2); e.z += (sz - e.z) * Math.min(1, dt * 2); e.dvx = e.dvz = 0; }
+      lookAhead(e); return true;
+    }
+    e.dvx = e.dvz = 0; e.ghost = true; e.y = sy;
+    e.yaw = e.yawT = Math.atan2(T.cur[0] + 0.5 - e.x, T.cur[2] + 0.5 - e.z);
+    if (f && f.state !== "chop") f.setMode("chop");
+    return true;
+  }
+  function chopHit(T) {
+    if (!T.cur) return;
+    const [x, y, z] = T.cur, b = get(x, y, z);
+    if (!LOGB[b]) { T.cur = null; return; }
+    T.hits++; T.giveUp = 25;
+    blockSound(b, "hit", 0.07 * Math.max(0, 1 - distP(QUEEN.ent) / 30)); blockParticles(x, y, z, b, 6);
+    if (T.hits < 3) return;
+    // Der Baum fällt: alle Stammblöcke weg (das Holz fällt herunter), die Blätter welken danach
+    for (const [lx, ly, lz] of T.trees[0]) { const lb = get(lx, ly, lz); if (!LOGB[lb]) continue; blockParticles(lx, ly, lz, lb, 5); v13Chopped(lx, ly, lz, lb); editBlock(lx, ly, lz, AIR); scheduleDecay(lx, ly, lz); }
+    blockSound(b, "break", 0.08 * Math.max(0, 1 - distP(QUEEN.ent) / 30));
+    T.trees.shift(); T.cur = null;
+  }
+  function queenFence() {
+    if (!V18.site || WILD) { say(qName(), "Zum Fechten gehe ich auf den Übungsplatz neben dem Schloss."); return; }
+    const s0 = V18.site, dummy = [s0.x1 - 2.5, G0 + 1, s0.z0 + 8.5], spot = [dummy[0] - 1.45, G0 + 1, dummy[2]];
+    const e = QUEEN.ent; if (!e || e.gone) return;
+    QUEEN.follow = false; queenStand();
+    QUEEN.task = { kind: "fechten", dummy, spot, t: 60 };
+    qGo(e, spot, () => {});
+    say(qName(), "Ich gehe auf den Übungsplatz und übe mit dem Degen an der Strohpuppe!");
+  }
+  function queenComeHere() {
+    const e = QUEEN.ent; if (!e || e.gone) return;
+    QUEEN.task = { kind: "zumKoenig" }; queenStand();
+    say(qName(), "Ich komme, Markus!");
+  }
+  function queenRename() {
+    let n = null; try { n = window.prompt("Wie soll die Königin heißen?", QUEEN.name === "Königin" ? "" : QUEEN.name); } catch (e) {}
+    if (n === null) return;
+    n = n.trim().slice(0, 24);
+    QUEEN.name = n || "Königin";
+    try { localStorage.setItem("blockwelt-koenigin-name", QUEEN.name); } catch (e) {}
+    if (QUEEN.ent) { QUEEN.ent.name = qName(); QUEEN.ent.talkName = "der " + qName(); }
+    say(qName(), n ? `Ich heiße ${n}? Wie schön, Markus!` : "Dann bleibe ich einfach deine Königin.");
+  }
+
+  // ---------- Mitfahren und Mitreiten (wenn sie dich begleitet) ----------
+  // Kutsche: sie sitzt neben dir auf der Bank. Boot: neben dir auf der vorderen Bank. Pferd: sie nimmt sich ein freies Pferd in der Nähe
+  // und reitet im Damensitz hinter dir her (gibt es keins, läuft sie).
+  function mountTick(e, f, dt) {
+    const M = QUEEN.mount;
+    // Einsteigen
+    if (!M && QUEEN.follow && !QUEEN.task) {
+      if (P.carriage && CO.mesh && Math.hypot(e.x - CO.x, e.z - CO.z) < 14) { QUEEN.mount = { kind: "coach" }; say(qName(), "Ich fahre mit!"); }
+      else if (P.boat && V17SHIP.mesh && Math.hypot(e.x - V17SHIP.x, e.z - V17SHIP.z) < 14) { QUEEN.mount = { kind: "boat" }; say(qName(), "Oh, eine Bootsfahrt! Wie romantisch."); }
+      else if (P.horse) {
+        let h = null, bd = 30;
+        for (const a of ents) if (a.type === "horse" && a !== P.horse && !a.ridden && !a.harness19 && a.dead < 0) { const d = Math.hypot(a.x - e.x, a.z - e.z); if (d < bd) { bd = d; h = a; } }
+        if (h) { QUEEN.mount = { kind: "horse", horse: h, up: false }; say(qName(), "Warte, ich hole mir auch ein Pferd!"); }
+      }
+      if (!QUEEN.mount) return false;
+    }
+    if (!QUEEN.mount) return false;
+    const m = QUEEN.mount;
+    // Aussteigen, wenn der König aussteigt
+    const off = m.kind === "coach" ? !P.carriage : m.kind === "boat" ? !P.boat : !P.horse || !QUEEN.follow || m.horse.gone;
+    if (off) {
+      if (m.kind === "horse" && m.horse && !m.horse.gone) { m.horse.ridden = false; m.horse.ghost = false; m.horse.queenRide = false; m.horse.vx = m.horse.vz = 0; }
+      const sp = freeSpotNear(e.x, e.y, e.z, 1.2, 1.2) || freeSpotNear(P.x, P.y, P.z, 1.5, 1.5);
+      if (sp) { e.x = sp[0]; e.y = sp[1]; e.z = sp[2]; }
+      e.ghost = false; QUEEN.mount = null; e.wantSit = false;
+      if (f && f.state === "sit") f.standUp();
+      return false;
+    }
+    e.ghost = true; e.vx = e.vy = e.vz = 0; e.dvx = e.dvz = 0;
+    let seat = null, face = 0;
+    if (m.kind === "coach") {
+      const fx = -Math.sin(CO.yaw), fz = -Math.cos(CO.yaw), sx = Math.cos(CO.yaw), sz = -Math.sin(CO.yaw);
+      seat = [CO.x - fx * 0.85 + sx * 0.4, CO.y + 1.3, CO.z - fz * 0.85 + sz * 0.4]; face = Math.atan2(fx, fz);
+    } else if (m.kind === "boat") {
+      const S = V17SHIP, fx = -Math.sin(S.yaw), fz = -Math.cos(S.yaw), sx = Math.cos(S.yaw), sz = -Math.sin(S.yaw);
+      seat = [S.x + fx * 0.8 - sx * 0.55, S.mesh.position.y + 0.08, S.z + fz * 0.8 - sz * 0.55]; face = Math.atan2(fx, fz);
+    } else {
+      const h = m.horse;
+      if (!m.up) {   // zum Pferd gehen
+        const d = Math.hypot(h.x - e.x, h.z - e.z);
+        e.ghost = false; e.wantSit = false;
+        if (f && SITS.has(f.state)) { e.dvx = e.dvz = 0; return false; }   // erst aufstehen
+        if (d > 1.3) { h.dvx = h.dvz = 0; if (d > 40) { e.x = h.x + 1; e.z = h.z; } return false; }
+        m.up = true; h.ridden = true; h.queenRide = true; h.ghost = true;
+        if (f && f.work) f.setMode("idle");
+      }
+      // reiten: hinter dem König bleiben, nicht durch Wände
+      const bx = -Math.sin(P.yaw), bz = -Math.cos(P.yaw), tx = P.x - bx * 3.2 + bz * 1.6, tz = P.z - bz * 3.2 - bx * 1.6;
+      const dx = tx - h.x, dz = tz - h.z, d = Math.hypot(dx, dz);
+      if (d > 45) { h.x = tx; h.z = tz; h.y = P.y; }
+      else if (d > 0.6) {
+        const v = Math.min(12, d * 1.6), nx = h.x + dx / d * v * dt, nz = h.z + dz / d * v * dt;
+        let ny = null; for (let y = Math.floor(h.y + 1.6); y >= Math.floor(h.y - 3); y--) if (standable(Math.floor(nx), y, Math.floor(nz))) { ny = y; break; }
+        if (ny !== null && !hitsBox(nx, ny, nz, 0.45, 1.7)) { h.x = nx; h.z = nz; h.y += (ny - h.y) * Math.min(1, dt * 10); }
+        h.vx = dx / d * v; h.vz = dz / d * v; h.yaw = h.yawT = Math.atan2(dx, dz);
+      } else { h.vx = h.vz = 0; }
+      // Damensitz: seitlich, die Beine auf der linken Seite
+      const lx = Math.cos(h.yaw), lz = -Math.sin(h.yaw);
+      face = h.yaw + Math.PI / 2;
+      const hf = [Math.sin(face), Math.cos(face)];
+      seat = [h.x + lx * 0.05, h.y + 1.32, h.z + lz * 0.05];
+      e.x = seat[0] + hf[0] * 0.45; e.z = seat[2] + hf[1] * 0.45; e.y = seat[1] - 0.48; e.yaw = e.yawT = face;
+      if (f && !SITS.has(f.state) && f.state === "idle") f.sit();
+      e.wantSit = true;
+      return true;
+    }
+    e.x = seat[0] + Math.sin(face) * 0.45; e.z = seat[2] + Math.cos(face) * 0.45; e.y = seat[1] - 0.48; e.yaw = e.yawT = face;
+    e.wantSit = true;
+    if (f && !SITS.has(f.state) && f.state === "idle") f.sit();
+    return true;
+  }
+  // Zu Festen geht sie von selbst (wenn sie nicht gerade etwas anderes tut), danach wieder heim
+  function festTick(e) {
+    if (WILD || QUEEN.follow || (QUEEN.task && QUEEN.task.kind !== "heim")) return;
+    if (V20.joust && V20.box) { QUEEN.task = { kind: "fest", what: "joust", at: [V20.box[0] + 1.6, V20.box[1], V20.box[2] - 0.3] }; queenStand(); qGo(e, QUEEN.task.at, () => {}); }
+    else if (V20.fest && V20.site) { QUEEN.task = { kind: "fest", what: "fair", wt: 0 }; queenStand(); }
+  }
+  // Fällt das Leben des Königs tief, verbindet sie ihn (einmal pro Minute)
+  function healTick(e, f, dt) {
+    if ((QUEEN.healT -= dt) > 0 || P.dead || P.hp > 8 || distP(e) > 4) return;
+    QUEEN.healT = 60;
+    say(qName(), "Markus! Halt still, ich verbinde dich.");
+    if (f && !SITS.has(f.state) && !f.work) f.setMode("talk");
+    setTimeout(() => { if (!P.dead) { P.hp = Math.min(MAX_HP, P.hp + 10); emit(P.x, P.y + 1.2, P.z, 16, () => [255, 120, 140], 0.08, 1.4, -1); beep(784, 0.2, "triangle", 0.03); } if (f) f.setMode("idle"); }, 2200);
   }
   // ---------- Begleiten (Befehlskreis) ----------
   function queenFollow(on) {
     const e = QUEEN.ent; if (!e || e.gone) return;
-    QUEEN.follow = on; queenStand();
-    if (on) { e.go = null; e.ghost = false; e.leaving = null; say("Königin", "Gern, Markus! Ich komme mit."); }
+    QUEEN.follow = on; queenStand(); if (on && QUEEN.task && QUEEN.task.kind !== "chop") QUEEN.task = null; e.nav = null;
+    if (!on && !WILD) QUEEN.task = { kind: "heim" };
+    if (on) { e.go = null; e.ghost = false; e.leaving = null; say(qName(), "Gern, Markus! Ich komme mit."); }
     else {
       QUEEN.plan = null; if (QUEEN.fig) QUEEN.fig.setMode("idle");
-      if (WILD) { const dx = 96 - (WILD.ox + e.x), dz = D - (WILD.oz + e.z), d = Math.hypot(dx, dz) || 1; e.leaving = [dx / d, dz / d]; say("Königin", "Dann reite ich mit den Wachen zurück zum Schloss. Pass gut auf dich auf!"); }
-      else say("Königin", "Dann gehe ich wieder in meine Gemächer. Bis später!");
+      if (WILD) { const dx = 96 - (WILD.ox + e.x), dz = D - (WILD.oz + e.z), d = Math.hypot(dx, dz) || 1; e.leaving = [dx / d, dz / d]; say(qName(), "Dann reite ich mit den Wachen zurück zum Schloss. Pass gut auf dich auf!"); }
+      else say(qName(), "Dann gehe ich wieder in meine Gemächer. Bis später!");
     }
   }
-  EXTRA_CMD15.push(() => ({ t: "Königin", ic: HIMMEL, sub: () => ({ title: "Königin", items: [
+  EXTRA_CMD15.push(() => ({ t: qName(), ic: HIMMEL, sub: () => ({ title: qName(), items: [
     { t: "Begleite mich", ic: 637, run: () => queenFollow(true) },
     { t: "Geh in deine Gemächer", ic: HIMMEL, run: () => queenFollow(false) },
+    { t: "Fälle die Bäume hier", ic: LOG, run: () => queenChop() },
+    { t: "Übe Fechten", ic: TOOLS.schwert_eisen, run: () => queenFence() },
+    { t: "Komm zu mir", ic: 1011, run: () => queenComeHere() },
+    { t: "Namen geben", ic: I.buch, run: () => queenRename() },
   ] }) }));
   // ---------- Jedes Bild: die echte Figur an die Stelle der unsichtbaren setzen ----------
   const _qLook = new THREE.Vector3();
@@ -17926,24 +18164,31 @@ float gAO = 1.0;
     const e = QUEEN.ent, f = QUEEN.fig;
     // Begleiten: Zombies abwehren (sonst folgt sie wie die Dienerin)
     const dp = distP(e);
+    // Weit weg auf einem Weg: geradlinig weitergehen (ihr Denken läuft dort nicht)
+    if (e.nav && dp >= 96) navVirtual14(e, dt);
+    festTick(e);
     // Ist der König weit fortgeritten, holt sie ihn ein (wie James)
-    if (QUEEN.follow && dp > 90) { const sp0 = freeSpotNear(P.x, P.y, P.z, -Math.sin(P.yaw) * -2, -Math.cos(P.yaw) * -2); if (sp0) wPlace(e, sp0); }
+    if (QUEEN.follow && !QUEEN.mount && dp > 90) { const sp0 = freeSpotNear(P.x, P.y, P.z, -Math.sin(P.yaw) * -2, -Math.cos(P.yaw) * -2); if (sp0) wPlace(e, sp0); }
     if (!f) return;
     const show = dp < Math.min(viewDist, 90);
     f.root.visible = show;
     // Geschwindigkeit aus der Bewegung (für Gehen und Laufen)
     const sp = QUEEN.last ? Math.hypot(e.x - QUEEN.last[0], e.z - QUEEN.last[1]) / Math.max(dt, 0.001) : 0;
     QUEEN.last = [e.x, e.z];
+    const riding = mountTick(e, f, dt);
+    healTick(e, f, dt);
     // Hinsetzen und Aufstehen (nur wenn sie am Sitzplatz angekommen ist)
     if (e.wantSit && f.state === "idle" && !f.oneshot) f.sit();
-    if (!e.wantSit && f.state === "sit") f.standUp();
+    if (!e.wantSit && !riding && f.state === "sit") f.standUp();
     QUEEN.sitting = SITS.has(f.state);
     if (!show) return;
     f.root.position.set(e.x, e.y, e.z);
     let dy = (e.yaw || 0) - f.root.rotation.y; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
-    f.root.rotation.y += dy * Math.min(1, dt * 8);
+    f.root.rotation.y += dy * Math.min(1, dt * (riding ? 30 : 8));
     const l = lightAt(e.x, e.y + 1.5, e.z); f.setLight(l.x, l.y);
     _qLook.copy(camera.position); if (QUEEN.target && QUEEN.follow) _qLook.set(QUEEN.target.x, QUEEN.target.y + 1.5, QUEEN.target.z);
+    if (V20.fw && V20.fw.rockets.length) { const r = V20.fw.rockets[0]; _qLook.set(r.x, r.y + 20, r.z); }   // beim Feuerwerk schaut sie nach oben
+    if (QUEEN.task && QUEEN.task.kind === "fest" && QUEEN.task.what === "joust" && V20.joust) { const R = V20.joust.riders[0]; _qLook.set(R.x, G0 + 2.5, R.z); }
     f.update(dt, { camera, lookAt: _qLook, speed: QUEEN.sitting ? undefined : (sp > 6 ? 0 : sp) });
   }
   // Im Königreich: beim Laden in ihren Gemächern (oder an der Seite des Königs, wenn sie ihn begleitet hat)
