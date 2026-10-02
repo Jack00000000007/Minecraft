@@ -31,9 +31,12 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Königliche Werkstatt im Keller mit Werkbänken, Öfen, Esse und Truhen
 
 ## Version 14: Lebendiges Dorf
-- [ ] Etwa 100 Bewohner mit Haus, Beruf (an der Kleidung erkennbar) und Tagesablauf, 10 ohne festen Beruf
-- [ ] 17:30 Uhr alle zurück (Bauern von den Feldern, Händler vom Markt ins Dorf), das Mauertor schließt sich von selbst
-- [ ] 18:00 Uhr Abgaben-Zug: sammeln, zum Thronsaal gehen, Abgaben selbst in die Truhe legen (nichts taucht einfach auf)
+- [x] Rund 100 Bewohner: 85 mit eigenem Tagesablauf (davon 46 neu), dazu die Dorfleute und Kinder des alten Dorfs. Jeder hat ein Haus mit Bett, isst abends am Tisch oder steht in der Küche und schläft nachts
+- [x] Neue Berufe, an der Kleidung erkennbar: Bauern und Mägde, Holzfäller, Fischer, Wasserträger, Wäscherinnen, Schmied und Geselle (neue Schmiede), Zimmerleute (neue Baustelle), Nachtwächter (ruft die Stunde), Kräuterfrau, Hausleute, acht Kinder; zehn ohne festen Beruf (Bänke, Brunnen, Spielmann)
+- [x] Stadtmauer zwischen Neustadt und Feldern mit Feldtor und Gutstor (Türme, Fallgitter, Winde): 6 Uhr auf, 17:30 Uhr zu, sobald alle drin sind; von Hand jederzeit zu öffnen
+- [x] Feierabend: Bauern hören um 16 Uhr auf und sind um 17:30 Uhr in der Stadt, Händler schließen ihre Stände, alle gehen heim
+- [x] 18 Uhr Abgaben-Zug: Sammeln auf dem Marktplatz, jeder trägt seine Kiste, seinen Sack oder sein Fass sichtbar, die Wachen lassen die Zugbrücke herunter, das Riesentor öffnet sich, im Thronsaal legt jeder seine Abgabe selbst in die Schatztruhe (nichts taucht einfach auf), Meldungen unterwegs
+- [x] Wegenetz durchs ganze Land: in der Nähe des Königs gehen die Leute Block für Block, weit weg geradlinig weiter, damit alle zur richtigen Zeit am richtigen Ort sind
 
 ## Version 15: Befehle und Gäste
 - [ ] Befehlskreis (Taste Q, am Handy „Befehle“) für James, Bewohner, Köche, Dienerinnen, Wachen, auch mit Mengen („bringt 50 Holz“)
@@ -74,8 +77,10 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 | Häuser und Gutshof | 700–759 | keine neuen |
 | Version 12: Schloss voller Räume | 760–899 | 150–169 |
 | Version 13: Inventar und Handwerk | 300–339 (Gegenstände ab 1100, eigener Bilder-Atlas) | 170–189 |
+| Version 14: Lebendiges Dorf | 340–359 | keine neuen |
 
 ## Änderungen am alten Code (außerhalb der eigenen Abschnitte)
 - `updateEnts`: `else if (e.think) e.think(e, dt, dp);` für Leute mit eigenem Tagesablauf
 - Spieler (`step`, `stepUp`, `placeCamera`, Figur des Spielers): Stufen bis ein Block hoch werden ohne Springen erstiegen, die Kamera gleitet mit `P.camLift` weich nach. Möbel (`SHAPE`), Truhen, Fässer, Öfen, Theken, Werkbank, Regale und Goldgeländer bleiben Hindernisse.
 - Version 13: `breakBlock` (`v13Break`, `v13Broken`), `useTarget` (`v13UseBlock`), `placeBlock` (`v13UseItem`, `heldBlockId`, `v13Placed`), `attack` (`v13Dmg`, `v13Hit`), Schnellleiste (`buildBar`, `refreshBar`, `select`, `putInHand` zeigen das Inventar), `setHeld`/`buildHand`/`makePlayerModel` (`applyHeld`), `openPalette`/`closePalette` (neue Fenster), Tasten bei offenem Fenster (Esc, B, I, E schließen), Speichern (`v13Save`/`v13Load`), `house` (Truhe in jedem Dorfhaus), James beim Bäumefällen (`v13Chopped`).
+- Version 14: `entPhysics` wird für Leute übersprungen, die außer Sicht geradlinig gehen (`e.ghost`); das Riesentor öffnet sich auch für den Abgaben-Zug (`e.zug14`); `useTarget` (`v14UseBlock` für die Torwinden); Hinweis beim Anschauen (`v14Hint`); Speichern (`v14Save`/`v14Load`). Im eigenen Abschnitt: Häuser speichern Betten, Stühle, Küche (`townHouse`), neue Werkzeuge in `defPerson`.

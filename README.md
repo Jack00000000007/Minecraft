@@ -2,6 +2,14 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Version 14: Lebendiges Dorf (auf diesem Branch)
+
+- Zwischen der Neustadt und den Feldern steht jetzt eine Stadtmauer mit zwei Toren, dem Feldtor und dem Gutstor, mit Türmen, Kronenbannern und Fallgitter. Um 6 Uhr geht das Tor auf, um 17:30 Uhr schließt es sich von selbst, sobald alle Bauern drin sind. Mit Rechtsklick auf die Winde neben dem Tor öffnest und schließt du es jederzeit.
+- Jeder hat ein Zuhause: Morgens geht er zur Arbeit, nach Feierabend heim, sitzt am Esstisch oder kocht, und nachts schläft er in seinem Bett.
+- Feierabend: Um 16 Uhr hören die Bauern auf und kommen durchs Feldtor in die Stadt, die Händler schließen ihre Stände.
+- **Um 18 Uhr startet der Abgaben-Zug.** Die Bauern, die Holzfäller, der Schmied, die Leute vom Gutshof und einige Händler sammeln sich auf dem Marktplatz. Jeder trägt eine Kiste, einen Sack, ein Fass oder einen Heuballen. Dann ziehen sie die Hauptstraße hinauf, die Wachen lassen die Zugbrücke herunter, und im Thronsaal legt jeder seine Abgabe selbst in deine Schatztruhe: Weizen, Kartoffeln, Äpfel, Brot, Holz, Eisen und mehr. Unterwegs siehst du Meldungen, wo der Zug gerade ist. Gegen halb acht ist er im Thronsaal.
+- Fast 50 neue Bewohner, ihren Beruf erkennst du an Kleidung und Werkzeug: acht weitere Bauern und Mägde, Holzfäller im Königswald, Fischer am Bootssteg, Wasserträger zwischen Dorfbrunnen und Marktbrunnen, Wäscherinnen am See, Schmied und Geselle in der neuen Schmiede, Zimmerleute auf der Baustelle, eine Kräuterfrau, Hausleute, acht Kinder, die auf dem Markt herumspringen, und zehn Leute ohne festen Beruf, darunter ein Spielmann. Nachts geht der Nachtwächter mit seiner Laterne durch die Straßen und ruft die Stunde.
+
 ## Version 13: Inventar und Handwerk (auf diesem Branch)
 
 - Im Pausenmenü wählst du die Spielart. **Kreativ** ist wie bisher: alle Blöcke unbegrenzt, Abbauen geht sofort. **Überleben** ist wie in Minecraft: Du hältst die Maustaste gedrückt, bis der Block Risse bekommt und zerfällt, und sammelst ein, was herausfällt. Mit dem richtigen Werkzeug geht es viel schneller, und Erze geben nur mit einer Spitzhacke etwas her.

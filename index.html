@@ -1454,7 +1454,7 @@
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         v: 2, e, gate: gate.open, bar: HOTBAR.slice(), view: camMode, stay: butler ? butler.stay : false, t: Math.round(dayT * 1e6) / 1e6, tr: timeRun,
         p: P.dead ? null : (P.seat ? [...standSpot(P.seat), P.yaw, P.pitch] : [P.x, P.y, P.z, P.yaw, P.pitch]).map(n => Math.round(n * 1000) / 1000), fly: P.fly,
-        hp: P.dead ? 20 : P.hp, mon: monsters, sp: P.spawn, v13: v13Save(),
+        hp: P.dead ? 20 : P.hp, mon: monsters, sp: P.spawn, v13: v13Save(), v14: v14Save(),
       }));
     } catch (err) {}
   }
@@ -3178,7 +3178,7 @@
       else if (e.think) e.think(e, dt, dp);   // Version 11: Leute mit eigenem Tagesablauf (Markt, Felder)
       else personThink(e, dt);
       if (e.gone) continue;
-      if (!e.sit && !e.sleep) entPhysics(e, dt);
+      if (!e.sit && !e.sleep && !e.ghost) entPhysics(e, dt);   // Version 14: wer außer Sicht geradlinig geht, braucht keine Schwerkraft
       const d = wrapA(e.yawT - e.yaw); e.yaw += Math.sign(d) * Math.min(Math.abs(d), dt * 7);
       e.headYawT = Math.max(-1, Math.min(1, e.headYawT));
       if (e.mesh.visible) {
@@ -4164,6 +4164,7 @@
     const bed = bedAt(x, y, z); if (bed) { useBed(bed); return true; }
     const seat = seatAt(x, y, z); if (seat) { sitDown(seat); return true; }
     if (v13UseBlock(x, y, z, tb)) return true;   // Version 13: Werkbank, Ofen, Truhe, Schatztruhe
+    if (v14UseBlock(x, y, z)) return true;       // Version 14: Winde am Feldtor und Gutstor
     return false;
   }
   function placeBlock() {
@@ -4541,7 +4542,7 @@
     if (Math.abs(P.x - C) > 60 || Math.abs(P.z - 116) > 60) return;
     // Von selbst auf, wenn du (oder James, oder die Dienerschaft) davor stehst; wieder zu, wenn alle weg sind
     let near = !P.dead && inBigZone(P.x, P.y, P.z), who = near ? "p" : "";
-    if (!near) for (const e of ents) if ((e === butler || e.kind === "staff") && inBigZone(e.x, e.y, e.z)) { near = true; who = "e"; break; }
+    if (!near) for (const e of ents) if ((e === butler || e.kind === "staff" || e.zug14) && inBigZone(e.x, e.y, e.z)) { near = true; who = "e"; break; }
     if (BGATE.lock && !inBigZone(P.x, P.y, P.z)) BGATE.lock = false;
     if (near && !BGATE.open && !BGATE.lock) {
       if (openBig(false) && who === "p" && P.z > BIG.zf && BGATE.greetCd <= 0) {
@@ -6515,6 +6516,13 @@
     if (T_ === "bag") extra.push({ b: "tool", f: [-1, -4.8, -2.4], t: [1, -1.2, 2.4], p: flat(o.bagc || [120, 60, 40], 6) }, { b: "tool", f: [-0.2, -1.2, -1.2], t: [0.2, 0.4, 1.2], p: flat([200, 170, 80], 4) });
     if (T_ === "wcan") extra.push({ b: "tool", f: [-1.8, -5.4, -2.4], t: [1.8, -1, 2.2], p: flat([70, 120, 80], 6) }, { b: "tool", f: [-0.4, -3.2, 2.2], t: [0.4, -2.4, 6.2], p: flat([70, 120, 80], 6) },
       { b: "tool", f: [-0.8, -3.8, 6], t: [0.8, -2, 6.8], p: flat([90, 140, 100], 6) });
+    // Version 14: Axt, Angel, Hammer, Besen, Laterne, Eimer
+    if (T_ === "axe") extra.push(stick(-9, 9), { b: "tool", f: [-0.5, 6.5, -0.4], t: [0.5, 9.5, 3.4], p: (f, x, y, w, h, v) => v(f === "pz" ? [210, 214, 222] : [140, 144, 152], 4) });
+    if (T_ === "rod") extra.push({ b: "tool", f: [-0.3, -8, -0.3], t: [0.3, 26, 0.3], p: flat([120, 86, 50], 6) }, { b: "tool", f: [-0.6, -6, -0.6], t: [0.6, -3, 0.6], p: flat([60, 60, 66], 4) });
+    if (T_ === "hammer") extra.push({ b: "tool", f: [-0.4, -2, -0.4], t: [0.4, 7, 0.4], p: flat(W_, 8) }, { b: "tool", f: [-0.9, 5.4, -1.8], t: [0.9, 7.6, 1.8], p: flat([90, 92, 98], 4) });
+    if (T_ === "broom") extra.push(stick(-11, 13), { b: "tool", f: [-1.6, -15, -1.6], t: [1.6, -10.5, 1.6], p: (f, x, y, w, h, v) => v([200, 170, 96], 14) });
+    if (T_ === "lantern") extra.push({ b: "tool", f: [-0.2, -2.5, -0.2], t: [0.2, 0, 0.2], p: flat([40, 40, 44], 4) }, { b: "tool", f: [-1.5, -6.5, -1.5], t: [1.5, -2.5, 1.5], p: (f, x, y, w, h, v) => (x === 0 || x === w - 1 || y === 0 || y === h - 1) ? [40, 40, 44] : [255, 210, 110] });
+    if (T_ === "bucket") extra.push({ b: "tool", f: [-1.8, -6, -1.8], t: [1.8, -2, 1.8], p: (f, x, y, w, h, v) => f === "py" ? v([90, 140, 210], 8) : v(y % 3 === 1 ? [70, 70, 76] : [150, 110, 64], 6) }, { b: "tool", f: [-0.2, -2, -1.6], t: [0.2, 0.6, 1.6], skip: ["px", "nx"], p: flat([70, 70, 76], 4) });
     const bones = [{ n: "tool", p: "foreR", at: [0, -5.5, 0] }];
     return human({
       seed: o.seed, bones, extra,
@@ -6922,6 +6930,13 @@
     { const [x, z] = L(IW, 2); painting([PAINT.flower, PAINT.moon, PAINT.ship, PAINT.castle][Math.floor(rnd() * 4)], facingOf(-ax, -az), x, U + 1, z); }
     const [cx, cz] = L(IW - 1, 0);
     const home = { name: o.name || "Wohnhaus", zone: o.zone, door: [...(([x, z]) => [x + 0.5, F, z + 0.5])(L(doorA, -2))], beds: beds.map(([x, z]) => [x + 0.5, U, z + 0.5]), chest: [cx, U, cz], size: beds.length + (ID >= 5 ? 2 : 1), box: [x0, z0, x1, z1] };
+    // Version 14: Plätze für die Bewohner – Betten zum Liegen, Stühle am Esstisch, Küche, Mitte der Stube
+    const bedAt = (ha, hb) => { const [hx, hz] = L(ha, hb), [fx, fz] = L(ha + 1, hb), [sx, sz] = L(ha + 2, hb); return { stand: [sx + 0.5, U, sz + 0.5], feet: [fx + 0.5 + ax * 0.45, U + 0.56, fz + 0.5 + az * 0.45], a: Math.atan2(ax, az), head: [hx, U, hz] }; };
+    home.bedInfo = [bedAt(0, 0)].concat(ID >= 5 ? [bedAt(0, 2)] : []);
+    home.chairs = [[...L(1, 1), inn[0], inn[1]], [...L(1, 3), out[0], out[1]], [...L(2, 2), -ax, -az]].map(([x, z, dx, dz]) => [x, F, z, dx, dz]);
+    { const [kx, kz] = L(IW - 2, ID - 2), [ox, oz] = L(IW - 2, ID - 1); home.kitchen = [kx + 0.5, F, kz + 0.5, Math.atan2(ox - kx, oz - kz)]; }
+    { const [ix, iz] = L(doorA, 2), [jx, jz] = L(doorA, 0); home.inside = [ix + 0.5, F, iz + 0.5]; home.hall = [jx + 0.5, F, jz + 0.5]; }
+    home.out = out;
     PLACES11.homes.push(home); HOUSES11.push(home);
     // Laterne an der linken Ecke vorn, Garten hinter dem Haus
     { const [x, z] = L(-2, -2); if (roadMask[x + z * W] !== 1 && get(x, F, z) === AIR && get(x, G0, z) !== AIR) lampPost11(x, z); }
@@ -9323,6 +9338,859 @@
     const h0 = heldId(); if (h0 !== heldNow) heldNow = h0;
   });
   // Ein Hinweis beim ersten Mal, wenn man Überleben wählt und noch kein Werkzeug hat, gibt es nicht: der König findet seine Werkzeuge im Inventar.
+  // ==================== Version 14: Lebendiges Dorf – Stadtmauer mit Feldtor, Wegenetz, Wandern außer Sicht ====================
+  // Blöcke 340 bis 359. Die Felder liegen jetzt vor der Stadtmauer: Morgens geht das Feldtor auf, um 17:30 Uhr schließt es sich von selbst.
+  const V14B = 340, TORWINDE = V14B;
+  defShape(TORWINDE, { name: "Torwinde", rot: true, mat: "wood", icon: 5, hidden: true, boxes: [
+    { f: [1, 0, 3], t: [3.4, 15, 13], tex: WOOD }, { f: [12.6, 0, 3], t: [15, 15, 13], tex: WOOD }, { f: [0.5, 0, 2], t: [15.5, 1.6, 14], tex: WOOD },
+    { f: [3.4, 7, 5.5], t: [12.6, 12, 10.5], tex: 5 }, { f: [4.2, 7.6, 5.2], t: [11.8, 11.4, 10.8], tex: 22 },
+    { f: [15, 8.6, 7.4], t: [16.4, 10.4, 8.6], tex: 69 }, { f: [16.4, 4, 7.6], t: [17.2, 15, 8.4], tex: 69 }, { f: [16.4, 4, 7], t: [17.6, 5, 9], tex: WOOD },
+    { f: [6, 12, 7.2], t: [10, 16, 8.8], tex: 22 }, { f: [-0.6, 13.6, 2.4], t: [16.6, 15, 13.6], tex: WOOD }] });
+
+  // ---------- Stadtmauer zwischen Neustadt und Feldern, mit Feldtor und Gutstor ----------
+  const WALL14 = { z0: 337, z1: 338, x0: 15, x1: 320 };
+  const TGATES = [
+    { name: "Feldtor", x0: 94, x1: 98, open: true, rows: [], k: 0, move: 0, t: 0, manual: false },
+    { name: "Gutstor", x0: 226, x1: 229, open: true, rows: [], k: 0, move: 0, t: 0, manual: false },
+  ];
+  const groundAt14 = (x, z) => { let y = G0 + 16; for (; y > 1; y--) { const b = get(x, y, z); if (b !== AIR && solid(b) && !PLANT[b] && !LOGB[b] && !LEAFB[b]) break; } return y; };
+  function buildTownWall14() {
+    const { z0, z1, x0, x1 } = WALL14;
+    // Bäume, die im Weg stehen, verschwinden ganz (Stamm und Krone), damit kein Laub in der Luft hängt
+    const seen = new Set();
+    for (let z = z0 - 4; z <= z1 + 4; z++) for (let x = x0 - 2; x <= x1 + 2; x++) for (let y = G0 - 2; y <= G0 + 24; y++) {
+      if (!LOGB[get(x, y, z)] || seen.has(idx(x, y, z))) continue;
+      const q = [[x, y, z]]; seen.add(idx(x, y, z));
+      while (q.length) {
+        const [a, b, c] = q.pop(); setB(a, b, c, AIR);
+        for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+          const nx = a + dx, ny = b + dy, nz = c + dz, k = idx(nx, ny, nz), nb = get(nx, ny, nz);
+          if ((LOGB[nb] || LEAFB[nb]) && !seen.has(k) && Math.abs(nx - x) <= 5 && Math.abs(nz - z) <= 5) { seen.add(k); q.push([nx, ny, nz]); }
+        }
+      }
+    }
+    const inGate = x => TGATES.some(g => x >= g.x0 - 4 && x <= g.x1 + 4);
+    for (let x = x0; x <= x1; x++) {
+      if (inGate(x)) continue;
+      for (let z = z0; z <= z1; z++) {
+        const g = groundAt14(x, z), top = Math.max(G0 + 6, g + 4);
+        fill(x, Math.min(g, G0) - 2, z, x, top, z, SBRICK);
+        for (let y = top + 1; y <= top + 4; y++) if (!solid(get(x, y, z)) || LEAFB[get(x, y, z)]) setB(x, y, z, AIR);
+        if (z === z1 && x % 2 === 0) setB(x, top + 1, z, SBRICK);             // Zinnen nach außen
+        if (z === z0 && x % 16 === 8) setB(x, top + 1, z, LANTERN_S);           // Laternen auf dem Wehrgang
+      }
+      // Stützpfeiler auf der Stadtseite
+      if (x % 12 === 0) { const g = groundAt14(x, z0 - 1); fill(x, g + 1, z0 - 1, x, Math.max(G0 + 6, g + 4) - 1, z0 - 1, SBRICK); }
+      // Unten am Fuß der Mauer wächst kein Gras mehr hoch
+      for (const z of [z0 - 1, z1 + 1]) { const b = get(x, groundAt14(x, z) + 1, z); if (PLANT[b]) setB(x, groundAt14(x, z) + 1, z, AIR); }
+    }
+    for (const gt of TGATES) buildTownGate14(gt);
+  }
+  // Ein Tor: zwei Türme, ein Bogen, ein Fallgitter (aus Gitterblöcken, Reihe für Reihe), auf der Stadtseite die Winde
+  function buildTownGate14(gt) {
+    const { z0, z1 } = WALL14;
+    let gmax = 0; const yb = {};
+    for (let x = gt.x0; x <= gt.x1; x++) { yb[x] = groundAt14(x, z0) + 1; gmax = Math.max(gmax, yb[x]); }
+    const yo = gmax + 4, ttop = yo + 6;
+    gt.yo = yo; gt.yb = yb; gt.z = z0;
+    for (const [a, b] of [[gt.x0 - 4, gt.x0 - 1], [gt.x1 + 1, gt.x1 + 4]]) {
+      for (let x = a; x <= b; x++) for (let z = z0 - 2; z <= z1 + 2; z++) {
+        const g = groundAt14(x, z);
+        fill(x, Math.min(g, G0) - 2, z, x, ttop, z, SBRICK);
+        const edge = x === a || x === b || z === z0 - 2 || z === z1 + 2;
+        if (edge && (x + z) % 2 === 0) setB(x, ttop + 1, z, SBRICK);
+      }
+      // Kegeldach aus roten Ziegeln mit goldener Spitze
+      for (let i = 0; i < 4; i++) fill(a + Math.min(i, 1), ttop + 2 + i, z0 - 2 + i, b - Math.min(i, 1), ttop + 2 + i, z1 + 2 - i, ROOF_RED);
+      setB(a + 1 + ((b - a) >> 1), ttop + 6, z0 + 0, GOLD);
+      // Schießscharten und Fenster
+      for (const z of [z0 - 2, z1 + 2]) { setB(a + 1 + ((b - a) >> 1), yo - 1, z, BARS); setB(a + 1 + ((b - a) >> 1), yo + 3, z, BARS); }
+      // Banner mit Krone auf beiden Seiten
+      for (const z of [z0 - 3, z1 + 3]) { const x = a + ((b - a) >> 1); if (get(x, yo + 1, z) === AIR) { setB(x, yo + 1, z, BANNER_C); setB(x + 1, yo + 1, z, BANNER_C); } }
+      // Laternen am Turm
+      for (const z of [z0 - 3, z1 + 3]) { const x = a === gt.x0 - 4 ? b : a; const g = groundAt14(x, z); if (get(x, g + 1, z) === AIR || PLANT[get(x, g + 1, z)]) { setB(x, g + 1, z, LANTERN_S); } }
+    }
+    // Bogen über dem Durchgang, Durchgang frei, Weg darunter
+    for (let x = gt.x0; x <= gt.x1; x++) for (let z = z0; z <= z1; z++) {
+      fill(x, yo + 1, z, x, ttop, z, SBRICK);
+      for (let y = yb[x]; y <= yo; y++) setB(x, y, z, AIR);
+      if (z === z1 && x % 2 === 0) setB(x, ttop + 1, z, SBRICK);
+    }
+    fill(gt.x0, yo + 1, z0 - 1, gt.x1, yo + 1, z0 - 1, GOLD_TRIM);
+    for (let x = gt.x0; x <= gt.x1; x++) setB(x, yo + 1, z1 + 1, GOLD_TRIM);
+    setB(gt.x0 + ((gt.x1 - gt.x0) >> 1), yo + 3, z0 - 1, BANNER_C); setB(gt.x0 + ((gt.x1 - gt.x0) >> 1), yo + 3, z1 + 1, BANNER_C);
+    // Das Fallgitter: Reihen von oben nach unten (in der Stadtreihe der Mauer)
+    gt.rows = [];
+    for (let y = yo; y >= Math.min(...Object.values(yb)); y--) { const row = []; for (let x = gt.x0; x <= gt.x1; x++) if (y >= yb[x]) row.push([x, y, z0]); if (row.length) gt.rows.push(row); }
+    // Die Winde auf der Stadtseite, links vom Tor
+    const wx = gt.x0 - 2, wz = z0 - 3, wy = groundAt14(wx, wz) + 1;
+    setB(wx, wy, wz, rotId(TORWINDE, 0, -1)); gt.winch = [wx, wy, wz];
+    gt.k = gt.rows.length; gt.closedRows = 0;
+    AREAS.unshift([gt.name, "Rechtsklick auf die Winde öffnet und schließt das Tor", gt.x0 - 5, gt.x1 + 5, G0 - 2, ttop + 6, z0 - 4, z1 + 4]);
+  }
+  V11.build.push(() => {
+    buildTownWall14();
+    AREAS.push(["Stadtmauer", "dahinter liegen die Felder", WALL14.x0, WALL14.x1, G0 - 2, G0 + 14, WALL14.z0 - 1, WALL14.z1 + 1]);
+  });
+  // Tor bewegen: zu heißt von oben nach unten Gitter setzen, auf heißt von unten nach oben wegnehmen
+  const tgRowFree = row => row.every(([x, y, z]) => !overlapsPlayer(x, y, z) && !entOverlaps(x, y, z) && (get(x, y, z) === AIR || get(x, y, z) === BARS || PLANT[get(x, y, z)]));
+  function setTownGate(gt, open, instant) {
+    gt.open = open;
+    if (instant) {
+      for (let i = 0; i < gt.rows.length; i++) setBlocks(gt.rows[i].map(([x, y, z]) => [x, y, z, open ? AIR : BARS]));
+      gt.closedRows = open ? 0 : gt.rows.length; gt.move = 0;
+      return;
+    }
+    gt.move = open ? -1 : 1; gt.t = 0;
+    const d = Math.hypot(P.x - (gt.x0 + gt.x1) / 2, P.z - gt.z);
+    if (d < 70) { voice(70, 52, 1.6, "sawtooth", 0.035 * Math.max(0.2, 1 - d / 70), { lp: 380, q: 4, vib: [9, 5] }); }
+  }
+  function updateTownGates(dt) {
+    for (const gt of TGATES) {
+      if (!gt.move || !gt.rows.length) continue;
+      if ((gt.t -= dt) > 0) continue;
+      gt.t = 0.16;
+      const d = Math.hypot(P.x - (gt.x0 + gt.x1) / 2, P.z - gt.z), vol = d < 60 ? 0.035 * (1 - d / 60) : 0;
+      if (gt.move > 0) {
+        if (gt.closedRows >= gt.rows.length) { gt.move = 0; if (vol) noiseHit(120, 1, 0.35, vol * 2); continue; }
+        const row = gt.rows[gt.closedRows];
+        if (!tgRowFree(row)) { gt.t = 0.4; continue; }
+        setBlocks(row.map(([x, y, z]) => [x, y, z, BARS])); gt.closedRows++;
+      } else {
+        if (gt.closedRows <= 0) { gt.move = 0; continue; }
+        gt.closedRows--; setBlocks(gt.rows[gt.closedRows].map(([x, y, z]) => [x, y, z, AIR]));
+      }
+      if (vol) beep(58 + Math.random() * 22, 0.14, "sawtooth", vol);
+    }
+  }
+  function townGateAt(x, y, z) {
+    for (const gt of TGATES) {
+      if (gt.winch && x === gt.winch[0] && y === gt.winch[1] && z === gt.winch[2]) return gt;
+      if (x >= gt.x0 && x <= gt.x1 && z >= WALL14.z0 && z <= WALL14.z1 && y <= gt.yo && get(x, y, z) === BARS) return gt;
+    }
+    return null;
+  }
+  function v14UseBlock(x, y, z) {
+    const gt = townGateAt(x, y, z); if (!gt) return false;
+    if (gt.move) return true;
+    swingHand(); setTownGate(gt, !gt.open); gt.manual = true; saveSoon();
+    showName(gt.name + (gt.open ? " öffnet sich" : " schließt sich"), 1800);
+    return true;
+  }
+  // Uhr für die Tore: 6 Uhr auf, 17:30 Uhr zu (nach dem letzten Bauern). Wer von Hand öffnet, behält recht bis zum nächsten Glockenschlag.
+  const gateWantsClosed = () => { const hr = dayT * 24; return hr >= 17.5 || hr < 6; };
+  let gateSched = null, gateWait = 0;
+  function scheduleTownGates(dt) {
+    const want = gateWantsClosed();
+    if (gateSched === null) gateSched = want;
+    if (want === gateSched) return;
+    // Zu: erst, wenn keiner der Bauern mehr draußen auf dem Heimweg ist (höchstens eine Viertelstunde warten)
+    if (want) {
+      const late = WORKERS.some(e => !e.gone && e.outside14 && e.outside14());
+      if (late && (gateWait += dt) < 12) return;
+    }
+    gateWait = 0; gateSched = want;
+    for (const gt of TGATES) { gt.manual = false; if (gt.open === want) setTownGate(gt, !want); }
+    if (want) announce14("Es ist halb sechs: Das Feldtor schließt sich. Alle sind wieder in der Stadt.");
+    else announce14("Sechs Uhr: Das Feldtor geht auf, die Bauern gehen hinaus auf die Felder.");
+  }
+  // Kurze Nachricht oben in der Mitte (wie die Namen der Gebiete), nur wenn kein Fenster offen ist
+  const annEl = document.createElement("div"); annEl.id = "ann14"; annEl.hidden = true; document.body.append(annEl);
+  const annCss = document.createElement("style");
+  annCss.textContent = `#ann14 { position: fixed; left: 50%; top: calc(26% + env(safe-area-inset-top, 0px)); transform: translateX(-50%); max-width: min(560px, calc(100% - 32px)); text-align: center;
+    padding: 8px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--panel-line); font: 600 15px "Nunito", system-ui, sans-serif; color: var(--ink);
+    pointer-events: none; transition: opacity .5s; } #ann14 b { color: var(--sun); font-family: "Pixelify Sans", monospace; }`;
+  document.head.append(annCss);
+  let annT = 0;
+  function announce14(text, title) {
+    annEl.innerHTML = ""; if (title) { const b = document.createElement("b"); b.textContent = title + " "; annEl.append(b); }
+    annEl.append(document.createTextNode(text)); annEl.hidden = false; annEl.style.opacity = 1; annT = 6;
+  }
+  function updateAnnounce(dt) { if (annT > 0 && (annT -= dt) <= 0) { annEl.style.opacity = 0; setTimeout(() => { if (annT <= 0) annEl.hidden = true; }, 600); } }
+
+  // ---------- Wegenetz: Straßen als Knoten und Kanten, kürzester Weg mit Dijkstra ----------
+  // Unterwegs außer Sicht (weiter als 72 Blöcke vom König) gehen die Leute geradlinig von Knoten zu Knoten,
+  // in der Nähe suchen sie ihren Weg Block für Block (A*) zum nächsten Knoten. So sind alle zur richtigen Zeit am richtigen Ort.
+  const NODES14 = {
+    // Schloss
+    thron: [96.5, 84.5], thron_m: [96.5, 98.5], thron_s: [96.5, 109.5], vor_n: [96.5, 118.5], vor_s: [96.5, 139.5], tor_in: [96.5, 143.5], bruecke: [96.5, 153.5],
+    // altes Dorf
+    dorf_n: [96.5, 161.5], dorf_a: [96.5, 176.5], dorf_ne: [100.5, 188.5], dorf_se: [100.5, 206.5], dorf_b: [96.5, 220.5], dorf_s: [96.5, 240.5],
+    dorf_w: [70.5, 196.5], dorf_w2: [44.5, 196.5], dorf_e: [124.5, 196.5], dorf_e2: [150.5, 196.5],
+    // Oststadt
+    ost_w: [158.5, 197.5], ost_m: [180.5, 197.5], ost_e: [204.5, 197.5], ost_n: [204.5, 172.5], ost_gasse_s: [180.5, 222.5], ost_gasse_s2: [180.5, 236.5], gut_w: [214.5, 197.5],
+    // Neustadt und Markt
+    neu_n: [96.5, 250.5], markt_n: [96.5, 268.5], markt_w: [78.5, 287.5], markt_e: [114.5, 287.5], markt_s: [96.5, 305.5],
+    quer_w1: [60.5, 287.5], quer_w2: [36.5, 287.5], quer_e1: [128.5, 287.5], quer_e2: [152.5, 287.5], quer_e3: [178.5, 287.5], quer_e4: [205.5, 287.5], gut_s: [215.5, 287.5],
+    neu_s: [96.5, 322.5], feldtor_n: [96.5, 333.5], feldtor_s: [96.5, 341.5],
+    // Felder
+    feld_c: [96.5, 367.5], feld_w: [30.5, 367.5], feld_w2: [56.5, 367.5], feld_e: [160.5, 367.5], feld_e2: [214.5, 367.5], feld_s: [96.5, 388.5], muehle: [110.5, 344.5],
+    // Gutshof und Gutstor
+    gut_x: [228.5, 301.5], gutstor_n: [227.5, 333.5], gutstor_s: [227.5, 343.5], gut_m: [236.5, 240.5], gut_hof: [250.5, 210.5],
+    // Waldweg zum See
+    wald_1: [204.5, 150.5], wald_2: [206.5, 128.5], wald_3: [205.5, 112.5], wald_4: [202.5, 98.5], steg: [199.5, 82.5],
+  };
+  const EDGES14 = [
+    ["thron", "thron_m"], ["thron_m", "thron_s"], ["thron_s", "vor_n"], ["vor_n", "vor_s"], ["vor_s", "tor_in"], ["tor_in", "bruecke"], ["bruecke", "dorf_n"],
+    ["dorf_n", "dorf_a"], ["dorf_a", "dorf_ne"], ["dorf_ne", "dorf_se"], ["dorf_se", "dorf_b"], ["dorf_b", "dorf_s"], ["dorf_s", "neu_n"],
+    ["dorf_ne", "dorf_e"], ["dorf_se", "dorf_e"], ["dorf_e", "dorf_e2"], ["dorf_e2", "ost_w"], ["dorf_ne", "dorf_w"], ["dorf_se", "dorf_w"], ["dorf_w", "dorf_w2"],
+    ["ost_w", "ost_m"], ["ost_m", "ost_e"], ["ost_e", "ost_n"], ["ost_m", "ost_gasse_s"], ["ost_gasse_s", "ost_gasse_s2"], ["ost_e", "gut_w"], ["ost_n", "wald_1"],
+    ["wald_1", "wald_2"], ["wald_2", "wald_3"], ["wald_3", "wald_4"], ["wald_4", "steg"],
+    ["neu_n", "markt_n"], ["markt_n", "markt_w"], ["markt_n", "markt_e"], ["markt_w", "markt_s"], ["markt_e", "markt_s"], ["markt_w", "quer_w1"], ["quer_w1", "quer_w2"],
+    ["markt_e", "quer_e1"], ["quer_e1", "quer_e2"], ["quer_e2", "quer_e3"], ["quer_e3", "quer_e4"], ["quer_e4", "gut_s"], ["markt_s", "neu_s"], ["neu_s", "feldtor_n"],
+    ["feldtor_n", "feldtor_s"], ["feldtor_s", "muehle"], ["feldtor_s", "feld_c"], ["feld_c", "feld_w2"], ["feld_w2", "feld_w"], ["feld_c", "feld_e"], ["feld_e", "feld_e2"], ["feld_c", "feld_s"],
+    ["gut_s", "gut_x"], ["gut_x", "gutstor_n"], ["gutstor_n", "gutstor_s"], ["gutstor_s", "feld_e2"], ["gut_w", "gut_hof"], ["gut_hof", "gut_m"], ["gut_m", "gut_x"],
+  ];
+  const NADJ = {};
+  for (const k in NODES14) NADJ[k] = [];
+  for (const [a, b] of EDGES14) { const d = Math.hypot(NODES14[a][0] - NODES14[b][0], NODES14[a][1] - NODES14[b][1]); NADJ[a].push([b, d]); NADJ[b].push([a, d]); }
+  const nodeY = k => k.startsWith("thron") || k.startsWith("vor") || k === "tor_in" || k === "bruecke" || k === "dorf_n" ? G0 + 1 : null;
+  function nearestNode14(x, z) { let best = null, bd = 1e9; for (const k in NODES14) { const n = NODES14[k], d = Math.hypot(n[0] - x, n[1] - z); if (d < bd) { bd = d; best = k; } } return best; }
+  function dijkstra14(a, b) {
+    const dist = { [a]: 0 }, prev = {}, done = new Set();
+    for (;;) {
+      let u = null, ud = 1e9;
+      for (const k in dist) if (!done.has(k) && dist[k] < ud) { ud = dist[k]; u = k; }
+      if (u === null || u === b) break;
+      done.add(u);
+      for (const [v, w] of NADJ[u]) if (dist[v] === undefined || ud + w < dist[v]) { dist[v] = ud + w; prev[v] = u; }
+    }
+    if (dist[b] === undefined) return [a, b];
+    const out = [b]; while (out[0] !== a) out.unshift(prev[out[0]]);
+    return out;
+  }
+  // Bodenhöhe eines Knotens (zum geradlinigen Gehen außer Sicht)
+  const nodePt = k => { const [x, z] = NODES14[k], y = nodeY(k) || standY14(Math.floor(x), Math.floor(z)); return [x, y, z]; };
+  function standY14(x, z) { for (let y = G0 + 10; y > 2; y--) if (standable(x, y, z)) return y; return G0 + 1; }
+  // Weg von a nach b als Liste von Punkten [x, y, z]; nahe Ziele direkt
+  function planRoute14(from, to) {
+    const direct = Math.hypot(from[0] - to[0], from[2] - to[2]);
+    if (direct < 34 && sameSide14(from, to)) return [to.slice(0, 3)];
+    const a = nearestNode14(from[0], from[2]), b = nearestNode14(to[0], to[2]);
+    let ks = dijkstra14(a, b);
+    // Den ersten Knoten auslassen, wenn er hinter der Figur liegt; den letzten, wenn das Ziel schon davor kommt
+    const d2 = (p, k) => Math.hypot(p[0] - NODES14[k][0], p[2] - NODES14[k][1]);
+    if (ks.length > 1 && Math.hypot(NODES14[ks[0]][0] - NODES14[ks[1]][0], NODES14[ks[0]][1] - NODES14[ks[1]][1]) > d2(from, ks[1])) ks = ks.slice(1);
+    if (ks.length > 1) { const n = ks.length; if (Math.hypot(NODES14[ks[n - 1]][0] - NODES14[ks[n - 2]][0], NODES14[ks[n - 1]][1] - NODES14[ks[n - 2]][1]) > d2(to, ks[n - 2])) ks = ks.slice(0, -1); }
+    return ks.map(nodePt).concat([to.slice(0, 3)]);
+  }
+  // Liegen zwei Punkte auf derselben Seite der Stadtmauer?
+  const sameSide14 = (p, q) => (p[2] < WALL14.z0) === (q[2] < WALL14.z0);
+
+  // ---------- Gehen entlang eines Wegs: in der Nähe echt (A*), weit weg geradlinig ----------
+  const FAR14 = 72;
+  function navTo14(e, goal, then) {
+    e.nav = { pts: planRoute14([e.x, e.y, e.z], goal), i: 0, then, goal: goal.slice(0, 3) };
+    e.path = null; e.navFails = 0; e.retryT = Math.random() * 0.6;
+  }
+  function navAdvance14(e) {
+    const n = e.nav; n.i++; e.path = null; e.navFails = 0;
+    if (n.i < n.pts.length) return true;
+    e.nav = null; e.ghost = false; e.dvx = e.dvz = 0;
+    if (n.then) n.then(e);
+    return false;
+  }
+  // Außer Sicht: geradeaus zum nächsten Punkt, ohne Hindernisse (niemand sieht es)
+  function navVirtual14(e, dt) {
+    let step = (e.speed || 1.5) * 1.05 * dt;
+    e.ghost = true;
+    while (step > 0 && e.nav) {
+      const t = e.nav.pts[e.nav.i], dx = t[0] - e.x, dz = t[2] - e.z, d = Math.hypot(dx, dz);
+      if (d <= step) { e.x = t[0]; e.z = t[2]; e.y = t[1]; step -= d; if (!navAdvance14(e)) break; continue; }
+      e.x += dx / d * step; e.z += dz / d * step; e.y += (t[1] - e.y) * Math.min(1, step / d); e.yaw = e.yawT = Math.atan2(dx, dz);
+      break;
+    }
+  }
+  // In der Nähe: Weg zum nächsten Punkt suchen und ihm folgen
+  function navReal14(e, dt, dp) {
+    const n = e.nav;
+    if (e.ghost) { e.ghost = false; e.path = null; e.vy = 0; const c = [Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z)]; if (!standable(...c)) { const y = standY14(c[0], c[2]); if (Math.abs(y - e.y) < 4) e.y = y; } }
+    const tgt = n.pts[n.i], last = n.i === n.pts.length - 1;
+    if (!last && Math.hypot(tgt[0] - e.x, tgt[2] - e.z) < 2.2) { navAdvance14(e); return; }
+    if (!e.path) {
+      e.dvx = e.dvz = 0;
+      if ((e.retryT = (e.retryT || 0) - dt) > 0 || pathQuota <= 0) return;
+      pathQuota--;
+      const path = findPath(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z), Math.floor(tgt[0]), Math.floor(tgt[1] + 0.05), Math.floor(tgt[2]), last ? 0 : 1, 9000);
+      if (path && (path.found || path.length > 3)) { e.path = path; e.pi = 0; e.giveUp = 45; e.partial = !path.found; }
+      else {
+        e.navFails = (e.navFails || 0) + 1; e.retryT = 1 + Math.random();
+        // Kommt die Figur nicht weiter: ist niemand in der Nähe, steht sie einfach dort; sonst den Punkt auslassen
+        if (e.navFails >= 3) { if (dp > 26 && Math.hypot(P.x - tgt[0], P.z - tgt[2]) > 26) { wPlace(e, tgt); navAdvance14(e); } else if (!last) navAdvance14(e); else { wPlace(e, tgt); navAdvance14(e); } }
+      }
+      return;
+    }
+    e.giveUp -= dt;
+    if (followPath(e, e.speed)) {
+      e.path = null;
+      if (e.partial) { e.retryT = 0.2; return; }
+      if (last && Math.hypot(e.x - tgt[0], e.z - tgt[2]) < 1.3) { e.x += (tgt[0] - e.x) * 0.5; e.z += (tgt[2] - e.z) * 0.5; }
+      navAdvance14(e);
+    } else if (e.giveUp <= 0) { e.path = null; e.navFails = (e.navFails || 0) + 1; if (e.navFails >= 3 && dp > 26) { wPlace(e, tgt); navAdvance14(e); } }
+    lookAhead(e);
+  }
+  // Jedes Bild: alle, die weit weg unterwegs sind, gehen geradlinig weiter (ihr Denken läuft dort nicht)
+  function updateNavFar14(dt) {
+    for (const e of WORKERS) {
+      if (e.gone || !e.nav) continue;
+      if (distP(e) > FAR14) navVirtual14(e, dt);
+    }
+  }
+  // ==================== Version 14: Lebendiges Dorf – Zuhause, Feierabend, Abgaben-Zug ====================
+  // Jeder hat ein Haus mit Bett. Morgens geht er zur Arbeit, nach Feierabend heim (Stuhl am Esstisch oder Küche), abends ins Bett.
+  // Die Bauern hören um halb fünf auf und sind um 17:30 Uhr hinter dem Feldtor. Wer Abgaben bringt, sammelt sich auf dem Marktplatz;
+  // um 18 Uhr zieht der Zug die Hauptstraße hinauf ins Schloss, und jeder legt seine Abgabe selbst in die Schatztruhe neben dem Thron.
+  const hr14 = () => dayT * 24;
+  const NIGHT14 = ["Zzz …", "Oh, Majestät! So spät noch auf den Beinen?", "Hm? … Gute Nacht, Majestät."];
+  const HOME14 = ["Feierabend! Jetzt gibt es Abendbrot.", "Schön, dass Ihr vorbeischaut{M}.", "Nach der Arbeit sitze ich gern am Tisch und ruhe mich aus.", "{M_}möchtet Ihr eine Suppe? Sie ist gleich fertig."];
+  let q14 = 0;
+  // Abgaben: wer was trägt und was davon in die Schatztruhe kommt
+  const TRIB14 = {
+    f1: { carry: HAY, give: [[I.weizen, 16]] }, f2: { carry: 990, give: [[I.kartoffel, 20]] }, f3: { carry: 991, give: [[I.karotte, 20]] }, f4: { carry: HAY, give: [[I.weizen, 18]] },
+    f5: { carry: 990, give: [[I.kartoffel, 12], [I.rotebete, 8]] }, f6: { carry: 988, give: [[I.apfel, 16]] }, f7: { carry: BARREL, give: [[CANDLE, 8], [I.apfel, 6]] }, f8: { carry: MELON, give: [[I.melonenscheibe, 12]] },
+    baecker: { carry: 1005, give: [[I.brot, 12]] }, metzger: { carry: BARREL, give: [[I.steak, 8], [I.schweinebraten, 6]] }, wein: { carry: BARREL, give: [[I.kohle, 16]] },
+    g1: { carry: CHEST, give: [[I.goldbarren, 4]] }, g3: { carry: HAY, give: [[HAY, 3]] }, g6: { carry: BARREL, give: [[I.leder, 4]] }, g7: { carry: WWOOL, give: [[WWOOL, 8]] },
+  };
+  const GATHER14 = []; for (let r = 0; r < 4; r++) for (const x of [92.5, 95.5, 98.5, 101.5]) GATHER14.push([x, G0 + 1, 271.5 + r * 1.8]);
+  const QUEUE14 = []; for (let r = 0; r < 9; r++) for (const x of [95.5, 97.5]) QUEUE14.push([x, G0 + 1, 82.5 + r * 1.6]);
+  // Zwei Plätze vor der Schatztruhe (links und rechts davor), damit es zügig geht
+  const GIVE14 = [[92.5, G0 + 3, 76.5], [94.5, G0 + 3, 76.5]], EXIT14 = [88.5, G0 + 1, 96.5];
+  const ZUG = { day: -1, active: false, started: false, members: [], next: 0, giving: [null, null], openedGate: false, said: {}, totals: new Map(), doneT: 0 };
+  let dayNo14 = 0, lastHr14 = null;
+
+  // ---------- Häuser verteilen ----------
+  function seatSpot14(c) {
+    const [x, y, z, dx, dz] = c, b = get(x, y, z), ss = SEAT_SHAPE[b];
+    if (!ss) return null;
+    let stand = null;
+    for (const [ox, oz] of [[-dz, dx], [dz, -dx], [dx, dz], [-dx, -dz]]) if (standable(x + ox, y, z + oz)) { stand = [x + ox + 0.5, y, z + oz + 0.5]; break; }
+    if (!stand) return null;
+    return [x + 0.5 + ss.dx * 0.05, y + ss.h - 0.655, z + 0.5 + ss.dz * 0.05, Math.atan2(ss.dx, ss.dz), "sit", stand];
+  }
+  function assignHomes14() {
+    const free = [];
+    const houses = HOUSES11.filter(h => h.bedInfo);
+    for (const h of houses) { h.residents = []; h.seats = (h.chairs || []).map(seatSpot14).filter(Boolean); h.seatUse = new Set(); h.bedInfo.forEach((b, i) => free.push({ h, b, i })); }
+    // Gutshof-Leute wohnen in der Oststadt, die anderen in der Neustadt; Familien möglichst zusammen
+    const near = (e, zone) => free.filter(f => f.h.zone === zone);
+    for (const e of WORKERS) {
+      if (e.gone || e.home14) continue;
+      if (e.bed && !e.homeLess) { e.home14 = { inside: e.bed.stand, seats: [], seatUse: new Set(), kitchen: null, pseudo: true }; e.bed14 = e.bed; continue; }
+      const zone = /^g/.test(e.key14) ? "oststadt" : "neustadt";
+      let pool = near(e, zone); if (!pool.length) pool = free;
+      if (!pool.length) continue;
+      // Wer bei einem Nachbarn arbeitet, wohnt gern dort, wo das Bett frei ist und das Haus noch Platz hat
+      pool.sort((a, b) => (a.h.residents.length - b.h.residents.length) || (a.i - b.i));
+      const f = pool[0]; free.splice(free.indexOf(f), 1);
+      f.h.residents.push(e); e.home14 = f.h; e.bed14 = f.b;
+    }
+  }
+  // ---------- Was jemand gerade tun möchte ----------
+  const inWork14 = (e, h) => e.from < e.to ? h >= e.from && h < e.to : h >= e.from || h < e.to;
+  function wantMode14(e, h) {
+    if (e.zug14) return "zug";
+    if (inWork14(e, h)) return "work";
+    if (e.trib14 && !e.tribDone14 && h >= e.to && h < 18.5 && ZUG.day !== dayNo14) return "gather";
+    if (e.dayBed14) return h >= 6.2 && h < 18 ? "bed" : "home";
+    if (h >= e.bedT14 || h < e.from - 0.75) return "bed";
+    return "home";
+  }
+  // Aufstehen, aus dem Sitzen oder aus dem Bett
+  function rise14(e) {
+    if (e.sit) { e.sit = false; e.pose = "none"; if (e.seat14) { e.home14.seatUse && e.home14.seatUse.delete(e.seat14); wPlace(e, e.seat14[5]); e.seat14 = null; } }
+    if (e.sleep) { e.sleep = false; e.mesh.rotation.order = "XYZ"; e.mesh.rotation.x = 0; if (e.bed14) wPlace(e, e.bed14.stand); e.lines = e.dayLines; }
+    e.mesh.visible = true; e.act = null; e.lean = 0;
+  }
+  function setMode14(e, m) {
+    e.mode14 = m;
+    rise14(e); wFree(e);
+    if (m === "work") { e.spot = wPick(e); e.state = "nav"; navTo14(e, e.spot[5] || e.spot, ee => { ee.state = "go"; wArrive(ee); }); }
+    else if (m === "home") { e.state = "nav"; navTo14(e, homeSpot14(e), arriveHome14); }
+    else if (m === "bed") { e.state = "nav"; navTo14(e, e.bed14 ? e.bed14.stand : homeSpot14(e), lieDown14); }
+    else if (m === "gather") { e.state = "nav"; giveCarry14(e); navTo14(e, GATHER14[e.gi14 % GATHER14.length], ee => { ee.state = "gather"; ee.yawT = Math.PI; ee.dvx = ee.dvz = 0; }); }
+  }
+  const homeSpot14 = e => e.home14 ? (e.home14.inside || e.home14.door) : e.anchor;
+  function arriveHome14(e) {
+    e.state = "house"; e.dvx = e.dvz = 0;
+    const H = e.home14; if (!H) return;
+    const s = (H.seats || []).find(q => !H.seatUse.has(q));
+    if (s && Math.random() < 0.8) { H.seatUse.add(s); e.seat14 = s; wPlace(e, s); e.sit = true; e.pose = "sit"; e.yaw = e.yawT = s[3]; e.act = "sit"; }
+    else if (H.kitchen) { wPlace(e, H.kitchen); e.yawT = H.kitchen[3]; e.act = "arrange"; e.lean = 0.25; }
+    e.lines = HOME14.map(s => fmt11(s, e.formal));
+  }
+  function lieDown14(e) {
+    if (!e.bed14) { arriveHome14(e); return; }
+    wPlace(e, e.bed14.feet); e.bed = e.bed14; e.sleep = true; e.state = "bed"; e.act = null; e.lean = 0;
+    e.lines = (e.nightLines || NIGHT14).map(s => fmt11(s, e.formal));
+  }
+
+  // ---------- Getragene Abgaben ----------
+  function giveCarry14(e) {
+    const t = TRIB14[e.key14]; if (!t || e.carry14) return;
+    const m = new THREE.Mesh(blockItemGeo(t.carry), itemMat(t.carry));
+    m.scale.setScalar(0.52); m.position.set(0, 1.02, 0.42); m.castShadow = true;
+    e.mesh.add(m); e.carry14 = m;
+  }
+  function dropCarry14(e) { if (e.carry14) { e.mesh.remove(e.carry14); e.carry14.geometry.dispose(); e.carry14 = null; } }
+
+  // ---------- Der Abgaben-Zug ----------
+  function startZug14() {
+    ZUG.day = dayNo14; ZUG.active = true; ZUG.started = true; ZUG.next = 0; ZUG.giving = [null, null]; ZUG.said = {}; ZUG.totals = new Map(); ZUG.doneT = 0;
+    ZUG.members = WORKERS.filter(e => !e.gone && e.trib14 && !e.tribDone14).sort((a, b) => a.gi14 - b.gi14);
+    if (!ZUG.members.length) { ZUG.active = false; return; }
+    const nearMarket = Math.hypot(P.x - 96, P.z - 280) < 90;
+    announce14(nearMarket ? "Der Abgaben-Zug bricht vom Marktplatz auf und zieht hinauf zum Thronsaal." : "Der Abgaben-Zug ist vom Marktplatz aufgebrochen. In etwa zwei Stunden ist er im Thronsaal.", "18 Uhr:");
+    if (nearMarket) { beep(392, 0.5, "triangle", 0.05); setTimeout(() => beep(523, 0.7, "triangle", 0.05), 420); }
+    ZUG.members.forEach((e, i) => {
+      rise14(e); giveCarry14(e); e.nav = null; e.path = null; e.zug14 = true; e.mode14 = "zug"; e.zi = i; e.state = "zugwait"; e.zugT = i * 1.1; e.speed0 = e.speed0 || e.speed; e.speed = 2.6;
+    });
+  }
+  // Jeder Teilnehmer: nach seiner Wartezeit los, durchs Schloss bis in die Reihe vor dem Thron
+  function zugMember14(e, dt) {
+    if (e.state === "zugwait") {
+      if ((e.zugT -= dt) > 0) return;
+      e.state = "nav"; navTo14(e, QUEUE14[e.zi % QUEUE14.length], ee => { ee.state = "queue"; ee.yawT = Math.PI; ee.dvx = ee.dvz = 0; });
+    }
+  }
+  function updateZug14(dt) {
+    if (!ZUG.active) return;
+    for (const e of ZUG.members) if (e.zug14) zugMember14(e, dt);
+    const lead = ZUG.members.find(e => e.zug14);
+    // Unterwegs: Meldungen, Zugbrücke öffnen lassen
+    if (lead) {
+      if (!ZUG.said.dorf && lead.z < 240 && lead.z > 160) { ZUG.said.dorf = true; if (Math.hypot(P.x - lead.x, P.z - lead.z) < 120) announce14("Der Abgaben-Zug kommt durch das Dorf."); }
+      if (!ZUG.said.tor && lead.z < 175) {
+        ZUG.said.tor = true;
+        if (!gate.open) { toggleGate(); ZUG.openedGate = true; }
+        announce14("Die Wachen lassen die Zugbrücke herunter: Der Abgaben-Zug kommt ins Schloss.");
+        const g = ents.find(e => e.kind === "guard" && Math.hypot(e.x - P.x, e.z - P.z) < 30); if (g) { g.talkT = 2; say("Wache", "Platz da! Der Abgaben-Zug für Seine Majestät!"); }
+      }
+      if (!ZUG.said.saal && lead.z < 112 && lead.state !== "nav" || (!ZUG.said.saal && lead.state === "queue")) { ZUG.said.saal = true; if (Math.hypot(P.x - 96, P.z - 95) < 40) announce14("Der Abgaben-Zug ist im Thronsaal angekommen. Jeder legt seine Abgabe selbst in deine Schatztruhe."); }
+    }
+    // Vor der Truhe: zwei Plätze, jeweils der Nächste aus der Reihe (in der Reihenfolge des Zugs)
+    for (let s = 0; s < 2; s++) {
+      if (!ZUG.giving[s]) {
+        const e = ZUG.members.find(m => m.zug14 && m.state === "queue" && !ZUG.giving.includes(m));
+        if (e) {
+          ZUG.giving[s] = e; e.state = "nav"; const sp = GIVE14[s];
+          navTo14(e, sp, ee => { ee.state = "give"; ee.giveT = 2.2; ee.yawT = Math.atan2(93.5 - sp[0], 75.5 - sp[2]); ee.dvx = ee.dvz = 0; });
+        }
+        continue;
+      }
+      const e = ZUG.giving[s];
+      if (e.state !== "give") continue;
+      const far = distP(e) > FAR14;
+      e.giveT -= far ? 99 : dt;
+      e.lean = e.giveT > 1 ? 0.45 : 0.2;
+      if (e.giveT <= 1 && e.carry14) depositTrib14(e, !far);
+      if (e.giveT <= 0) {
+        e.lean = 0; e.zug14 = false; e.tribDone14 = true; ZUG.giving[s] = null; e.speed = e.speed0 || e.speed;
+        e.state = "nav"; e.mode14 = "home";
+        navTo14(e, EXIT14, ee => setMode14(ee, wantMode14(ee, hr14())));
+        if (!ZUG.members.some(m => m.zug14)) finishZug14(false);
+      }
+    }
+    // Wenn alle durch sind und das Schloss verlassen haben, geht die Zugbrücke wieder hoch (falls die Wachen sie geöffnet haben)
+    if (!ZUG.members.some(m => m.zug14) && ZUG.openedGate && ZUG.members.every(m => m.z > 158 || m.gone)) { ZUG.openedGate = false; if (gate.open) toggleGate(); }
+    if (!ZUG.members.some(m => m.zug14) && !ZUG.openedGate) ZUG.active = false;
+  }
+  function depositTrib14(e, visible) {
+    const t = TRIB14[e.key14];
+    dropCarry14(e);
+    if (!t) return;
+    const parts = [];
+    for (const [id, n] of t.give) { V13.tc.set(String(id), (V13.tc.get(String(id)) || 0) + n); ZUG.totals.set(id, (ZUG.totals.get(id) || 0) + n); parts.push(n + " " + itemName(id)); }
+    if (visible) {
+      noiseHit(340, 1.2, 0.2, 0.08); beep(880, 0.12, "triangle", 0.03); setTimeout(() => beep(1175, 0.18, "triangle", 0.03), 120);
+      emit(93.5, G0 + 4, 75.5, 14, () => [255, 220 + Math.random() * 35, 90], 0.08, 1.6, -1);
+      say(e.name, (e.formal ? "Für Euch, Majestät: " : "Für den König: ") + parts.join(" und ") + ".");
+    }
+    if (V13.ui === "schatz") render();
+    saveSoon();
+  }
+  function finishZug14(instant) {
+    const parts = [...ZUG.totals].map(([id, n]) => n + " " + itemName(id));
+    if (parts.length && (!instant || Math.hypot(P.x - 96, P.z - 95) < 60)) announce14("In deiner Schatztruhe liegen jetzt zusätzlich: " + parts.join(", ") + ".", "Abgaben:");
+  }
+  // Schläft der König oder springt die Zeit weit, ist der Zug längst fertig: Abgaben in die Truhe, alle daheim
+  function finishZugNow14() {
+    for (const e of ZUG.members) if (e.zug14) { if (e.carry14) depositTrib14(e, false); e.zug14 = false; e.tribDone14 = true; e.nav = null; e.speed = e.speed0 || e.speed; e.state = "nav"; }
+    ZUG.giving = [null, null]; ZUG.active = false;
+    if (ZUG.openedGate) { ZUG.openedGate = false; if (gate.open) toggleGate(); }
+  }
+
+  // ---------- Denken in der Nähe des Königs ----------
+  function resident14Think(e, dt, dp) {
+    if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; if (!e.sleep) lookAt(e, P.x, P.y + 1.62, P.z, !e.sit); return; }
+    if (e.state === "nav" && e.nav) { if (dp > FAR14) { e.dvx = e.dvz = 0; return; } navReal14(e, dt, dp); return; }
+    e.dvx = e.dvz = 0;
+    if (e.state === "work") { workerThink(e, dt, dp); return; }
+    if (e.state === "go") { e.state = "nav"; navTo14(e, e.spot[5] || e.spot, ee => { ee.state = "go"; wArrive(ee); }); return; }
+    if (e.state === "house" || e.state === "gather" || e.state === "queue" || e.state === "zugwait") {
+      if (dp < 6 && Math.abs(P.y - e.y) < 3) lookAt(e, P.x, P.y + 1.62, P.z); else { e.headYawT = 0; e.headPitchT = e.act === "arrange" ? 0.45 : 0.05; }
+      if (e.state !== "house") e.yawT = Math.PI;
+      return;
+    }
+    if (e.state === "give") { e.headPitchT = 0.4; return; }
+  }
+  // Arbeitszeit vorbei, während jemand arbeitet: das alte Verhalten (zur Straße hinaus) gibt es nicht mehr, setMode14 übernimmt
+  const _oldWorkerThink = workerThink;
+
+  // ---------- Für alle, jedes Bild (auch weit weg): Tagesablauf ----------
+  function updateResidents14(dt) {
+    const h = hr14();
+    if (lastHr14 !== null && h < lastHr14 - 12) { dayNo14++; for (const e of WORKERS) e.tribDone14 = false; }
+    lastHr14 = h;
+    q14 = 2;
+    // Zug: um 18 Uhr los; ist es schon sehr spät (Zeit übersprungen), ist er fertig
+    if (!ZUG.active && ZUG.day !== dayNo14 && h >= 18 && h < 22.5) startZug14();
+    if (ZUG.active && (h >= 23.5 || h < 5)) finishZugNow14();
+    updateZug14(dt);
+    for (const e of WORKERS) {
+      if (e.gone || !e.home14 && !e.bed14) continue;
+      if (e.zug14) { if (e.nav && distP(e) > FAR14) navVirtual14(e, dt); continue; }
+      const m = wantMode14(e, h);
+      if (m !== e.mode14 && e.talkT <= 0) setMode14(e, m);
+      if (e.nav && distP(e) > FAR14) navVirtual14(e, dt);
+    }
+  }
+  // Getragene Kisten: Arme nach vorn
+  function carryPoses14() {
+    for (const e of WORKERS) {
+      if (!e.carry14 || !e.mesh.visible || e.sit || e.sleep) continue;
+      const B = e.B, give = e.state === "give" && e.giveT > 1.2;
+      B.armR.rotation.set(give ? -1.5 : -1.05, 0, -0.12); B.armL.rotation.set(give ? -1.5 : -1.05, 0, 0.12);
+      B.foreR.rotation.set(-0.55, 0, 0); B.foreL.rotation.set(-0.55, 0, 0);
+      if (B.tool) B.tool.visible = false;
+    }
+    for (const e of WORKERS) if (!e.carry14 && e.B && e.B.tool && !e.B.tool.visible) e.B.tool.visible = true;
+  }
+
+  // ---------- Einrichten, wenn die Welt fertig ist ----------
+  V11.spawn.push(() => {
+    spawnPeople14();
+    // Wer Abgaben bringt und wann Feierabend ist
+    const keyOf = e => Object.keys(PEOPLE11).find(k => e.m === "p11_" + k);
+    let gi = 0;
+    for (const e of WORKERS) {
+      e.key14 = keyOf(e) || "";
+      if (/^f\d$/.test(e.key14)) { e.to = 16 + (WORKERS.indexOf(e) % 4) * 0.06; e.from = 6.4 + (WORKERS.indexOf(e) % 3) * 0.1; }
+      else if (MSTALLS.some(s => s.kind === e.key14)) e.to = 17 + (WORKERS.indexOf(e) % 4) * 0.1;
+      else if (/^k\d/.test(e.key14)) e.to = 16.6 + (WORKERS.indexOf(e) % 4) * 0.2;
+      else if (/^g\d/.test(e.key14) && e.key14 !== "g1" && e.key14 !== "g2") e.to = 17.1;
+      if (e.key14 === "muller" || e.key14 === "mullerin") { e.night14 = false; }
+      e.bedT14 = e.bedT14 || 21 + (WORKERS.indexOf(e) % 7) * 0.25;
+      if (TRIB14[e.key14]) { e.trib14 = true; e.gi14 = gi++; }
+      e.outside14 = () => e.z > WALL14.z1 + 0.5 && (e.mode14 === "home" || e.mode14 === "gather" || e.mode14 === "bed") && !!(e.home14 && !e.home14.pseudo);
+      e.think = resident14Think;
+      e.dayLines = e.dayLines || e.lines;
+    }
+    assignHomes14();
+    // Ausgangslage nach der Uhrzeit: wer nicht arbeitet, ist schon daheim oder liegt im Bett (nichts taucht vor dem König auf, denn die Welt wird gerade erst gezeigt)
+    const h = hr14();
+    if (h >= 18 && h < 23.5) ZUG.day = dayNo14;
+    for (const e of WORKERS) {
+      if (e.gone || !e.home14 && !e.bed14) continue;
+      wFree(e); e.nav = null; e.sleep = false; e.sit = false; e.mesh.visible = true; e.mesh.rotation.order = "XYZ"; e.mesh.rotation.x = 0;
+      const m = wantMode14(e, h);
+      e.mode14 = m === "gather" ? "home" : m;
+      if (e.mode14 === "work") { e.spot = wPick(e); wPlace(e, e.spot); e.state = "go"; wArrive(e); }
+      else if (e.mode14 === "bed") { if (e.bed14) lieDown14(e); else { wPlace(e, homeSpot14(e)); arriveHome14(e); } }
+      else { wPlace(e, homeSpot14(e)); arriveHome14(e); if (m === "gather") e.tribDone14 = true; }
+    }
+    if (pendingV14) applyV14(pendingV14);
+    else { const c = gateWantsClosed(); for (const gt of TGATES) if (c && gt.open) setTownGate(gt, false, true); gateSched = c; }
+    pendingV14 = null;
+  });
+  V11.update.push((dt) => {
+    updateTownGates(dt);
+    scheduleTownGates(dt);
+    updateResidents14(dt);
+    carryPoses14();
+    updateAnnounce(dt);
+  });
+
+  // ---------- Hinweise beim Anschauen ----------
+  function v14Hint(t, tb, use) {
+    if (!t) return "";
+    const gt = townGateAt(t.x, t.y, t.z);
+    if (gt) return use + (gt.open ? gt.name + " schließen" : gt.name + " öffnen");
+    if (tb === CRAFT) return use + "An der Werkbank herstellen";
+    if (tb === OVEN) return use + "Den Ofen öffnen";
+    if (tb === CHEST) return use + "Die Truhe öffnen";
+    if (ROTB[tb] === THRONTRUHE) return use + "In deine Schatztruhe schauen";
+    return "";
+  }
+  // ---------- Speichern: Tore und ob der Zug heute schon war ----------
+  let pendingV14 = null;
+  function v14Save() { return { g: TGATES.map(g => [g.open ? 1 : 0, g.manual ? 1 : 0]), zd: ZUG.day === dayNo14 ? 1 : 0 }; }
+  function v14Load(save) { pendingV14 = save && save.v14 || null; }
+  function applyV14(s) {
+    if (Array.isArray(s.g)) s.g.forEach((v, i) => { const gt = TGATES[i]; if (!gt || !Array.isArray(v)) return; gt.manual = !!v[1]; if (!v[0] !== !gt.open) setTownGate(gt, !!v[0], true); });
+    gateSched = gateWantsClosed();
+    if (s.zd) ZUG.day = dayNo14;
+  }
+  // ==================== Version 14: Lebendiges Dorf – fünfzig neue Bewohner ====================
+  // Bauern, Holzfäller, Fischer, Wasserträger, Wäscherinnen, Schmied und Geselle, Zimmerleute, Nachtwächter, Kinder, Hausleute,
+  // die Kräuterfrau und zehn Leute ohne festen Beruf. Den Beruf erkennt man an der Kleidung und am Werkzeug.
+  const P14 = {
+    // weitere Bauern und Mägde
+    f9: { name: "Bauer Wendelin", talk: "dem Bauern Wendelin", skin: [220, 168, 128], hair: [80, 56, 36], beard: [80, 56, 36], shirt: [200, 190, 160], susp: [70, 50, 34], pants: [80, 70, 54], hat: { t: "straw" }, tool: "scythe", boots: true },
+    f10: { name: "Bäuerin Afra", talk: "der Bäuerin Afra", female: true, skin: [236, 192, 160], hair: [70, 48, 32], bodice: [120, 40, 50], skirt: [70, 80, 60], apron: { c: [220, 210, 186] }, hat: { t: "scarf", c: [230, 190, 80] }, tool: "hoe" },
+    f11: { name: "Knecht Sepp", talk: "dem Knecht Sepp", skin: [212, 160, 122], hair: [40, 32, 26], shirt: [170, 60, 50], pants: [70, 62, 52], rolled: true, hat: { t: "cap", c: [60, 70, 50] }, tool: "pitchfork", boots: true },
+    f12: { name: "Magd Vroni", talk: "der Magd Vroni", female: true, skin: [242, 206, 178], hair: [230, 190, 110], bodice: [60, 100, 140], skirt: [140, 100, 70], apron: { c: [246, 242, 232] }, hat: { t: "scarf", c: [200, 60, 80] }, tool: "basket", scale: 0.95 },
+    f13: { name: "Bauer Leopold", talk: "dem Bauern Leopold", skin: [210, 158, 120], hair: [150, 150, 150], mustache: [170, 170, 170], shirt: [140, 160, 120], vest: [90, 60, 40], pants: [60, 54, 46], hat: { t: "straw", c: [60, 60, 60] }, tool: "hoe", boots: true },
+    f14: { name: "Bäuerin Kreszenz", talk: "der Bäuerin Kreszenz", female: true, skin: [228, 182, 148], hair: [110, 70, 40], bodice: [90, 120, 70], skirt: [90, 60, 50], apron: { c: [200, 200, 186] }, hat: { t: "straw", c: [90, 120, 70] }, tool: "wcan" },
+    f15: { name: "Knecht Bartl", talk: "dem Knecht Bartl", skin: [226, 172, 136], hair: [170, 110, 50], shirt: [230, 226, 210], susp: [40, 50, 70], pants: [60, 66, 80], rolled: true, hat: { t: "straw" }, tool: "scythe" },
+    f16: { name: "Magd Burgl", talk: "der Magd Burgl", female: true, skin: [238, 198, 168], hair: [60, 40, 26], bodice: [150, 90, 50], skirt: [60, 60, 80], apron: { c: [236, 230, 214], check: [180, 80, 80] }, hat: { t: "bonnet" }, tool: "basket" },
+    // Holzfäller im Königswald: kariertes Hemd, Lederweste, Axt
+    holz1: { name: "Holzfäller Ruprecht", talk: "dem Holzfäller Ruprecht", skin: [214, 160, 120], hair: [100, 50, 30], beard: [110, 56, 34], shirt: [180, 40, 40], vest: [90, 60, 36], pants: [60, 60, 70], rolled: true, hat: { t: "cap", c: [60, 80, 50] }, tool: "axe", boots: true, scale: 1.06 },
+    holz2: { name: "Holzfäller Kaspar", talk: "dem Holzfäller Kaspar", skin: [222, 172, 134], hair: [40, 30, 24], beard: [40, 30, 24], shirt: [50, 100, 60], vest: [90, 60, 36], pants: [70, 60, 50], rolled: true, tool: "axe", boots: true },
+    holz3: { name: "Holzfäller Alois", talk: "dem Holzfäller Alois", skin: [216, 164, 126], hair: [180, 180, 180], mustache: [190, 190, 190], shirt: [40, 60, 130], vest: [80, 50, 30], pants: [60, 56, 48], rolled: true, hat: { t: "cap", c: [120, 40, 40] }, tool: "axe", boots: true },
+    // Fischer am Bootssteg
+    fischer1: { name: "Fischer Jonas", talk: "dem Fischer Jonas", skin: [206, 158, 120], hair: [140, 110, 70], beard: [140, 110, 70], shirt: [230, 200, 50], pants: [50, 60, 80], hat: { t: "cap", c: [230, 200, 50] }, tool: "rod", boots: true, shoe: [30, 30, 34] },
+    fischer2: { name: "Fischerin Marie", talk: "der Fischerin Marie", female: true, skin: [232, 190, 156], hair: [90, 60, 40], bodice: [40, 70, 110], skirt: [50, 60, 80], apron: { c: [230, 200, 50] }, hat: { t: "scarf", c: [40, 70, 110] }, tool: "rod" },
+    // Wasserträger zwischen Dorfbrunnen und Marktbrunnen
+    wasser1: { name: "Wasserträger Michel", talk: "dem Wasserträger Michel", skin: [220, 170, 132], hair: [80, 56, 36], shirt: [120, 150, 190], pants: [80, 70, 56], rolled: true, hat: { t: "straw" }, tool: "bucket" },
+    wasser2: { name: "Wasserträgerin Theres", talk: "der Wasserträgerin Theres", female: true, skin: [238, 198, 166], hair: [160, 100, 50], bodice: [70, 120, 150], skirt: [90, 80, 70], apron: { c: [230, 226, 214] }, hat: { t: "scarf", c: [70, 120, 150] }, tool: "bucket" },
+    // Wäscherinnen am Seeufer
+    wasch1: { name: "Wäscherin Agnes", talk: "der Wäscherin Agnes", female: true, skin: [240, 200, 172], hair: [120, 80, 50], bodice: [200, 200, 210], skirt: [80, 90, 120], apron: { c: [250, 250, 248] }, hat: { t: "scarf", c: [250, 250, 248] }, tool: "basket", rolled: true },
+    wasch2: { name: "Wäscherin Walburga", talk: "der Wäscherin Walburga", female: true, skin: [228, 184, 150], hair: [80, 60, 50], bodice: [120, 80, 120], skirt: [70, 70, 80], apron: { c: [246, 246, 240] }, hat: { t: "bonnet" }, tool: "basket" },
+    // Schmied und Geselle: Lederschürze, Hammer
+    schmied: { name: "Schmied Bernhard", talk: "dem Schmied Bernhard", skin: [214, 156, 116], hair: [30, 24, 20], style: "bald", beard: [40, 30, 24], shirt: [90, 84, 80], pants: [50, 46, 44], apron: { c: [110, 70, 40], bib: true }, rolled: true, tool: "hammer", boots: true, scale: 1.1 },
+    geselle: { name: "Geselle Lukas", talk: "dem Gesellen Lukas", skin: [226, 176, 140], hair: [150, 90, 40], shirt: [200, 196, 186], pants: [60, 56, 52], apron: { c: [110, 70, 40], bib: true }, rolled: true, tool: "hammer", hat: { t: "cap", c: [60, 56, 52] } },
+    // Zimmerleute in Zunftkleidung: schwarze Weste und Hose, weißes Hemd, breiter Hut
+    zimmer1: { name: "Zimmermann Georg", talk: "dem Zimmermann Georg", skin: [222, 170, 132], hair: [90, 60, 40], beard: [90, 60, 40], shirt: [246, 246, 244], vest: [30, 30, 32], pants: [30, 30, 32], hat: { t: "tophat", c: [28, 28, 30] }, tool: "hammer", boots: true },
+    zimmer2: { name: "Zimmermann Quirin", talk: "dem Zimmermann Quirin", skin: [230, 184, 148], hair: [200, 160, 90], shirt: [246, 246, 244], vest: [30, 30, 32], pants: [30, 30, 32], hat: { t: "tophat", c: [28, 28, 30] }, tool: "axe", boots: true },
+    // Der Nachtwächter mit Laterne
+    nachtw: { name: "Nachtwächter Ignaz", talk: "dem Nachtwächter Ignaz", skin: [226, 186, 156], hair: [170, 170, 170], mustache: [180, 180, 180], coat: [40, 44, 60], vest: [120, 30, 40], pants: [40, 40, 46], hat: { t: "beret", c: [30, 30, 36] }, tool: "lantern", boots: true },
+    // Kräuterfrau am Waldrand
+    kraut: { name: "Kräuterfrau Wilhelmine", talk: "der Kräuterfrau Wilhelmine", female: true, skin: [232, 196, 170], hair: [200, 200, 204], bun: true, bodice: [70, 100, 60], skirt: [80, 70, 50], apron: { c: [150, 170, 110] }, hat: { t: "scarf", c: [120, 80, 120] }, tool: "basket" },
+    // Hausleute: machen das Haus sauber, kochen, gießen die Blumen
+    haus1: { name: "Frau Anna", talk: "Frau Anna", female: true, skin: [240, 202, 176], hair: [120, 70, 40], bun: true, bodice: [180, 80, 90], skirt: [60, 70, 100], apron: { c: [250, 250, 246], bib: true }, tool: "broom" },
+    haus2: { name: "Frau Rosi", talk: "Frau Rosi", female: true, skin: [236, 196, 166], hair: [60, 40, 30], bodice: [80, 130, 110], skirt: [80, 60, 50], apron: { c: [240, 236, 220], check: [90, 140, 200] }, hat: { t: "scarf", c: [240, 140, 60] }, tool: "broom" },
+    haus3: { name: "Frau Marta", talk: "Frau Marta", female: true, skin: [228, 186, 156], hair: [180, 120, 60], bodice: [120, 110, 160], skirt: [120, 110, 160], apron: { c: [246, 244, 236] }, tool: "basket" },
+    haus4: { name: "Großvater Anselm", talk: "Großvater Anselm", skin: [230, 196, 170], hair: [230, 230, 232], beard: [236, 236, 238], vest: [100, 80, 60], pants: [70, 64, 56], hat: { t: "cap", c: [80, 70, 60] }, tool: "cane", scale: 0.95 },
+    haus5: { name: "Großmutter Hedwig", talk: "Großmutter Hedwig", female: true, skin: [236, 204, 182], hair: [236, 236, 240], bun: true, bodice: [60, 50, 60], skirt: [60, 50, 60], skirtLen: 11.5, hat: { t: "bonnet" }, tool: "cane", scale: 0.93 },
+    haus6: { name: "Herr Benno", talk: "Herrn Benno", skin: [222, 176, 140], hair: [90, 70, 50], mustache: [90, 70, 50], shirt: [220, 210, 190], vest: [70, 90, 70], pants: [80, 70, 60], tool: "wcan" },
+    haus7: { name: "Frau Zenzi", talk: "Frau Zenzi", female: true, skin: [240, 200, 170], hair: [210, 160, 90], bodice: [200, 120, 50], skirt: [90, 70, 60], apron: { c: [250, 246, 236] }, hat: { t: "bonnet" }, tool: "wcan" },
+    haus8: { name: "Großmutter Elfriede", talk: "Großmutter Elfriede", female: true, skin: [234, 200, 178], hair: [210, 210, 214], bun: true, bodice: [100, 60, 80], skirt: [100, 60, 80], skirtLen: 11.5, tool: "bag", bagc: [80, 60, 90], scale: 0.92 },
+    // Ohne festen Beruf: helfen mal hier, mal da, sitzen auf den Bänken, reden am Brunnen
+    frei1: { name: "Wanderer Ulrich", talk: "dem Wanderer Ulrich", skin: [212, 160, 124], hair: [120, 90, 60], beard: [120, 90, 60], coat: [110, 90, 60], vest: [80, 60, 40], pants: [70, 60, 50], hat: { t: "straw", c: [110, 90, 60] }, tool: "cane", boots: true },
+    frei2: { name: "Tagelöhner Kilian", talk: "dem Tagelöhner Kilian", skin: [226, 176, 140], hair: [60, 44, 30], shirt: [190, 180, 160], pants: [80, 70, 60], rolled: true, hat: { t: "cap", c: [100, 90, 70] } },
+    frei3: { name: "Tagelöhner Matthäus", talk: "dem Tagelöhner Matthäus", skin: [200, 150, 112], hair: [30, 24, 20], shirt: [150, 120, 90], susp: [60, 40, 30], pants: [60, 56, 50], rolled: true },
+    frei4: { name: "Tagelöhnerin Kathi", talk: "der Tagelöhnerin Kathi", female: true, skin: [240, 204, 176], hair: [150, 90, 50], bodice: [140, 120, 90], skirt: [90, 80, 70], apron: { c: [210, 200, 180] }, hat: { t: "scarf", c: [140, 120, 90] } },
+    frei5: { name: "Vagabund Rudi", talk: "dem Vagabunden Rudi", skin: [216, 168, 130], hair: [100, 80, 60], beard: [110, 90, 66], coat: [90, 80, 60], pants: [70, 60, 50], hat: { t: "beret", c: [80, 60, 40] }, tool: "bag", bagc: [110, 90, 60] },
+    frei6: { name: "Witwe Gertraud", talk: "der Witwe Gertraud", female: true, skin: [232, 196, 170], hair: [140, 140, 144], bun: true, bodice: [30, 30, 36], skirt: [30, 30, 36], skirtLen: 11.5, hat: { t: "bonnet" }, tool: "basket" },
+    frei7: { name: "Bursche Mathis", talk: "dem Burschen Mathis", skin: [236, 194, 160], hair: [220, 180, 100], shirt: [230, 230, 220], vest: [40, 100, 60], pants: [60, 50, 40], hat: { t: "straw", c: [40, 100, 60] }, scale: 0.97 },
+    frei8: { name: "Evi", talk: "Evi", female: true, skin: [242, 206, 180], hair: [100, 60, 36], bodice: [200, 60, 80], skirt: [60, 80, 140], apron: { c: [250, 250, 246] }, hat: { t: "straw", c: [200, 60, 80] }, tool: "basket", scale: 0.96 },
+    frei9: { name: "Student Konstantin", talk: "dem Studenten Konstantin", skin: [236, 200, 172], hair: [50, 40, 34], coat: [60, 50, 90], vest: [200, 190, 160], pants: [40, 40, 50], hat: { t: "beret", c: [60, 50, 90] }, tool: "bag", bagc: [90, 60, 40] },
+    frei10: { name: "Spielmann Hannes", talk: "dem Spielmann Hannes", skin: [228, 180, 146], hair: [180, 100, 50], coat: [160, 40, 50], vest: [230, 190, 70], pants: [50, 120, 70], hat: { t: "beret", c: [50, 120, 70], feather: [230, 190, 70] } },
+    // Kinder
+    kind1: { name: "Hansi", talk: "Hansi", skin: [240, 206, 178], hair: [200, 150, 80], shirt: [200, 60, 50], pants: [70, 70, 90], scale: 0.66 },
+    kind2: { name: "Gretel", talk: "Gretel", female: true, skin: [244, 210, 184], hair: [230, 190, 110], bodice: [60, 120, 190], skirt: [60, 120, 190], apron: { c: [250, 250, 246] }, scale: 0.64 },
+    kind3: { name: "Fritz", talk: "Fritz", skin: [230, 186, 150], hair: [60, 40, 26], shirt: [60, 140, 80], pants: [90, 70, 50], hat: { t: "cap", c: [200, 60, 50] }, scale: 0.67 },
+    kind4: { name: "Lenchen", talk: "Lenchen", female: true, skin: [242, 204, 176], hair: [120, 70, 40], bodice: [220, 120, 160], skirt: [220, 120, 160], hat: { t: "bonnet" }, scale: 0.62 },
+    kind5: { name: "Paul", talk: "Paul", skin: [236, 194, 160], hair: [140, 90, 50], shirt: [240, 230, 160], susp: [90, 60, 40], pants: [70, 60, 50], scale: 0.65 },
+    kind6: { name: "Mia", talk: "Mia", female: true, skin: [216, 168, 130], hair: [40, 30, 24], bodice: [240, 200, 60], skirt: [60, 90, 150], scale: 0.63 },
+    kind7: { name: "Toni", talk: "Toni", skin: [240, 204, 176], hair: [230, 200, 140], shirt: [80, 120, 200], pants: [60, 60, 70], hat: { t: "straw" }, scale: 0.68 },
+    kind8: { name: "Klara", talk: "Klara", female: true, skin: [238, 200, 170], hair: [170, 90, 40], bodice: [120, 180, 110], skirt: [120, 180, 110], apron: { c: [250, 250, 246] }, scale: 0.61 },
+  };
+  for (const k in P14) { const o = P14[k]; o.seed = pseed++; PEOPLE11[k] = o; MODEL_DEFS["p11_" + k] = () => defPerson(o); }
+  Object.assign(L11, {
+    holz: { talk: ["Achtung, der Baum fällt gleich{M}!", "Das Holz kommt ins Lager im Schloss und zu den Zimmerleuten.", "{M_}für jeden Baum, den wir fällen, pflanzen wir einen neuen.", "Im Königswald stehen Eichen, die sind älter als das Schloss."] },
+    fischer: { talk: ["Heute beißen sie gut{M}.", "Psst, nicht so laut, sonst schwimmen die Fische weg.", "{M_}der größte Hecht im Königssee heißt Otto. Den fängt keiner.", "Am Abend bringe ich den Fang zu Hinrich auf den Markt."] },
+    wasser: { talk: ["Wasser vom Dorfbrunnen, frisch und klar{M}.", "Zehnmal am Tag laufe ich zum Markt und zurück.", "{M_}das Wasser aus dem Kronenbrunnen schmeckt nach Gold, sagen die Kinder.", "Die Eimer sind schwer, aber ich bin stark."] },
+    wasch: { talk: ["Am See wird die Wäsche am weißesten{M}.", "Hemden, Laken, Schürzen, alles wird sauber.", "{M_}soll ich auch die Tischdecken aus dem Schloss waschen?", "Beim Waschen erzählt man sich die neuesten Geschichten."] },
+    schmied: { talk: ["Das Eisen muss glühen, dann wird es weich{M}.", "Hufeisen für den Gutshof, Nägel für die Zimmerleute, Schwerter für die Wachen.", "{M_}eine Krone schmiede ich Euch auch, wenn Ihr wollt.", "Vorsicht, die Funken sind heiß!"] },
+    zimmer: { talk: ["Hier entsteht ein neues Haus{M}.", "Erst das Gerüst, dann die Balken, dann das Dach.", "{M_}im Herbst ist es fertig, dann zieht eine Familie ein.", "Holz ist das schönste Baumaterial der Welt."] },
+    nachtw: { talk: ["Hört, ihr Leut', und lasst euch sagen, die Glock' hat zehn geschlagen{M}!", "Ich passe auf, dass nachts alle sicher schlafen.", "{M_}das Feldtor ist zu, die Laternen brennen, alles ist ruhig.", "Bewahrt das Feuer und das Licht, dass Euch kein Schaden geschicht!"],
+      night: ["Gähn … ich habe die ganze Nacht gewacht{M}.", "Zzz … tagsüber schlafe ich."] },
+    kraut: { talk: ["Kamille gegen Bauchweh, Salbei gegen Halsweh{M}.", "Im Wald wachsen die besten Kräuter.", "{M_}für Euch habe ich einen Tee, der hilft gegen jede Müdigkeit.", "Die Pilze mit den weißen Punkten darf man nie essen!"] },
+    haus: { talk: ["Heute wird das ganze Haus geputzt{M}.", "Die Blumen vor dem Fenster müssen gegossen werden.", "{M_}kommt Ihr zum Mittagessen? Es gibt Knödel.", "Mein Mann ist auf dem Feld, ich halte das Haus in Ordnung."] },
+    alt: { talk: ["Als ich jung war, stand hier noch kein einziges Haus{M}.", "Früher war alles anders, aber nicht besser.", "{M_}Euer Großvater war auch schon ein guter König.", "Setzt Euch doch ein bisschen zu mir."] },
+    frei: { talk: ["Heute helfe ich hier, morgen dort{M}.", "Ich habe keinen festen Beruf, aber zu tun gibt es immer etwas.", "{M_}wenn Ihr eine Arbeit für mich habt, sagt es nur.", "Schönes Wetter heute, nicht wahr?", "Abends trage ich beim Abgaben-Zug mit."] },
+    spielmann: { talk: ["Soll ich ein Lied für Euch spielen{M}?", "Ich kenne hundert Lieder, und eins handelt von Euch!", "{M_}am Maibaum wird getanzt, wenn ich spiele.", "Tralala, tralala!"] },
+    kind: { talk: ["Fang mich doch{M}!", "Wir spielen Verstecken!", "{M_}bist du wirklich der König? Wo ist deine Krone?", "Ich will später auch mal Ritter werden!", "Um sechs muss ich heim, sonst schimpft die Mama."] },
+  });
+  Object.assign(ACT_LEAN, { wash: 0.65, chop: 0.08, hammer: 0.22, sweep: 0.18, fish: 0, play: 0, call: 0, herb: 0.7 });
+
+  // ---------- Schmiede und Baustelle: freie Plätze in der Neustadt suchen und bauen ----------
+  const BUILD14 = { forge: null, site: null };
+  function freeRect14(x0, x1, z0, z1, w, d) {
+    for (let z = z0; z + d - 1 <= z1; z += 2) for (let x = x0; x + w - 1 <= x1; x += 2) {
+      let ok = true;
+      for (let zz = z - 1; zz <= z + d && ok; zz++) for (let xx = x - 1; xx <= x + w && ok; xx++) {
+        const b = get(xx, G0, zz);
+        if ((b !== GRASS && b !== DIRT) || roadMask[xx + zz * W] === 1) { ok = false; break; }
+        for (let y = G0 + 1; y <= G0 + 7; y++) { const c = get(xx, y, zz); if (c !== AIR && !PLANT[c]) { ok = false; break; } }
+      }
+      if (ok) return [x, z];
+    }
+    return null;
+  }
+  function buildForge14(x0, z0) {
+    const x1 = x0 + 8, z1 = z0 + 7, F = G0 + 1;
+    fill(x0, G0, z0, x1, G0, z1, COBBLE);
+    for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [x0 + 4, z0]]) fill(x, F, z, x, F + 3, z, SPRUCE_LOG);
+    fill(x0, F + 4, z0, x1, F + 4, z1, SPRUCE_PLANKS); fill(x0 - 1, F + 4, z0 - 1, x1 + 1, F + 4, z0 - 1, SLATE); fill(x0 - 1, F + 4, z1 + 1, x1 + 1, F + 4, z1 + 1, SLATE);
+    fill(x0 + 1, F + 5, z0 + 1, x1 - 1, F + 5, z1 - 1, SLATE);
+    // Hinten die Esse: zwei Öfen, Ziegelkamin
+    fill(x0 + 1, F, z0 + 1, x0 + 3, F + 3, z0 + 1, BRICK); setB(x0 + 2, F, z0 + 1, OVEN); setB(x0 + 2, F + 1, z0 + 1, OVEN); fill(x0 + 2, F + 4, z0 + 1, x0 + 2, F + 8, z0 + 1, BRICK);
+    setB(x0 + 6, F, z0 + 1, CRAFT); setB(x0 + 7, F, z0 + 1, CHEST); fill(x1 - 1, F, z0 + 3, x1 - 1, F, z0 + 4, COUNTER);
+    setB(x0 + 4, F, z0 + 4, IRONB); setB(x0 + 5, F, z0 + 4, BARREL); setB(x1 - 1, F, z1 - 1, rotId(WAFFENST, -1, 0)); setB(x0 + 1, F, z1 - 1, HAY);
+    setB(x0 + 2, F + 3, z0 + 4, LANTERN_H); setB(x1 - 2, F + 3, z0 + 4, LANTERN_H);
+    BUILD14.forge = { anvil: [x0 + 4.5, F, z0 + 5.5, Math.PI, "hammer"], fire: [x0 + 2.5, F, z0 + 2.85, Math.PI, "arrange"], quench: [x0 + 5.5, F, z0 + 5.5, Math.PI, "hammer"], bench: [x0 + 6.5, F, z0 + 2.5, Math.PI, "arrange"] };
+    AREAS.unshift(["Schmiede", "hier glüht das Eisen", x0 - 1, x1 + 1, G0, G0 + 10, z0 - 1, z1 + 1]);
+  }
+  function buildSite14(x0, z0) {
+    const x1 = x0 + 8, z1 = z0 + 8, F = G0 + 1;
+    fill(x0, G0, z0, x1, G0, z1, COBBLE); fill(x0 + 1, G0, z0 + 1, x1 - 1, G0, z1 - 1, SPRUCE_PLANKS);
+    for (let x = x0; x <= x1; x += 4) for (let z = z0; z <= z1; z += 4) fill(x, F, z, x, F + 5, z, LOG);
+    fill(x0, F + 5, z0, x1, F + 5, z0, DPLANK); fill(x0, F + 5, z0, x0, F + 5, z1, DPLANK); fill(x0 + 4, F + 5, z0, x0 + 4, F + 5, z0 + 4, DPLANK);
+    fill(x0 + 1, F, z0, x0 + 3, F + 2, z0, BRICK); fill(x0 + 5, F, z0, x0 + 7, F + 1, z0, BRICK);
+    // Gerüst vorne, Holzstapel, Fässer
+    for (let x = x0; x <= x1; x += 2) fill(x, F, z1 + 1, x, F + 3, z1 + 1, FENCE);
+    for (let x = x0 + 1; x <= x1 - 1; x++) setB(x, F + 4, z1 + 1, SPRUCE_PLANKS);
+    fill(x1 + 2, F, z0 + 1, x1 + 2, F + 1, z0 + 3, LOG); fill(x1 + 3, F, z0 + 1, x1 + 3, F, z0 + 3, PLANKS); setB(x1 + 2, F, z0 + 5, BARREL); setB(x1 + 2, F, z0 + 6, CRAFT);
+    BUILD14.site = [[x0 + 2.5, F, z0 + 1.5, Math.PI, "hammer"], [x0 + 6.5, F, z0 + 1.5, Math.PI, "hammer"], [x0 + 4.5, F, z0 + 5.5, 0, "hammer"], [x1 + 1.5, F, z0 + 2.5, -Math.PI / 2, "arrange"],
+      [x0 + 1.5, F, z1 - 1.5, -Math.PI / 2, "hammer"], [x1 + 1.5, F, z0 + 6.5, -Math.PI / 2, "arrange"]];
+    AREAS.unshift(["Baustelle", "hier entsteht ein neues Haus", x0 - 1, x1 + 4, G0, G0 + 10, z0 - 1, z1 + 2]);
+  }
+  V11.build.push(() => {
+    const f = freeRect14(30, 80, 300, 332, 9, 8) || freeRect14(110, 200, 300, 332, 9, 8) || freeRect14(36, 150, 206, 240, 9, 8);
+    if (f) buildForge14(f[0], f[1]);
+    const s = freeRect14(110, 205, 300, 332, 12, 10) || freeRect14(30, 80, 300, 332, 12, 10) || freeRect14(158, 206, 158, 185, 12, 10);
+    if (s) buildSite14(s[0], s[1]);
+  });
+
+  // ---------- Arbeitsplätze ----------
+  const facing14 = (sx, sz, tx, tz) => Math.atan2(tx - sx, tz - sz);
+  function treeSpots14() {
+    const out = [];
+    for (let z = 95; z <= 156 && out.length < 18; z += 1) for (let x = 182; x <= 230 && out.length < 18; x += 1) {
+      const g = groundAt14(x, z);
+      if (!LOGB[get(x, g + 1, z)] || LOGB[get(x, g, z)]) continue;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (standable(x + dx, g + 1, z + dz)) { out.push([x + dx + 0.5, g + 1, z + dz + 0.5, facing14(x + dx, z + dz, x, z), "chop"]); break; }
+    }
+    return out;
+  }
+  function shoreSpots14() {
+    // Am Westufer neben dem Bootssteg: begehbarer Rand mit Wasser daneben
+    const out = [], cz = LAKE.cz, jx = JETTY.x;
+    for (let x = jx - 16; x <= jx + 2; x++) for (let z = cz - 16; z <= cz + 16; z++) {
+      if (Math.abs(z - cz) <= 3) continue;
+      const g = groundAt14(x, z);
+      if (g < SEA || g > SEA + 3 || !standable(x, g + 1, z)) continue;
+      for (const [ox, oz] of [[1, 0], [0, 1], [0, -1], [-1, 0]]) {
+        if (get(x + ox, SEA, z + oz) === WATER && get(x + ox, SEA + 1, z + oz) === AIR) { out.push([x + 0.5, g + 1, z + 0.5, facing14(x, z, x + ox, z + oz), "wash", Math.hypot(x - jx, z - cz)]); break; }
+      }
+    }
+    out.sort((a, b) => a[5] - b[5]);
+    return out.slice(0, 8).map(s => s.slice(0, 5));
+  }
+  const wellSpots14 = () => [[93.5, G0 + 1, 197.5, Math.PI / 2, "water"], [99.5, G0 + 1, 197.5, -Math.PI / 2, "water"]];
+  function homeWork14(e) {
+    const H = e.home14;
+    if (!H || H.pseudo || !H.door) return [e.anchor];
+    const out = [[H.door[0], H.door[1], H.door[2], Math.atan2(H.out[0], H.out[1]), "sweep"]];
+    if (H.kitchen) out.push([H.kitchen[0], H.kitchen[1], H.kitchen[2], H.kitchen[3], "arrange"]);
+    if (H.inside) out.push([H.inside[0], H.inside[1], H.inside[2], 0, "arrange"]);
+    return out;
+  }
+  // ---------- Leute anlegen (wird vom Tagesablauf aufgerufen, bevor die Häuser verteilt werden) ----------
+  function spawnPeople14() {
+    const add = (key, line, spots, o) => {
+      const list = typeof spots === "function" ? spots() : spots;
+      if (!list || !list.length) return null;
+      const formal = (WORKERS.length % 2) === 0;
+      const e = spawnWorker(key, key, list[0], Object.assign({ formal, lines: lines11(line, formal), from: 7, to: 17, pickFrom: typeof spots === "function" ? spots : () => spots, stay: () => 15 + Math.random() * 30 }, o));
+      MOCC.add(spotKey(list[0])); e.held = spotKey(list[0]);
+      return e;
+    };
+    // Bauern auf den Äckern
+    const byCrop = c => [].concat(...FPLOTS.filter(p => c.includes(p[4])).map(p => p.spots));
+    [["f9", ["wheat", "stubble"]], ["f10", ["potato", "beet"]], ["f11", ["stubble", "wheat"]], ["f12", ["carrot", "cabbage"]], ["f13", ["rape", "corn"]], ["f14", ["sunflower", "pumpkin", "melon"]],
+      ["f15", ["wheat"]], ["f16", ["orchard", "lavender"]]].forEach(([k, c], i) => add(k, "bauer", byCrop(c), { from: 6.4 + (i % 3) * 0.1, to: 16, stay: () => 20 + Math.random() * 40, speed: 1.45 }));
+    const trees = treeSpots14();
+    ["holz1", "holz2", "holz3"].forEach(k => add(k, "holz", trees, { from: 6.5, to: 17, stay: () => 25 + Math.random() * 40, speed: 1.5 }));
+    const jx = JETTY.x, jy = SEA + 2, jz = LAKE.cz;
+    const fishSpots = [[jx + 12.5, jy, jz + 0.5, Math.PI / 2, "fish"], [jx + 8.5, jy, jz + 0.5, 0, "fish"], [jx + 5.5, jy, jz + 0.5, Math.PI, "fish"], [jx + 13.5, jy, jz + 0.5, Math.PI / 2, "fish"]];
+    ["fischer1", "fischer2"].forEach(k => add(k, "fischer", fishSpots, { from: 5.5, to: 16.5, stay: () => 40 + Math.random() * 60 }));
+    const fountain = (PLACES11.wells.find(w => /Markt/.test(w.name)) || { stand: [] }).stand.map(s => [s[0], s[1], s[2], Math.atan2(96 - s[0], 286 - s[2]), "water"]);
+    const wSpots = wellSpots14().concat(fountain.slice(0, 3));
+    ["wasser1", "wasser2"].forEach(k => add(k, "wasser", wSpots, { stay: () => 6 + Math.random() * 8, speed: 1.6 }));
+    const shore = shoreSpots14();
+    ["wasch1", "wasch2"].forEach(k => add(k, "wasch", shore, { from: 8, to: 15.5, stay: () => 30 + Math.random() * 40 }));
+    if (BUILD14.forge) { const F = BUILD14.forge, fs_ = [F.anvil, F.fire, F.quench, F.bench]; add("schmied", "schmied", [F.anvil, F.anvil, F.fire], { from: 6.5, to: 17.5 }); add("geselle", "schmied", fs_, { from: 7, to: 17.5 }); }
+    if (BUILD14.site) for (const k of ["zimmer1", "zimmer2"]) add(k, "zimmer", BUILD14.site, { from: 7, to: 17 });
+    // Nachtwächter: Runde durch Markt, Dorf und an der Mauer
+    const round = [[96.5, G0 + 1, 266.5, Math.PI, "call"], [96.5, G0 + 1, 330.5, Math.PI, "call"], [100.5, G0 + 1, 206.5, 0, "call"], [96.5, G0 + 1, 238.5, 0, "call"], [140.5, G0 + 1, 287.5, 0, "call"], [60.5, G0 + 1, 287.5, 0, "call"], [180.5, G0 + 1, 197.5, 0, "call"]];
+    const nw = add("nachtw", "nachtw", round, { from: 20.5, to: 5.5, stay: () => 8 + Math.random() * 10, speed: 1.3 });
+    if (nw) { nw.dayBed14 = true; nw.nightLines = L11.nachtw.night; }
+    // Kräuterfrau am Waldrand
+    const herb = trees.map(s => [s[0] + 1, s[1], s[2] + 1, s[3], "herb"]).filter(s => standable(Math.floor(s[0]), s[1], Math.floor(s[2])));
+    add("kraut", "kraut", herb.length ? herb : trees, { from: 8, to: 16 });
+    // Hausleute arbeiten am eigenen Haus
+    ["haus1", "haus2", "haus3", "haus4", "haus5", "haus6", "haus7", "haus8"].forEach((k, i) => {
+      const line = /haus[45]|haus8/.test(k) ? "alt" : "haus";
+      const e = add(k, line, [[96.5, G0 + 1, 260.5, 0, "arrange"]], { from: 7.5 + (i % 3) * 0.3, to: 18 + (i % 2) * 0.5, stay: () => 30 + Math.random() * 60, speed: /haus[458]/.test(k) ? 1.05 : 1.35 });
+      if (e) { e.pickFrom = () => homeWork14(e); e.homeWorker14 = true; }
+    });
+    // Ohne festen Beruf: Bänke, Brunnen, Maibaum, Dorfplatz
+    const benches = MSEATS.slice(), look = MLOOK.slice(), square = [[90.5, G0 + 1, 194.5, 0, "look"], [102.5, G0 + 1, 199.5, Math.PI, "look"], [96.5, G0 + 1, 189.5, 0, "look"]];
+    const pickFree = () => { const r = Math.random(); return r < 0.45 ? benches : r < 0.75 ? look : square; };
+    for (let i = 1; i <= 10; i++) add("frei" + i, i === 10 ? "spielmann" : "frei", pickFree, { from: 8.5 + (i % 4) * 0.4, to: 18.5 + (i % 3) * 0.4, stay: () => 15 + Math.random() * 35, speed: 1.3 + (i % 3) * 0.1 });
+    // Kinder: spielen auf dem Markt und am Dorfbrunnen, um sechs geht es heim
+    const play = [];
+    for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; play.push([96.5 + Math.cos(a) * 12, G0 + 1, 286.5 + Math.sin(a) * 12, a, "play"]); }
+    play.push([88.5, G0 + 1, 194.5, 0, "play"], [104.5, G0 + 1, 199.5, 0, "play"], [92.5, G0 + 1, 204.5, 0, "play"]);
+    const playOk = play.filter(s => standable(Math.floor(s[0]), s[1], Math.floor(s[2])));
+    for (let i = 1; i <= 8; i++) { const e = add("kind" + i, "kind", playOk, { from: 8 + (i % 3) * 0.3, to: 17.8, stay: () => 3 + Math.random() * 6, speed: 2.1 }); if (e) { e.kid14 = true; e.bedT14 = 19.5 + (i % 3) * 0.3; } }
+    // Neue Abgaben: Bauern, Holzfäller, Fischer
+    Object.assign(TRIB14, {
+      f9: { carry: HAY, give: [[I.weizen, 14]] }, f10: { carry: 990, give: [[I.kartoffel, 16]] }, f11: { carry: HAY, give: [[HAY, 2]] }, f12: { carry: 991, give: [[I.karotte, 16]] },
+      f13: { carry: 1005, give: [[I.weizensamen, 24]] }, f14: { carry: PUMPKIN, give: [[PUMPKIN, 4]] }, f15: { carry: HAY, give: [[I.weizen, 12]] }, f16: { carry: 988, give: [[I.apfel, 12]] },
+      holz1: { carry: LOG, give: [[LOG, 16]] }, holz2: { carry: LOG, give: [[LOG, 16]] }, holz3: { carry: SPRUCE_LOG, give: [[SPRUCE_LOG, 16]] }, fischer1: { carry: 992, give: [[992, 3]] },
+      schmied: { carry: CHEST, give: [[I.eisenbarren, 6], [TOOLS.schwert_eisen, 1]] },
+    });
+    GATHER14.length = 0; for (let r = 0; r < 5; r++) for (const x of [89.5, 92.5, 95.5, 98.5, 101.5, 104.5]) GATHER14.push([x, G0 + 1, 270.5 + r * 1.7]);
+    QUEUE14.length = 0; for (let r = 0; r < 14; r++) for (const x of [95.5, 97.5]) QUEUE14.push([x, G0 + 1, 82.5 + r * 1.5]);
+  }
+
+  // ---------- Bewegungen der neuen Berufe (nach den übrigen Posen) ----------
+  let chopSndT = 0;
+  function poses14(dt, t) {
+    chopSndT -= dt;
+    for (const e of WORKERS) {
+      if (e.gone || !e.mesh.visible || e.sleep || e.sit || e.state !== "work" || e.talkT > 0) continue;
+      const B = e.B, k = t + e.phase0, a = e.act, dp = distP(e);
+      let aR = null, aL = null, fR = 0, fL = 0, zR = -0.06, zL = 0.06, tr = null;
+      switch (a) {
+        case "chop": { const s = Math.sin(k * 2.4); aR = aL = -2.2 + Math.max(0, -s) * 1.7; fR = fL = -0.3; zR = -0.12; zL = 0.12; tr = [1.3, 0, 0];
+          if (s > 0.97 && dp < 24 && chopSndT <= 0) { chopSndT = 0.3; noiseHit(260, 2.4, 0.12, 0.08 * (1 - dp / 24)); } break; }
+        case "fish": aR = -1.05; fR = -0.25; aL = -0.95; fL = -0.5; tr = [0.9 + Math.sin(k * 0.7) * 0.06 + (Math.sin(k * 0.23) > 0.96 ? 0.35 : 0), 0, 0]; break;
+        case "hammer": { const s = Math.sin(k * 4.6); aR = -1.6 + Math.max(0, s) * 1.1; fR = -0.7; aL = -0.7; fL = -0.9; tr = [1.2, 0, 0];
+          if (s > 0.98 && dp < 20 && chopSndT <= 0) { chopSndT = 0.25; beep(1500 + Math.random() * 300, 0.08, "triangle", 0.02 * (1 - dp / 20)); if (Math.random() < 0.5) emit(e.x + Math.sin(e.yaw) * 0.8, e.y + 0.9, e.z + Math.cos(e.yaw) * 0.8, 3, () => [255, 190, 80], 0.05, 1.2, 4); } break; }
+        case "sweep": { const s = Math.sin(k * 2.2); aR = -0.55 + s * 0.25; aL = -0.75 + s * 0.25; fR = fL = -0.35; tr = [0.55, 0, s * 0.35]; B.body.rotation.y = s * 0.25; break; }
+        case "wash": { const s = Math.sin(k * 3.4); aR = aL = -1.25 + s * 0.2; fR = fL = -0.4 + s * 0.2; zR = -0.15; zL = 0.15; if (B.tool) B.tool.visible = false; break; }
+        case "herb": aR = -1.4 + Math.sin(k * 2) * 0.25; aL = -0.5; fR = -0.25; fL = -0.9; break;
+        case "call": aR = -2.4 + Math.sin(k * 1.3) * 0.08; fR = -0.25; zR = -0.25; break;
+        case "play": { const s = Math.sin(k * 5.5); aR = -2.6 + s * 0.4; aL = -2.6 - s * 0.4; zR = -0.3; zL = 0.3; e.mesh.position.y = e.y + Math.abs(Math.sin(k * 5.5)) * 0.32 * (e.scale || 1); break; }
+      }
+      if (aR !== null) { B.armR.rotation.set(aR, 0, zR); B.foreR.rotation.set(fR, 0, 0); }
+      if (aL !== null) { B.armL.rotation.set(aL, 0, zL); B.foreL.rotation.set(fL, 0, 0); }
+      if (tr && B.tool) B.tool.rotation.set(tr[0], tr[1], tr[2]);
+      if (a !== "wash" && B.tool && !e.carry14) B.tool.visible = true;
+      // Der Nachtwächter ruft die Stunde, wenn der König in der Nähe ist
+      if (a === "call" && dp < 16 && (e.callT -= dt) <= 0 && sayT <= 0) {
+        e.callT = 40 + Math.random() * 30; e.shoutT = 2;
+        const hh = Math.floor(hr14()) % 12 || 12;
+        say(e.name, `Hört, ihr Leut', und lasst euch sagen, die Glock' hat ${["eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf"][hh - 1]} geschlagen!`);
+      }
+    }
+  }
+  V11.update.push((dt, t) => poses14(dt, t));
   // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.
@@ -9931,7 +10799,7 @@
       else if (targetEnt && targetEnt.lines) msg = act + "mit " + (targetEnt.talkName || { guard: "der Wache", kid: "dem Kind" }[targetEnt.kind] || "dem Dorfbewohner") + " reden";
       else if (target && !P.seat) {
         if (bedAt(target.x, target.y, target.z)) msg = use + (isNight() ? "Schlafen bis zum Morgen" : "Hier aufwachen, schlafen geht nur nachts");
-        else { const st = seatAt(target.x, target.y, target.z); if (st) msg = use + (st.throne ? "Auf deinen Thron setzen" : "Hinsetzen"); }
+        else { const st = seatAt(target.x, target.y, target.z); if (st) msg = use + (st.throne ? "Auf deinen Thron setzen" : "Hinsetzen"); else msg = v14Hint(target, tb, use); }
       }
       hintEl.hidden = !msg; if (msg) hintEl.textContent = msg;
     } else hintEl.hidden = true;
@@ -9964,6 +10832,7 @@
   itemMats = [litEnt(new THREE.MeshLambertMaterial({ map: atlas }), playerLight), litEnt(new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.5, side: THREE.DoubleSide }), playerLight), new THREE.MeshBasicMaterial({ map: atlas })];
   const save = loadSave();
   if (save && Array.isArray(save.bar) && save.bar.length === HOTBAR.length && save.bar.every(b => PALETTE.includes(b))) HOTBAR.splice(0, HOTBAR.length, ...save.bar);
+  v14Load(save);   // Version 14: Tore und Abgaben-Zug
   v13Load(save);   // Version 13: Inventar, Truhen, Öfen, Schatztruhe, Felder, Spielart
   buildBar(); buildPalette();
   let savedQ = null; try { savedQ = localStorage.getItem("blockwelt-quality"); } catch (e) {}
