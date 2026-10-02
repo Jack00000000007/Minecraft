@@ -2,6 +2,12 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Version 16: Mauer und Schutz (auf diesem Branch)
+
+- Über Treppen kommst du auf die Große Mauer und auf die Stadtmauer und kannst oben entlanglaufen: im Westen beim Dorf, im Osten beim Gutshof, im Süden neben der Pforte, im Norden hinter dem Schloss und neben dem Feldtor.
+- Auf den Wachtürmen der Großen Mauer stehen 42 Kanonen. Kommt ein Zombie näher als 56 Blöcke, schießen sie von selbst: Rauch, Knall, die Kugel fliegt im Bogen, und der Zombie ist weg. Mit Rechtsklick auf eine Kanone (oder im Befehlskreis unter „Wachen“) schaltest du sie aus und wieder an.
+- Über dem Dorfbrunnen hängt jetzt die **Alarmglocke** in einem kleinen Glockenturm. Läutest du sie (Rechtsklick auf die Glocke oder Befehlskreis), laufen alle Bewohner schnell nach Hause, und über dem Schloss leuchtet ein **Schutzschild**, durch den kein Zombie kommt. Noch einmal läuten heißt Entwarnung; morgens ist von selbst Entwarnung. Kommen nachts viele Zombies an Dorf oder Markt, läutet der Nachtwächter die Glocke von selbst.
+
 ## Version 15: Befehle und Gäste (auf diesem Branch)
 
 - Mit **Q** (am Handy „Befehle“) öffnet sich der Befehlskreis. Mit der Maus oder den Zifferntasten wählst du, wem du was befiehlst:

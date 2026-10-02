@@ -44,8 +44,9 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Seltene Gäste durch die neue Südpforte in der Großen Mauer: Händler (Tauschhandel), Gesandter (Geschenk), Gaukler (jongliert), Ritter (Schwert), Pilgerin (Segen). Ein Bote läuft zum König und erzählt, wie viele Schritte er laufen musste
 
 ## Version 16: Mauer und Schutz
-- [ ] Begehbare Mauer, Sensor-Kanonen rundum, die nachts Monster draußen erledigen
-- [ ] Alarmglocke in der Dorfmitte, alle laufen heim, Schutzschild über dem Schloss
+- [x] Begehbare Mauern: Treppen auf die Große Mauer (Westen beim Dorf, Osten beim Gutshof, Süden neben der Pforte, Norden hinter dem Schloss) und auf die Stadtmauer neben dem Feldtor
+- [x] 42 Kanonen auf den Wachtürmen der Großen Mauer: treffen Zombies bis 56 Blöcke weit von selbst (Kugel im Bogen, Knall, Rauch); an- und abschalten mit Rechtsklick auf eine Kanone oder im Befehlskreis
+- [x] Alarmglocke im Glockenturm über dem Dorfbrunnen: Rechtsklick oder Befehlskreis; alle laufen heim, über dem Schloss leuchtet der Schutzschild und hält Zombies fern; Entwarnung mit der Glocke oder morgens von selbst; der Nachtwächter läutet, wenn nachts drei oder mehr Zombies nah an Dorf oder Markt sind
 
 ## Version 17: Endlose Welt und Karte
 - [ ] Land ohne Ende hinter der Mauer, Höhlen, eigenes Schiff auf dem See
@@ -79,6 +80,7 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 | Version 12: Schloss voller Räume | 760–899 | 150–169 |
 | Version 13: Inventar und Handwerk | 300–339 (Gegenstände ab 1100, eigener Bilder-Atlas) | 170–189 |
 | Version 14: Lebendiges Dorf | 340–359 | keine neuen |
+| Version 16: Mauer und Schutz | 360–379 | keine neuen |
 
 ## Änderungen am alten Code (außerhalb der eigenen Abschnitte)
 - `updateEnts`: `else if (e.think) e.think(e, dt, dp);` für Leute mit eigenem Tagesablauf
@@ -86,3 +88,4 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - Version 13: `breakBlock` (`v13Break`, `v13Broken`), `useTarget` (`v13UseBlock`), `placeBlock` (`v13UseItem`, `heldBlockId`, `v13Placed`), `attack` (`v13Dmg`, `v13Hit`), Schnellleiste (`buildBar`, `refreshBar`, `select`, `putInHand` zeigen das Inventar), `setHeld`/`buildHand`/`makePlayerModel` (`applyHeld`), `openPalette`/`closePalette` (neue Fenster), Tasten bei offenem Fenster (Esc, B, I, E schließen), Speichern (`v13Save`/`v13Load`), `house` (Truhe in jedem Dorfhaus), James beim Bäumefällen (`v13Chopped`).
 - Version 14: `entPhysics` wird für Leute übersprungen, die außer Sicht geradlinig gehen (`e.ghost`); das Riesentor öffnet sich auch für den Abgaben-Zug (`e.zug14`); `useTarget` (`v14UseBlock` für die Torwinden); Hinweis beim Anschauen (`v14Hint`); Speichern (`v14Save`/`v14Load`). Im eigenen Abschnitt: Häuser speichern Betten, Stühle, Küche (`townHouse`), neue Werkzeuge in `defPerson`.
 - Version 15: `updateEnts` fragt zuerst `orderThink15` (Aufträge); `interact` fragt `guestTalk15` (Gäste); Q schließt offene Fenster; `v13Chopped` zählt Holz für James' Auftrag.
+- Version 16: Nach `buildGreatWall()` laufen die Bauten aus `V11.post` (Südpforte, Treppen, Kanonen), weil die Große Mauer erst nach allen anderen Bauten entsteht. `workerThink` läuft nur noch innerhalb der Arbeitszeit.

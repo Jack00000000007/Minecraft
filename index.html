@@ -385,6 +385,7 @@
     buildVillage(rnd);
     buildLand11();
     buildGreatWall();
+    for (const f of V11.post || []) f();   // Version 15/16: Pforte, Treppen und Kanonen an der Großen Mauer
   }
 
   // ---------- Das Schloss ----------
@@ -9477,6 +9478,7 @@
     return null;
   }
   function v14UseBlock(x, y, z) {
+    if (v16UseBlock(x, y, z)) return true;   // Version 16: Alarmglocke, Kanonen
     const gt = townGateAt(x, y, z); if (!gt) return false;
     if (gt.move) return true;
     swingHand(); setTownGate(gt, !gt.open); gt.manual = true; saveSoon();
@@ -9830,7 +9832,7 @@
     if (e.talkT > 0) { e.talkT -= dt; e.dvx = e.dvz = 0; if (!e.sleep) lookAt(e, P.x, P.y + 1.62, P.z, !e.sit); return; }
     if (e.state === "nav" && e.nav) { if (dp > FAR14) { e.dvx = e.dvz = 0; return; } navReal14(e, dt, dp); return; }
     e.dvx = e.dvz = 0;
-    if (e.state === "work") { workerThink(e, dt, dp); return; }
+    if (e.state === "work") { if (inWork14(e, hr14())) workerThink(e, dt, dp); return; }
     if (e.state === "go") { e.state = "nav"; navTo14(e, e.spot[5] || e.spot, ee => { ee.state = "go"; wArrive(ee); }); return; }
     if (e.state === "house" || e.state === "gather" || e.state === "queue" || e.state === "zugwait" || e.state === "idle14") {
       if (dp < 6 && Math.abs(P.y - e.y) < 3) lookAt(e, P.x, P.y + 1.62, P.z); else { e.headYawT = 0; e.headPitchT = e.act === "arrange" ? 0.45 : 0.05; }
@@ -9920,6 +9922,7 @@
   // ---------- Hinweise beim Anschauen ----------
   function v14Hint(t, tb, use) {
     if (!t) return "";
+    const h16 = v16Hint(tb, use); if (h16) return h16;
     const gt = townGateAt(t.x, t.y, t.z);
     if (gt) return use + (gt.open ? gt.name + " schließen" : gt.name + " öffnen");
     if (tb === CRAFT) return use + "An der Werkbank herstellen";
@@ -9930,12 +9933,14 @@
   }
   // ---------- Speichern: Tore und ob der Zug heute schon war ----------
   let pendingV14 = null;
-  function v14Save() { return { g: TGATES.map(g => [g.open ? 1 : 0, g.manual ? 1 : 0]), zd: ZUG.day === dayNo14 ? 1 : 0 }; }
+  function v14Save() { return { g: TGATES.map(g => [g.open ? 1 : 0, g.manual ? 1 : 0]), zd: ZUG.day === dayNo14 ? 1 : 0, c16: V16.cannons ? 1 : 0, a16: V16.alarm ? 1 : 0 }; }
   function v14Load(save) { pendingV14 = save && save.v14 || null; }
   function applyV14(s) {
     if (Array.isArray(s.g)) s.g.forEach((v, i) => { const gt = TGATES[i]; if (!gt || !Array.isArray(v)) return; gt.manual = !!v[1]; if (!v[0] !== !gt.open) setTownGate(gt, !!v[0], true); });
     gateSched = gateWantsClosed();
     if (s.zd) ZUG.day = dayNo14;
+    if (s.c16 === 0) V16.cannons = false;
+    if (s.a16) { V16.alarm = false; startAlarm16(""); V16.ringN = 0; }
   }
   // ==================== Version 14: Lebendiges Dorf – fünfzig neue Bewohner ====================
   // Bauern, Holzfäller, Fischer, Wasserträger, Wäscherinnen, Schmied und Geselle, Zimmerleute, Nachtwächter, Kinder, Hausleute,
@@ -10437,6 +10442,8 @@
       { t: "Köche", ic: OVEN, sub: () => ({ title: "Köche", items: [{ t: "Bringt mir Essen", ic: I.steak, run: cookFood15 }, { t: "Zurück in die Küche", ic: OVEN, run: () => staffBack15("cook") }] }) },
       { t: "Dienerinnen", ic: CANDLE, sub: () => ({ title: "Dienerinnen", items: [{ t: "Räumt hier auf", ic: CARPET_R, run: maidTidy15 }, { t: "Begleite mich", ic: 637, run: maidFollow15 }, { t: "Zurück an die Arbeit", ic: CANDLE, run: () => staffBack15("maid") }] }) },
       { t: "Wachen", ic: TOOLS.schwert_eisen, sub: () => ({ title: "Wachen", items: [
+        { t: V16.alarm ? "Entwarnung" : "Alarm läuten", ic: GLOCKE, run: () => { if (V16.alarm) endAlarm16(); else startAlarm16("Der König"); } },
+        { t: V16.cannons ? "Kanonen aus" : "Kanonen an", ic: KANONE, run: () => { V16.cannons = !V16.cannons; showName(V16.cannons ? "Die Kanonen sind scharf." : "Die Kanonen schweigen.", 1800); saveSoon(); } },
         { t: "Leibwache", ic: TOOLS.schwert_diamant, run: guardsFollow15 }, { t: "Zurück auf Posten", ic: SHIELD_W, run: guardsBack15 },
         { t: gate.open ? "Zugbrücke hoch" : "Zugbrücke herunter", ic: BARS, run: () => toggleGate() },
         { t: TGATES[0].open ? "Feldtor schließen" : "Feldtor öffnen", ic: BARS, run: () => { for (const gt of TGATES) { setTownGate(gt, !TGATES[0].open); gt.manual = true; } } },
@@ -10514,7 +10521,9 @@
   // Ab und zu (alle ein bis zwei Tage, tagsüber) kommt ein Gast durch die Südpforte der Großen Mauer. Ein Bote läuft los, sucht den König,
   // wo immer er ist, und erzählt, wie weit er laufen musste. Der Gast geht zu seinem Platz (Thronsaal, Markt oder Dorfbrunnen) und bleibt bis zum Abend.
   const PFORTE15 = { x0: 95, x1: 97, z0: 434, z1: 440 };
-  V11.build.push(() => {
+  V11.post = V11.post || [];
+  // Erst nach der Großen Mauer bauen (sonst würde die Mauer den Torbogen wieder zumauern)
+  V11.post.push(() => {
     // Südpforte: ein Torbogen durch die Große Mauer am Ende des Feldwegs, mit Laternen und Bannern
     const { x0, x1, z0, z1 } = PFORTE15, y0 = G0 + 1;
     for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { setB(x, G0, z, PATH); for (let y = y0; y <= y0 + 3; y++) setB(x, y, z, AIR); }
@@ -10641,6 +10650,193 @@
     }
   }
   V11.update.push((dt, t) => updateGuests15(dt, t));
+  // ==================== Version 16: Mauer und Schutz – begehbare Mauern, Kanonen, Alarmglocke, Schutzschild ====================
+  // Blöcke 360 bis 379. Treppen führen auf die Große Mauer und auf die Stadtmauer. Auf jedem Wachturm steht eine Kanone, die nachts
+  // Zombies in der Nähe von selbst trifft. Über dem Dorfbrunnen hängt die Alarmglocke: Läutet sie, laufen alle heim, und über dem
+  // Schloss leuchtet ein Schutzschild, bis Entwarnung gegeben wird.
+  const V16B = 360, KANONE = V16B, GLOCKE = V16B + 4;
+  defShape(KANONE, { name: "Kanone", rot: true, mat: "stone", icon: 22, boxes: [
+    { f: [3.5, 1.5, 2], t: [12.5, 5, 13], tex: WOOD }, { f: [4, 5, 9], t: [12, 7.5, 13], tex: WOOD },
+    { f: [1.6, 0, 3], t: [3.5, 5, 7.5], tex: 15 }, { f: [12.5, 0, 3], t: [14.4, 5, 7.5], tex: 15 }, { f: [1.6, 0, 9], t: [3.5, 5, 13.5], tex: 15 }, { f: [12.5, 0, 9], t: [14.4, 5, 13.5], tex: 15 },
+    { f: [2.2, 2.2, 4.7], t: [2.8, 2.8, 5.8], tex: 69 }, { f: [13.2, 2.2, 4.7], t: [13.8, 2.8, 5.8], tex: 69 },
+    { f: [5.8, 5, 1], t: [10.2, 9.2, 17.5], tex: 22 }, { f: [5.2, 4.6, 15.6], t: [10.8, 9.8, 17.2], tex: 22 }, { f: [5.4, 4.8, 4], t: [10.6, 9.6, 5.4], tex: 17 },
+    { f: [7, 6.2, 0], t: [9, 8.2, 1.2], tex: 22 }, { f: [6.8, 9.2, 3], t: [9.2, 9.8, 4], tex: 69 }] });
+  defShape(GLOCKE, { name: "Alarmglocke", mat: "stone", icon: 17, boxes: [
+    { f: [7, 13, 7], t: [9, 16, 9], tex: 15 }, { f: [5.5, 11, 5.5], t: [10.5, 13, 10.5], tex: 17 }, { f: [4.5, 7, 4.5], t: [11.5, 11, 11.5], tex: 17 },
+    { f: [3.5, 3.5, 3.5], t: [12.5, 7, 12.5], tex: 17 }, { f: [3, 2.6, 3], t: [13, 3.6, 13], tex: 118 }, { f: [7.4, 1.2, 7.4], t: [8.6, 4, 8.6], tex: 22 }] });
+  const V16 = { cannons: true, alarm: false, shield: 0, ringT: 0, ringN: 0, shots: [], cannon: [], bell: null, autoT: 0 };
+  const groundIn16 = (x, z) => { for (let y = G0 + 40; y > 1; y--) { const b = get(x, y, z); if (b !== AIR && solid(b) && !PLANT[b] && !LOGB[b] && !LEAFB[b]) return y; } return G0; };
+  // ---------- Treppen auf die Mauern ----------
+  function stairs16(cells, topY) {
+    // cells: Liste von Spalten [[x, z], …] von oben (an der Mauer) nach unten; jede Stufe einen Block tiefer
+    cells.forEach(([x, z], k) => {
+      const h = topY - k, g = groundIn16(x, z);
+      if (h <= g) return;
+      fill(x, Math.min(g, G0), z, x, h, z, SBRICK);
+      for (let y = h + 1; y <= h + 3; y++) if (get(x, y, z) !== AIR) setB(x, y, z, AIR);
+    });
+  }
+  function wallTop16(x, z) { for (let y = G0 + 40; y > G0 - 4; y--) if (get(x, y, z) === SBRICK) return y; return G0 + 8; }
+  function buildWallStairs16() {
+    const WI = 8, E0 = W - 1 - WI, E1 = D - 1 - WI;
+    // Große Mauer: Westen (beim Dorf), Osten (beim Gutshof), Süden (neben der Pforte), Norden (hinter dem Schloss)
+    const specs = [
+      { mk: (k, w) => [WI + 5 + w, 205 + k], edge: k => [[WI + 4, 205 + k]], top: () => wallTop16(WI + 2, 205) },
+      { mk: (k, w) => [E0 - 5 - w, 236 + k], edge: k => [[E0 - 4, 236 + k]], top: () => wallTop16(E0 - 2, 236) },
+      { mk: (k, w) => [84 - k, E1 - 5 - w], edge: k => [[84 - k, E1 - 4]], top: () => wallTop16(84, E1 - 2) },
+      { mk: (k, w) => [150 + k, WI + 5 + w], edge: k => [[150 + k, WI + 4]], top: () => wallTop16(150, WI + 2) },
+    ];
+    for (const s of specs) {
+      const T = s.top();
+      for (const w of [0, 1]) { const cells = []; for (let k = 0; k <= T - G0 + 3; k++) cells.push(s.mk(k, w)); stairs16(cells, T); }
+      // Oben: die Zinne am inneren Rand wegnehmen, damit man hinaufkommt
+      for (let k = -1; k <= 2; k++) for (const [x, z] of s.edge(k)) for (let y = T + 1; y <= T + 3; y++) if (get(x, y, z) === SBRICK) setB(x, y, z, AIR);
+    }
+    // Stadtmauer: links und rechts vom Feldtor auf der Stadtseite
+    const tw = G0 + 6;
+    for (const [x0, dir] of [[86, -1], [106, 1]]) for (const z of [335, 336]) { const cells = []; for (let k = 0; k <= 7; k++) cells.push([x0 + dir * k, z]); stairs16(cells, tw); }
+    AREAS.unshift(["Auf der Großen Mauer", "von hier oben siehst du dein ganzes Königreich", 0, W - 1, G0 + 6, G0 + 60, 0, 14],
+      ["Auf der Großen Mauer", "von hier oben siehst du dein ganzes Königreich", 0, W - 1, G0 + 6, G0 + 60, D - 15, D - 1],
+      ["Auf der Großen Mauer", "von hier oben siehst du dein ganzes Königreich", 0, 14, G0 + 6, G0 + 60, 0, D - 1],
+      ["Auf der Großen Mauer", "von hier oben siehst du dein ganzes Königreich", W - 15, W - 1, G0 + 6, G0 + 60, 0, D - 1]);
+  }
+  // ---------- Kanonen auf den Wachtürmen ----------
+  function buildCannons16() {
+    const WI = 8, E = [W - 1 - WI, D - 1 - WI], towers = [];
+    for (let x = WI + 2; x <= E[0] - 2; x += 36) towers.push([x, WI + 2, 0, -1], [x, E[1] - 2, 0, 1]);
+    for (let z = WI + 2 + 36; z <= E[1] - 2 - 20; z += 36) towers.push([WI + 2, z, -1, 0], [E[0] - 2, z, 1, 0]);
+    towers.push([E[0] - 2, WI + 2, 1, -1], [E[0] - 2, E[1] - 2, 1, 1]);
+    for (const [tx, tz, dx, dz] of towers) {
+      // Plattform finden: von oben unter dem Ziegeldach die erste Steinziegelschicht
+      let y = G0 + 70; while (y > G0 && get(tx + 2, y, tz + 2) !== BRICK) y--;
+      while (y > G0 && get(tx + 2, y, tz + 2) !== SBRICK) y--;
+      if (y <= G0) continue;
+      const fx = dz ? 0 : dx, fz = dz ? dz : 0;
+      const cx = tx + fx * 2, cz = tz + fz * 2;
+      if (get(cx, y + 1, cz) !== AIR) continue;
+      setB(cx, y + 1, cz, rotId(KANONE, fx, fz));
+      V16.cannon.push({ x: cx + 0.5, y: y + 1.6, z: cz + 0.5, dx: fx, dz: fz, cd: Math.random() * 2 });
+    }
+  }
+  // ---------- Alarmglocke über dem Dorfbrunnen ----------
+  function buildBell16() {
+    const cx = C, cz = 197, y0 = G0 + 5;
+    for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) fill(cx + dx, y0, cz + dz, cx + dx, y0 + 4, cz + dz, DPLANK);
+    fill(cx - 1, y0 + 4, cz, cx + 1, y0 + 4, cz, DPLANK);
+    for (let i = 0; i < 3; i++) fill(cx - 3 + i, y0 + 5 + i, cz - 3 + i, cx + 3 - i, y0 + 5 + i, cz + 3 - i, ROOF_RED);
+    setB(cx, y0 + 8, cz, GOLD);
+    setB(cx, y0 + 1, cz, AIR); setB(cx, y0 + 2, cz, AIR); setB(cx, y0 + 3, cz, GLOCKE);
+    V16.bell = [cx, y0 + 3, cz];
+    AREAS.unshift(["Dorfbrunnen mit Alarmglocke", "Rechtsklick auf die Glocke: Alarm oder Entwarnung", cx - 6, cx + 6, G0 - 4, G0 + 16, cz - 6, cz + 6]);
+  }
+  V11.build.push(() => buildBell16());
+  V11.post = V11.post || [];
+  V11.post.push(() => { buildWallStairs16(); buildCannons16(); });
+
+  // ---------- Schutzschild über dem Schloss ----------
+  const SHIELD_C = [C + 0.5, G0 - 6, C + 0.5], SHIELD_R = 70;
+  const shieldMat = new THREE.MeshBasicMaterial({ color: 0x7fd4ff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  const shieldWire = new THREE.MeshBasicMaterial({ color: 0xbfeaff, transparent: true, opacity: 0, depthWrite: false, wireframe: true });
+  const shieldMesh = new THREE.Group();
+  shieldMesh.add(new THREE.Mesh(new THREE.SphereGeometry(SHIELD_R, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2), shieldMat), new THREE.Mesh(new THREE.IcosahedronGeometry(SHIELD_R * 1.002, 3), shieldWire));
+  shieldMesh.children[1].scale.y = 1; shieldMesh.position.set(...SHIELD_C); shieldMesh.visible = false; scene.add(shieldMesh);
+  // Die untere Hälfte des Gitters ist unter der Erde und stört nicht
+  function bellSound16(vol) {
+    if (vol <= 0) return;
+    beep(392, 2.2, "sine", 0.06 * vol); beep(784, 1.6, "sine", 0.03 * vol); beep(1175, 1.1, "triangle", 0.018 * vol); noiseHit(400, 3, 0.08, 0.04 * vol);
+  }
+  function startAlarm16(who) {
+    if (V16.alarm) return;
+    V16.alarm = true; V16.ringN = 8; V16.ringT = 0;
+    OVR15 = { mode: "home", from: hr14(), until: null };
+    for (const e of WORKERS) if (!e.order15 && !e.zug14) { e.mode14 = null; e.speed15 = e.speed15 || e.speed; e.speed = Math.max(e.speed, 2.8); }
+    announce14((who ? who + " läutet die Alarmglocke! " : "") + "Alle laufen nach Hause, und über dem Schloss leuchtet der Schutzschild.", "Alarm!");
+    saveSoon();
+  }
+  function endAlarm16() {
+    if (!V16.alarm) return;
+    V16.alarm = false; V16.ringN = 2; V16.ringT = 0;
+    if (OVR15 && OVR15.until === null) OVR15 = null;
+    for (const e of WORKERS) { if (e.speed15 && !e.order15) { e.speed = e.speed15; e.speed15 = 0; } if (!e.order15 && !e.zug14) e.mode14 = null; }
+    announce14("Die Gefahr ist vorbei. Alle gehen wieder ihrem Tagwerk nach.", "Entwarnung:");
+    saveSoon();
+  }
+  function v16UseBlock(x, y, z) {
+    const b = get(x, y, z);
+    if (b === GLOCKE) { swingHand(); if (V16.alarm) endAlarm16(); else startAlarm16("Der König"); return true; }
+    if (ROTB[b] === KANONE) { swingHand(); V16.cannons = !V16.cannons; showName(V16.cannons ? "Die Kanonen sind scharf." : "Die Kanonen schweigen.", 1800); saveSoon(); return true; }
+    return false;
+  }
+  function v16Hint(tb, use) {
+    if (tb === GLOCKE) return use + (V16.alarm ? "Entwarnung läuten" : "Alarm läuten");
+    if (ROTB[tb] === KANONE) return use + (V16.cannons ? "Kanonen abschalten" : "Kanonen einschalten");
+    return "";
+  }
+  // ---------- Schüsse: Kugel im Bogen, Knall, Rauch, Treffer ----------
+  const ballGeo = new THREE.SphereGeometry(0.22, 10, 8), ballMat = new THREE.MeshLambertMaterial({ color: 0x222226 });
+  function fire16(c, z) {
+    const tx = z.x, ty = z.y + 0.9, tz = z.z, d = Math.hypot(tx - c.x, tz - c.z);
+    const m = new THREE.Mesh(ballGeo, ballMat); m.position.set(c.x, c.y, c.z); scene.add(m);
+    V16.shots.push({ m, a: [c.x + c.dx * 0.9, c.y, c.z + c.dz * 0.9], b: [tx, ty, tz], t: 0, T: 0.5 + d / 34, arc: 2 + d * 0.18, z });
+    z.aimed16 = true;
+    const dp = Math.hypot(P.x - c.x, P.z - c.z), vol = Math.max(0, 1 - dp / 140);
+    if (vol > 0) { noiseHit(70, 0.8, 0.7, 0.16 * vol); noiseHit(160, 1.2, 0.25, 0.08 * vol); }
+    emit(c.x + c.dx * 1.2, c.y + 0.2, c.z + c.dz * 1.2, 10, () => { const g = 170 + Math.random() * 60; return [g, g, g]; }, 0.2, 1.2, -1);
+    emit(c.x + c.dx * 1.1, c.y + 0.2, c.z + c.dz * 1.1, 5, () => [255, 200, 90], 0.12, 2.5, 2);
+  }
+  function updateShots16(dt) {
+    for (let i = V16.shots.length - 1; i >= 0; i--) {
+      const s = V16.shots[i]; s.t += dt;
+      const k = Math.min(1, s.t / s.T), y = s.a[1] + (s.b[1] - s.a[1]) * k + Math.sin(k * Math.PI) * s.arc;
+      s.m.position.set(s.a[0] + (s.b[0] - s.a[0]) * k, y, s.a[2] + (s.b[2] - s.a[2]) * k);
+      if (k >= 1) {
+        scene.remove(s.m); V16.shots.splice(i, 1);
+        emit(s.b[0], s.b[1], s.b[2], 18, () => [255, 150 + Math.random() * 80, 60], 0.16, 4, 3);
+        emit(s.b[0], s.b[1] + 0.4, s.b[2], 12, () => { const g = 90 + Math.random() * 60; return [g, g, g]; }, 0.24, 1.6, -1);
+        const vol = Math.max(0, 1 - Math.hypot(P.x - s.b[0], P.z - s.b[2]) / 90);
+        if (vol > 0) noiseHit(90, 1, 0.5, 0.12 * vol);
+        if (s.z && s.z.dead < 0) damage(s.z, 99, { x: s.b[0] - 0.5, z: s.b[2] }, 8);
+      }
+    }
+  }
+  function updateDefense16(dt, t) {
+    const night = dayT >= 20 / 24 || dayT < 6 / 24;
+    // Glocke läuten (ein paar Schläge)
+    if (V16.ringN > 0 && (V16.ringT -= dt) <= 0) {
+      V16.ringT = 1.3; V16.ringN--;
+      const d = V16.bell ? Math.hypot(P.x - V16.bell[0], P.z - V16.bell[2]) : 999; bellSound16(Math.max(0.15, 1 - d / 160));
+    }
+    // Der Nachtwächter läutet von selbst, wenn nachts drei oder mehr Zombies nah an Dorf, Markt oder Stadtmauer sind
+    if (night && !V16.alarm && (V16.autoT -= dt) <= 0) {
+      V16.autoT = 2;
+      let n = 0; for (const z of ents) if (z.kind === "zombie" && z.dead < 0 && (Math.hypot(z.x - C, z.z - 197) < 70 || Math.hypot(z.x - C, z.z - 286) < 70)) n++;
+      if (n >= 3) startAlarm16("Der Nachtwächter");
+    }
+    if (V16.alarm && !night && dayT > 6.2 / 24 && dayT < 7 / 24) endAlarm16();
+    // Kanonen: Zombies bis 56 Blöcke weit, jede Kanone alle drei Sekunden
+    if (V16.cannons) {
+      for (const c of V16.cannon) {
+        if ((c.cd -= dt) > 0) continue;
+        if (Math.hypot(P.x - c.x, P.z - c.z) > 150) { c.cd = 1; continue; }
+        let best = null, bd = 56;
+        for (const z of ents) if (z.kind === "zombie" && z.dead < 0 && !(z.rise > 0) && !z.aimed16) { const d = Math.hypot(z.x - c.x, z.z - c.z); if (d < bd) { bd = d; best = z; } }
+        if (best) { fire16(c, best); c.cd = 3; } else c.cd = 0.7;
+      }
+    }
+    updateShots16(dt);
+    // Schutzschild: blendet weich ein und aus, schimmert, hält Zombies fern
+    const want = V16.alarm ? 1 : 0;
+    V16.shield += Math.sign(want - V16.shield) * Math.min(Math.abs(want - V16.shield), dt * 0.6);
+    shieldMesh.visible = V16.shield > 0.001;
+    if (shieldMesh.visible) {
+      shieldMat.opacity = 0.1 * V16.shield + Math.sin(t * 1.7) * 0.02 * V16.shield; shieldWire.opacity = 0.22 * V16.shield;
+      shieldMesh.children[1].rotation.y = t * 0.05;
+      for (const z of ents) if (z.kind === "zombie" && z.dead < 0 && Math.hypot(z.x - SHIELD_C[0], z.z - SHIELD_C[2]) < SHIELD_R + 2) {
+        emit(z.x, z.y + 1, z.z, 10, () => [160, 220, 255], 0.1, 2, -0.5); damage(z, 99, { x: SHIELD_C[0], z: SHIELD_C[2] }, 9);
+      }
+    }
+  }
+  V11.update.push((dt, t) => updateDefense16(dt, t));
   // ==================== Version 11, Teil 2: Marktplatz und Felder – Ende ====================
   // ---------- Version 11: Namen der neuen Gebiete ----------
   // Die Namen einzelner Bauten (von den Teilen der Helfer) stehen schon vorher in der Liste und passen zuerst.
