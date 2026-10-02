@@ -11,12 +11,14 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 - [x] Gutshof: Gutshaus, Pferdestall mit Pferden, Reitplatz, Scheune, Weiden mit Kühen, Schafen, Schweinen und Hühnern, 8 Leute
 
 ## Version 12: Schloss voller Räume
-- [ ] Gemäldegang zwischen Vorsaal und Thronsaal, Türen links und rechts in neue Räume
-- [ ] Treppenhaus bis hinauf in den Glasraum mit Sessel für den Sonnenuntergang
-- [ ] Bibliothek mit Bibliothekar, Waffenkammer, großer Keller mit vielen Räumen (manche leer)
-- [ ] Schlafzimmer und Speisesaal direkt vom Thronsaal erreichbar
-- [ ] Platz für die Königin (die Figur aus dem Figuren-Thread wird eingebaut, sobald das Paket vorliegt)
-- [ ] Jedes Möbelstück einzeln gestaltet
+- [x] Gemäldegang (der Vorsaal mit den acht Gemälden) mit Türen links in die Waffenkammer und rechts in den Musik- und Spielsalon
+- [x] Treppenhaus aus dem Arbeitszimmer hinauf in den Glasraum mit Sessel für den Sonnenuntergang
+- [x] Bibliothek mit Bibliothekar Gottfried (Leitern, Sessel, Schreibtisch, eigenes Bett), Waffenkammer, großer Keller mit Weinkeller, Vorratskeller, Kerker, Holzlager und leeren Räumen
+- [x] Königliches Schlafgemach mit Ankleidezimmer und königlicher Speisesaal, beide durch Türen direkt aus dem Thronsaal
+- [~] Zimmer der Königin ist eingerichtet; die Figur aus dem Figuren-Thread kommt hinein, sobald das Paket auf dem Branch liegt (Ordner `figuren/frau/`)
+- [x] Jedes Möbelstück einzeln gestaltet: Himmelbetten, Sessel, Sofas, Thronsessel, Kleiderschränke, Schminktisch, Marmorkamine mit Spiegel, Flügel, Harfe, Schach, Billard, Weinregale, Kandelaber, Kronleuchter, Wandleuchter, Vorhänge, Waffenständer, Teleskop, Büsten, Rüstungen
+- [x] Vier Gästezimmer und Salon neu eingerichtet
+- [x] Extra: Treppen steigt man ohne Springen hinauf (Stufen bis ein Block hoch, wie in Minecraft)
 
 ## Version 13: Inventar und Handwerk
 - [ ] Inventar mit Stapeln, Werkbank mit Rezepten (3 x 3), Ofen
@@ -65,7 +67,9 @@ Stand der Haken: [x] fertig, [~] in Arbeit, [ ] offen.
 | Teil | Blöcke | Kacheln |
 | --- | --- | --- |
 | Markt und Felder | 900–1011 | 230–255 |
-| Häuser und Gutshof | 700–759 | 150–169 |
+| Häuser und Gutshof | 700–759 | keine neuen |
+| Version 12: Schloss voller Räume | 760–899 | 150–169 |
 
 ## Änderungen am alten Code (außerhalb der eigenen Abschnitte)
 - `updateEnts`: `else if (e.think) e.think(e, dt, dp);` für Leute mit eigenem Tagesablauf
+- Spieler (`step`, `stepUp`, `placeCamera`, Figur des Spielers): Stufen bis ein Block hoch werden ohne Springen erstiegen, die Kamera gleitet mit `P.camLift` weich nach. Möbel (`SHAPE`), Truhen, Fässer, Öfen, Theken, Werkbank, Regale und Goldgeländer bleiben Hindernisse.

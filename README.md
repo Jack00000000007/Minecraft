@@ -2,6 +2,18 @@
 
 Ein Minecraft-ähnliches Blockspiel, das direkt im Browser läuft. Kein Kauf und keine Installation nötig.
 
+## Version 12: Schloss voller Räume (auf diesem Branch)
+
+- Treppen steigst du jetzt einfach hinauf, ohne zu springen, wie in Minecraft. Das klappt bei allen Stufen, die einen Block hoch sind. Vor Möbeln, Truhen, Zäunen und Geländern bleibst du stehen, damit du nicht aus Versehen auf den Tisch steigst.
+- Links vom Thronsaal führt eine Tür in die königlichen Gemächer: das Schlafgemach mit zwei Himmelbetten, Marmorkamin, Sesseln und Kronleuchter, das Ankleidezimmer mit Kleiderschränken und Spiegeln und das Zimmer der Königin. Dort zieht deine Frau ein, sobald ihre Figur fertig ist.
+- Rechts vom Thronsaal liegt der königliche Speisesaal mit einer langen Tafel, 46 Stühlen, zwei Thronsesseln, Kandelabern und gedecktem Essen.
+- Vom Vorsaal mit den Gemälden geht es links in die Waffenkammer (Rüstungen, Schwerter, Schilde, Waffenständer) und rechts in den Musik- und Spielsalon mit Flügel, Harfe, Billardtisch und Schachtisch.
+- Aus dem Arbeitszimmer im großen Turm führt eine Treppe hinauf in den Glasraum. Dort steht ein Sessel, von dem aus du die Sonne untergehen siehst.
+- Eine Treppe im Thronsaal führt hinab in den großen Keller: Weinkeller mit Fässern und Weinregalen, Vorratskeller, Holzlager, ein Kerker mit leeren Zellen und ein paar Räume, die noch leer sind.
+- In der Bibliothek arbeitet jetzt Bibliothekar Gottfried, mit Leitern an den Regalen, Lesesesseln und Schreibtisch. Nachts schläft er in seinem Bett.
+- Die vier Gästezimmer haben Himmelbetten, Kleiderschrank, Kamin mit Spiegel, Sessel, Schminktisch, Teppich und Kronleuchter. Auch der Salon hat neue Sofas und Sessel.
+- Neu im Blockmenü (B): Fischgrät-Parkett, Tapeten in Rot, Grün und Blau, Orientteppiche, Holzvertäfelung, Kellerstein, Sessel, Sofas, Thronsessel, Himmelbett, Kleiderschrank, Schminktisch, Marmorkamin, Flügel, Harfe, Schachtisch, Billardtisch, Weinregal, Schreibtisch, Bibliotheksleiter, Kandelaber, Vorhänge, Waffenständer, Kronleuchter, Wandleuchter, Wandspiegel, Weinfass und Beistelltisch.
+
 ## Version 11, Teil 2: das große Land wird bewohnt (auf diesem Branch)
 
 - Auf dem Marktplatz der Neustadt steht jetzt der Kronenbrunnen: ein achteckiges Marmorbecken mit einer goldenen Schale und einer Krone, aus der das Wasser sprudelt. Rundherum gibt es zwölf Marktstände mit gestreiften Markisen: Gemüse, Obst, Bäcker, Metzger, Käse, Fisch, Blumen, Töpfer, Tuch, Wein, Honig und Gewürze. Dazu kommen ein weiß-blauer Maibaum mit Zunftzeichen, Linden mit Rundbänken und Laternen.
